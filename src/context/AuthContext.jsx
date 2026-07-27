@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 
 function phoneToEmail(phone) {
   const digits = phone.replace(/\D/g, "");
-  return `phone${digits}@naickermatrimony.local`;
+  return `phone${digits}@naickermatrimony.app`;
 }
 
 export function AuthProvider({ children }) {
