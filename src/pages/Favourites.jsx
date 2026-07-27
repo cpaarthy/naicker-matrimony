@@ -1,0 +1,55 @@
+import { useState, useEffect } from "react";
+import { Heart } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { Avatar } from "../components/ui";
+import { fetchFavourites, fetchAllProfiles } from "../data/queries";
+
+export default function Favourites({ onNavigate, setSelectedProfileId }) {
+  const { colors } = useTheme();
+  const { userId } = useAuth();
+  const [favProfiles, setFavProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      setLoading(true);
+      const [{ data: favs }, { data: profs }] = await Promise.all([fetchFavourites(userId), fetchAllProfiles()]);
+      const ids = new Set(favs.map(f => f.profile_id));
+      setFavProfiles(profs.filter(p => ids.has(p.id)));
+      setLoading(false);
+    })();
+  }, [userId]);
+
+  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
+
+  return (
+    <div>
+      <h2 className="serif" style={{ fontSize: 19, marginBottom: 14 }}>My Favourites</h2>
+
+      {favProfiles.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+          <Heart size={30} style={{ marginBottom: 10, opacity: 0.5 }} />
+          <div style={{ fontWeight: 600, color: colors.text }}>No favourites yet</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>Tap the heart icon on a profile to save it here.</div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {favProfiles.map(p => (
+          <div key={p.id} onClick={() => { setSelectedProfileId(p.id); onNavigate("profileDetails"); }} style={{
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14,
+            display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer",
+          }}>
+            <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="serif" style={{ fontWeight: 700, fontSize: 16.5 }}>{p.name}</div>
+              <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · {p.city}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
