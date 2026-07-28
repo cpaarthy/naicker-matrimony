@@ -114,3 +114,29 @@ export function Toast({ message }) {
     </div>
   );
 }
+
+// Dropdown backed by an admin-managed master list. If the list is empty, falls back to free text.
+export function MasterListSelect({ label, value, onChange, options, required, placeholder }) {
+  const { colors } = useTheme();
+  if (!options || options.length === 0) {
+    return <TextField label={label} value={value} onChange={onChange} required={required} placeholder={placeholder} />;
+  }
+  return (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <span style={{ display: "block", fontSize: 12.5, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>
+        {label}{required && <span style={{ color: colors.rejectedText }}> *</span>}
+      </span>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          width: "100%", padding: "11px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+          fontSize: 15, background: colors.inputBg, color: colors.text, boxSizing: "border-box",
+        }}
+      >
+        <option value="">{placeholder || "Select..."}</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </label>
+  );
+}
