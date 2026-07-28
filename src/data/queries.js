@@ -85,3 +85,16 @@ export async function submitContactMessage(record) {
   const { error } = await supabase.from("contact_messages").insert(record);
   return { error };
 }
+
+export async function deleteProfile(id) {
+  const { error } = await supabase.from("profiles").delete().eq("id", id);
+  return { error };
+}
+
+export async function fetchContactMessages() {
+  const { data, error } = await supabase
+    .from("contact_messages")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return { data: data || [], error };
+}
