@@ -153,7 +153,8 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
                 <div style={{ flex: 1 }}>
                   <div className="serif" style={{ fontWeight: 700, fontSize: 16 }}>{p.name}, {p.age}</div>
                   <div style={{ fontSize: 12.5, color: colors.textMuted }}>{p.gender} · {p.occupation || "—"} · {p.city}</div>
-                  <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.religion} · {p.caste} · {p.education}</div>
+                  <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.religion} · {p.caste}{p.sub_caste ? ` (${p.sub_caste})` : ""} · {p.education}</div>
+                  <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.address ? p.address + ", " : ""}{p.district ? p.district + ", " : ""}{p.city}</div>
                   <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 4 }}>
                     <Phone size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{p.phone}
                   </div>
@@ -274,9 +275,9 @@ function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
 
   const fields = [
     ["name", "Full name"], ["age", "Age"], ["height", "Height"], ["religion", "Religion"],
-    ["caste", "Caste"], ["education", "Education"], ["occupation", "Occupation"],
-    ["income", "Income"], ["city", "City"], ["state", "State"], ["mother_tongue", "Mother tongue"],
-    ["phone", "Phone"],
+    ["caste", "Caste"], ["sub_caste", "Sub caste"], ["education", "Education"], ["occupation", "Occupation"],
+    ["income", "Income"], ["address", "Address"], ["district", "District"], ["city", "City"], ["state", "State"],
+    ["mother_tongue", "Mother tongue"], ["phone", "Phone"],
   ];
 
   return (
