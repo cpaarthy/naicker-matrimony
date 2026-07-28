@@ -98,3 +98,23 @@ export async function fetchContactMessages() {
     .order("created_at", { ascending: false });
   return { data: data || [], error };
 }
+
+// ============ MASTER LISTS (admin-managed dropdown options) ============
+export async function fetchMasterList(listType) {
+  const { data, error } = await supabase
+    .from("master_lists")
+    .select("*")
+    .eq("list_type", listType)
+    .order("value", { ascending: true });
+  return { data: data || [], error };
+}
+
+export async function addMasterListValue(listType, value) {
+  const { error } = await supabase.from("master_lists").insert({ list_type: listType, value });
+  return { error };
+}
+
+export async function deleteMasterListValue(id) {
+  const { error } = await supabase.from("master_lists").delete().eq("id", id);
+  return { error };
+}
