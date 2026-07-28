@@ -37,7 +37,7 @@ export default function Home({ onNavigate }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
         {[
           { icon: ShieldCheck, title: "Admin verified", desc: "Every profile is reviewed before it appears publicly" },
-          { icon: Users, title: "Privacy first", desc: "Phone numbers stay hidden until both sides accept" },
+          { icon: Users, title: "Privacy first", desc: "Phone numbers are only visible to admin — never shared with members" },
         ].map((f, i) => (
           <div key={i} style={{
             background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14,
@@ -59,7 +59,7 @@ export default function Home({ onNavigate }) {
           2. Complete your profile<br />
           3. Admin reviews and approves<br />
           4. Send and receive interest requests<br />
-          5. Phone number shared only after mutual acceptance
+          5. Address shared only after mutual acceptance — phone stays private always
         </div>
       </div>
     </div>
