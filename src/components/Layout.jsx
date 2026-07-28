@@ -1,4 +1,4 @@
-import { Heart, ArrowLeft, LogOut, Moon, Sun, Home as HomeIcon, Users, User, Mail } from "lucide-react";
+import { ArrowLeft, LogOut, Moon, Sun, Home as HomeIcon, Users, User, Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
@@ -36,10 +36,9 @@ export default function Layout({ page, onNavigate, children }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div onClick={() => onNavigate("home")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
             <div style={{
-              width: 38, height: 38, borderRadius: 10, background: colors.accent,
-              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 40, height: 40, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
             }}>
-              <Heart size={18} color={colors.accentText} fill={colors.accentText} />
+              <img src="/images/logo.png" alt="Naicker Matrimony" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <div>
               <div className="serif" style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.1 }}>Naicker Matrimony</div>
