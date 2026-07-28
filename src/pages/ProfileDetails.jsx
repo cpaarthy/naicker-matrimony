@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Phone, Lock, Heart, HeartOff } from "lucide-react";
+import { MapPin, Lock, Heart } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
@@ -46,7 +46,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
     if (!error) { setIsFav(!isFav); showToast(isFav ? "Removed from favourites" : "Added to favourites"); }
   }
 
-  function phoneVisible() {
+  function addressVisible() {
     if (!profile) return false;
     if (profile.id === userId) return true;
     return myRequests.some(r =>
@@ -83,7 +83,6 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
           <Row label="Education" value={profile.education || "—"} />
           <Row label="Occupation" value={profile.occupation || "—"} />
           <Row label="Income" value={profile.income || "—"} />
-          <Row label="Location" value={`${profile.city}, ${profile.state}`} />
         </div>
         {profile.about && (
           <div style={{ marginTop: 10, fontSize: 13.5, color: colors.textMuted, lineHeight: 1.6 }}>
@@ -93,18 +92,18 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
       </div>
 
       <div style={{ padding: 14, borderRadius: 12, background: colors.pendingBg, marginBottom: 16 }}>
-        {phoneVisible() ? (
+        {addressVisible() ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: colors.primary, fontSize: 15 }}>
-            <Phone size={16} /> {profile.phone}
+            <MapPin size={16} /> {profile.city}, {profile.state}
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: colors.pendingText, fontSize: 13.5 }}>
-            <Lock size={15} /> Phone number hidden until interest is accepted
+            <Lock size={15} /> Address hidden until interest is accepted
           </div>
         )}
       </div>
 
-      {profile.id !== userId && !phoneVisible() && (
+      {profile.id !== userId && !addressVisible() && (
         <PrimaryButton onClick={handleSendRequest}>
           {alreadySent ? "Request sent" : "Send interest request"}
         </PrimaryButton>
