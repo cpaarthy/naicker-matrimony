@@ -52,7 +52,9 @@ function AppShell() {
         <Favourites onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />
       )}
       {page === "contact" && <Contact showToast={showToast} />}
-      {page === "admin" && <AdminDashboard />}
+      {page === "admin" && (
+        <AdminDashboard onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
+      )}
 
       {page !== "admin" && (
         <div style={{ textAlign: "center", padding: "24px 0 8px" }}>
