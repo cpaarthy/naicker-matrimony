@@ -24,7 +24,7 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     return profiles.filter(p => {
       if (search) {
         const q = search.toLowerCase();
-        const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste}`.toLowerCase();
+        const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (genderFilter !== "Any" && p.gender !== genderFilter) return false;
