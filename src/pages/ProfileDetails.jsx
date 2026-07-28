@@ -78,7 +78,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 
       <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
         <div style={{ fontSize: 13.5, lineHeight: 2, color: colors.text }}>
-          <Row label="Religion / caste" value={`${profile.religion} · ${profile.caste}`} />
+          <Row label="Religion / caste" value={`${profile.religion} · ${profile.caste}${profile.sub_caste ? " (" + profile.sub_caste + ")" : ""}`} />
           <Row label="Mother tongue" value={profile.mother_tongue} />
           <Row label="Education" value={profile.education || "—"} />
           <Row label="Occupation" value={profile.occupation || "—"} />
@@ -93,8 +93,12 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 
       <div style={{ padding: 14, borderRadius: 12, background: colors.pendingBg, marginBottom: 16 }}>
         {addressVisible() ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: colors.primary, fontSize: 15 }}>
-            <MapPin size={16} /> {profile.city}, {profile.state}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontWeight: 700, color: colors.primary, fontSize: 15 }}>
+            <MapPin size={16} style={{ marginTop: 2, flexShrink: 0 }} />
+            <span>
+              {profile.address && <>{profile.address}<br /></>}
+              {profile.district && `${profile.district}, `}{profile.city}, {profile.state}
+            </span>
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: colors.pendingText, fontSize: 13.5 }}>
