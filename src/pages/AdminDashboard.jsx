@@ -8,7 +8,7 @@ import {
   fetchMasterList, addMasterListValue, deleteMasterListValue,
 } from "../data/queries";
 
-const ADMIN_PIN = "1998";
+const ADMIN_PIN = "Naik@1998!";
 
 const TABS = [
   { key: "stats", label: "Overview", icon: BarChart3 },
@@ -68,7 +68,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
           type="password"
           value={pin}
           onChange={e => { setPin(e.target.value); setPinError(""); }}
-          placeholder="Enter PIN"
+          placeholder="Enter admin password"
           style={{
             width: "100%", maxWidth: 260, padding: "11px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
             fontSize: 15, background: colors.inputBg, color: colors.text, marginBottom: 10, textAlign: "center",
