@@ -7,24 +7,10 @@ import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/quer
 
 const emptyForm = {
   profile_for: "Self",
-  name: "", gender: "Male", age: "", height: "", religion: "Hindu", caste: "Naicker",
-  sub_caste: "Malava", education: "", occupation: "", income: "", address: "", district: "",
-  city: "", state: "Tamil Nadu", mother_tongue: "Tamil", about: "", phone: "", photo_url: "",
-  father_occupation: "", mother_occupation: "", siblings: "", family_type: "Nuclear",
-  star: "", rasi: "", birth_time: "", birth_place: "",
-  complexion: "", body_type: "", blood_group: "",
-  diet: "Vegetarian", smoking: "No", drinking: "No",
-  pref_age_min: "", pref_age_max: "", pref_education: "", pref_occupation: "",
+  name: "", gender: "Male", age: "", caste: "Naicker", sub_caste: "Malava",
+  occupation: "", address: "", district: "", city: "", state: "Tamil Nadu",
+  phone: "", photo_url: "",
 };
-
-function SectionTitle({ children }) {
-  const { colors } = useTheme();
-  return (
-    <h3 className="serif" style={{ fontSize: 15, fontWeight: 700, margin: "22px 0 10px", color: colors.primary, borderBottom: `1px solid ${colors.cardBorder}`, paddingBottom: 6 }}>
-      {children}
-    </h3>
-  );
-}
 
 function ErrorBox({ children, colors }) {
   return (
@@ -40,7 +26,6 @@ export default function Register({ onNavigate, showToast }) {
 
   const [stage, setStage] = useState("profile");
   const [form, setForm] = useState(emptyForm);
-  const [uploading, setUploading] = useState(false);
   const [pendingPhotoFile, setPendingPhotoFile] = useState(null);
   const fileRef = useRef(null);
 
@@ -73,8 +58,19 @@ export default function Register({ onNavigate, showToast }) {
   }
 
   function validateProfileForm() {
-    if (!form.name || !form.age || !form.city) {
-      showToast("Fill required fields (name, age, city)");
+    const missing = [];
+    if (!form.name) missing.push("name");
+    if (!form.age) missing.push("age");
+    if (!form.caste) missing.push("caste");
+    if (!form.sub_caste) missing.push("sub caste");
+    if (!form.occupation) missing.push("occupation");
+    if (!form.address) missing.push("address");
+    if (!form.district) missing.push("district");
+    if (!form.city) missing.push("city");
+    if (!form.state) missing.push("state");
+    if (!form.phone) missing.push("phone number");
+    if (missing.length > 0) {
+      showToast(`Fill required fields: ${missing.join(", ")}`);
       return false;
     }
     return true;
@@ -94,8 +90,6 @@ export default function Register({ onNavigate, showToast }) {
     const record = {
       ...form, id: newUserId, status: "pending", photo_url: photoUrl,
       age: Number(form.age),
-      pref_age_min: form.pref_age_min ? Number(form.pref_age_min) : null,
-      pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
       phone: form.phone || phone,
     };
     await upsertProfile(record);
@@ -147,8 +141,8 @@ export default function Register({ onNavigate, showToast }) {
       <div>
         <h2 className="serif" style={{ fontSize: 19, marginBottom: 4 }}>Create your profile / விவரத்தை உருவாக்கவும்</h2>
         <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18 }}>
-          Fill in the details below first. You'll create your login at the end.
-          <br />முதலில் விவரங்களை நிரப்பவும். இறுதியில் உங்கள் கணக்கை உருவாக்கலாம்.
+          Fill in the basic details below. You can add more details (family, horoscope, lifestyle, etc.) later from your dashboard after admin approval.
+          <br />அடிப்படை விவரங்களை நிரப்பவும். மேலும் விவரங்களை (குடும்பம், ஜாதகம் போன்றவை) அனுமதிக்கப்பட்ட பிறகு சேர்க்கலாம்.
         </p>
 
         <SelectField
@@ -172,86 +166,24 @@ export default function Register({ onNavigate, showToast }) {
           </div>
         </div>
 
-        <SectionTitle>Basic Details / அடிப்படை விவரங்கள்</SectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           <div style={{ gridColumn: "1 / -1" }}>
             <TextField label="Full name / முழு பெயர்" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
           </div>
           <SelectField label="Gender / பாலினம்" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} options={["Male", "Female"]} />
           <TextField label="Age / வயது" type="number" value={form.age} onChange={v => setForm(f => ({ ...f, age: v }))} required />
-          <TextField label={'Height / உயரம் (e.g. 5\'6")'} value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} />
-          <TextField label="Mother tongue / தாய்மொழி" value={form.mother_tongue} onChange={v => setForm(f => ({ ...f, mother_tongue: v }))} />
-          <TextField label="Religion / மதம்" value={form.religion} onChange={v => setForm(f => ({ ...f, religion: v }))} />
-          <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} />
-          <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} />
-          <TextField label="Education / கல்வி" value={form.education} onChange={v => setForm(f => ({ ...f, education: v }))} />
-          <TextField label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} />
-          <TextField label="Monthly income / மாத வருமானம்" value={form.income} onChange={v => setForm(f => ({ ...f, income: v }))} />
-        </div>
-
-        <SectionTitle>Location / இருப்பிடம்</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+          <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} required />
+          <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} required />
+          <TextField label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} required />
           <div style={{ gridColumn: "1 / -1" }}>
-            <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" />
+            <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" required />
           </div>
-          <MasterListSelect label="District / மாவட்டம்" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} options={districtOptions} />
+          <MasterListSelect label="District / மாவட்டம்" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} options={districtOptions} required />
           <MasterListSelect label="City / ஊர்" value={form.city} onChange={v => setForm(f => ({ ...f, city: v }))} options={cityOptions} required />
-          <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} />
+          <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} required />
         </div>
 
-        <SectionTitle>Family Details / குடும்ப விவரங்கள்</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          <TextField label="Father's occupation / தந்தையின் தொழில்" value={form.father_occupation} onChange={v => setForm(f => ({ ...f, father_occupation: v }))} />
-          <TextField label="Mother's occupation / தாயின் தொழில்" value={form.mother_occupation} onChange={v => setForm(f => ({ ...f, mother_occupation: v }))} />
-          <TextField label="Siblings / உடன்பிறப்புகள்" value={form.siblings} onChange={v => setForm(f => ({ ...f, siblings: v }))} placeholder="e.g. 1 brother, 1 sister" />
-          <SelectField label="Family type / குடும்ப வகை" value={form.family_type} onChange={v => setForm(f => ({ ...f, family_type: v }))} options={["Nuclear", "Joint"]} />
-        </div>
-
-        <SectionTitle>Horoscope Details / ஜாதக விவரங்கள்</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          <TextField label="Star / நட்சத்திரம்" value={form.star} onChange={v => setForm(f => ({ ...f, star: v }))} />
-          <TextField label="Rasi / ராசி" value={form.rasi} onChange={v => setForm(f => ({ ...f, rasi: v }))} />
-          <TextField label="Birth time / பிறந்த நேரம்" value={form.birth_time} onChange={v => setForm(f => ({ ...f, birth_time: v }))} placeholder="e.g. 6:30 AM" />
-          <TextField label="Birth place / பிறந்த ஊர்" value={form.birth_place} onChange={v => setForm(f => ({ ...f, birth_place: v }))} />
-        </div>
-
-        <SectionTitle>Physical Attributes / உடல் அமைப்பு</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          <TextField label="Complexion / நிறம்" value={form.complexion} onChange={v => setForm(f => ({ ...f, complexion: v }))} placeholder="e.g. Fair, Wheatish, Dark" />
-          <TextField label="Body type / உடல் வகை" value={form.body_type} onChange={v => setForm(f => ({ ...f, body_type: v }))} placeholder="e.g. Slim, Average, Athletic" />
-          <TextField label="Blood group / இரத்த வகை" value={form.blood_group} onChange={v => setForm(f => ({ ...f, blood_group: v }))} placeholder="e.g. B+" />
-        </div>
-
-        <SectionTitle>Lifestyle / வாழ்க்கை முறை</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          <SelectField label="Diet / உணவு முறை" value={form.diet} onChange={v => setForm(f => ({ ...f, diet: v }))} options={["Vegetarian", "Non-Vegetarian", "Eggetarian"]} />
-          <SelectField label="Smoking / புகைபிடித்தல்" value={form.smoking} onChange={v => setForm(f => ({ ...f, smoking: v }))} options={["No", "Occasionally", "Yes"]} />
-          <SelectField label="Drinking / மது அருந்துதல்" value={form.drinking} onChange={v => setForm(f => ({ ...f, drinking: v }))} options={["No", "Occasionally", "Yes"]} />
-        </div>
-
-        <SectionTitle>Partner Preference / துணை எதிர்பார்ப்பு</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          <TextField label="Preferred age (min) / குறைந்தபட்ச வயது" type="number" value={form.pref_age_min} onChange={v => setForm(f => ({ ...f, pref_age_min: v }))} />
-          <TextField label="Preferred age (max) / அதிகபட்ச வயது" type="number" value={form.pref_age_max} onChange={v => setForm(f => ({ ...f, pref_age_max: v }))} />
-          <TextField label="Preferred education / விரும்பும் கல்வி" value={form.pref_education} onChange={v => setForm(f => ({ ...f, pref_education: v }))} />
-          <TextField label="Preferred occupation / விரும்பும் தொழில்" value={form.pref_occupation} onChange={v => setForm(f => ({ ...f, pref_occupation: v }))} />
-        </div>
-
-        <SectionTitle>About / குறிப்பு</SectionTitle>
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <textarea
-            value={form.about}
-            onChange={e => setForm(f => ({ ...f, about: e.target.value }))}
-            rows={3}
-            placeholder="Family background, hobbies, expectations..."
-            style={{
-              width: "100%", padding: "11px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 15, background: colors.inputBg, color: colors.text, resize: "vertical",
-            }}
-          />
-        </label>
-
-        <TextField label="Phone number / தொலைபேசி எண் (optional here if signing up with phone below)" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="10-digit mobile number" />
+        <TextField label="Phone number / தொலைபேசி எண் (kept private, admin only)" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="10-digit mobile number" required />
 
         <div style={{ marginTop: 8 }}>
           <PrimaryButton onClick={goToAccountStep}>
