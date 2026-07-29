@@ -7,12 +7,11 @@ import { fetchApprovedProfiles, fetchMasterList } from "../data/queries";
 
 export default function Browse({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [genderFilter, setGenderFilter] = useState("Any");
   const [ageMin, setAgeMin] = useState("");
   const [ageMax, setAgeMax] = useState("");
   const [subCasteFilter, setSubCasteFilter] = useState("");
@@ -34,14 +33,16 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
   }, [session]);
 
+  const opposingGender = profile?.gender === "Male" ? "Female" : profile?.gender === "Female" ? "Male" : null;
+
   const filtered = useMemo(() => {
     return profiles.filter(p => {
+      if (opposingGender && p.gender !== opposingGender) return false;
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (genderFilter !== "Any" && p.gender !== genderFilter) return false;
       if (ageMin && p.age < Number(ageMin)) return false;
       if (ageMax && p.age > Number(ageMax)) return false;
       if (subCasteFilter && p.sub_caste !== subCasteFilter) return false;
@@ -50,7 +51,7 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
       if (stateFilter && p.state !== stateFilter) return false;
       return true;
     });
-  }, [profiles, search, genderFilter, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter]);
+  }, [profiles, opposingGender, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter]);
 
   function DropdownFilter({ value, onChange, options, placeholder }) {
     return (
@@ -88,6 +89,24 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     );
   }
 
+  if (session && !profile) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+          Complete your profile to browse / விவரத்தை பூர்த்தி செய்யவும்
+        </div>
+        <div style={{ fontSize: 13, marginBottom: 18 }}>
+          We need your profile details (like gender) to show you suitable matches. / பொருத்தமான விவரங்களைக் காட்ட, உங்கள் விவரம் தேவை.
+        </div>
+        <button onClick={() => onNavigate("editProfile")} style={{
+          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+          padding: "10px 20px", fontWeight: 700, fontSize: 14,
+        }}>Complete profile / விவரத்தை பூர்த்தி செய்யவும்</button>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="serif" style={{ fontSize: 19, marginBottom: 12 }}>Browse profiles / விவரங்களை பார்க்க</h2>
@@ -116,16 +135,6 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
 
       {showFilters && (
         <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            {["Any", "Male", "Female"].map(g => (
-              <button key={g} onClick={() => setGenderFilter(g)} style={{
-                flex: 1, padding: "7px", borderRadius: 8, fontSize: 12.5, fontWeight: 600,
-                border: `1px solid ${genderFilter === g ? colors.primary : colors.cardBorder}`,
-                background: genderFilter === g ? colors.primary : "transparent",
-                color: genderFilter === g ? colors.primaryText : colors.textMuted,
-              }}>{g}</button>
-            ))}
-          </div>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <input placeholder="Min age / குறை வயது" value={ageMin} onChange={e => setAgeMin(e.target.value)} type="number" style={{
               flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
