@@ -124,7 +124,7 @@ const SECTIONS = [
   {
     en: "18. Contact Us", ta: "தொடர்புக்கு",
     items: [
-      ["Address: Kethampalayam, Mettukadai, Ukkaram, Sathyamangalam", "முகவரி: கேத்தம்பாளையம், மேட்டுக்காடை, உக்காரம், சத்தியமங்கலம்"],
+      ["Address: Kethampalayam, Mettukadai, Ukkaram, Sathyamangalam", "முகவரி: கேத்தம்பாளையம், மேட்டுக்கடை, உக்கரம், சத்தியமங்கலம்"],
       ["Email: cpaarthy@gmail.com | Phone: +91 8344533583", "மின்னஞ்சல்: cpaarthy@gmail.com | தொலைபேசி: +91 8344533583"],
       ["Website: https://naicker-matrimony.vercel.app/", "இணையதளம்: https://naicker-matrimony.vercel.app/"],
     ],
