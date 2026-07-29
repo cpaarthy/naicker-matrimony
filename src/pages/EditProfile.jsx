@@ -71,7 +71,7 @@ export default function EditProfile({ onNavigate, showToast }) {
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { showToast("Photo must be under 5MB"); return; }
+    if (file.size > 50 * 1024) { showToast("Photo must be under 50KB / புகைப்படம் 50KB-க்குள் இருக்க வேண்டும்"); return; }
     setUploading(true);
     const { url, error } = await uploadProfilePhoto(userId, file);
     setUploading(false);
@@ -147,6 +147,9 @@ export default function EditProfile({ onNavigate, showToast }) {
         </div>
       </div>
       {uploading && <div style={{ textAlign: "center", fontSize: 12.5, color: colors.textFaint, marginBottom: 14 }}>Uploading photo…</div>}
+      <div style={{ textAlign: "center", fontSize: 11, color: colors.textFaint, marginBottom: 14, marginTop: -10 }}>
+        Max size: 50KB — please compress your photo before uploading / புகைப்படத்தை சுருக்கி பதிவேற்றவும் (அதிகபட்சம் 50KB)
+      </div>
 
       <SectionTitle>Basic Details / அடிப்படை விவரங்கள்</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
