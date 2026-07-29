@@ -81,6 +81,7 @@ export default function Register({ onNavigate, showToast }) {
 
   function goToAccountStep() {
     if (!validateProfileForm()) return;
+    if (!agreedToTerms) { showToast("Please accept the Terms & Conditions to continue"); return; }
     setStage("account");
   }
 
@@ -190,8 +191,34 @@ export default function Register({ onNavigate, showToast }) {
 
         <TextField label="Phone number / தொலைபேசி எண் (kept private, admin only)" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="10-digit mobile number" required />
 
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, marginBottom: 16, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={agreedToTerms}
+            onChange={e => setAgreedToTerms(e.target.checked)}
+            style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0 }}
+          />
+          <span style={{ fontSize: 12.5, color: colors.textMuted, lineHeight: 1.5 }}>
+            I agree to the{" "}
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setShowTerms(true); }}
+              style={{ background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, padding: 0, textDecoration: "underline" }}
+            >
+              Terms & Conditions
+            </button>
+            {" "}/ நான் <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setShowTerms(true); }}
+              style={{ background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, padding: 0, textDecoration: "underline" }}
+            >
+              விதிமுறைகளை
+            </button> ஏற்கிறேன்
+          </span>
+        </label>
+
         <div style={{ marginTop: 8 }}>
-          <PrimaryButton onClick={goToAccountStep}>
+          <PrimaryButton onClick={goToAccountStep} disabled={!agreedToTerms}>
             Continue to create login / கணக்கு உருவாக்க தொடரவும்
           </PrimaryButton>
         </div>
@@ -202,6 +229,8 @@ export default function Register({ onNavigate, showToast }) {
             Log in / உள்நுழையவும்
           </button>
         </p>
+
+        {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       </div>
     );
   }
