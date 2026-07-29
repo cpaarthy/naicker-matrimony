@@ -55,7 +55,7 @@ export default function Register({ onNavigate, showToast }) {
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { showToast("Photo must be under 5MB"); return; }
+    if (file.size > 50 * 1024) { showToast("Photo must be under 50KB / புகைப்படம் 50KB-க்குள் இருக்க வேண்டும்"); return; }
     setPendingPhotoFile(file);
     setForm(f => ({ ...f, photo_url: URL.createObjectURL(file) }));
   }
@@ -170,6 +170,9 @@ export default function Register({ onNavigate, showToast }) {
             </button>
             <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
           </div>
+        </div>
+        <div style={{ textAlign: "center", fontSize: 11, color: colors.textFaint, marginBottom: 16, marginTop: -12 }}>
+          Max size: 50KB — please compress your photo before uploading / புகைப்படத்தை சுருக்கி பதிவேற்றவும் (அதிகபட்சம் 50KB)
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
