@@ -1,4 +1,4 @@
-import { Heart, Users, ShieldCheck } from "lucide-react";
+import { Users, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
@@ -19,19 +19,8 @@ export default function Home({ onNavigate }) {
         <span style={{ fontSize: 16 }}>🎉</span>
       </div>
 
-      <div style={{
-        background: `linear-gradient(160deg, ${colors.primary}, #2a0d16)`, borderRadius: 16, padding: "28px 20px",
-        color: colors.headerText, marginBottom: 18, textAlign: "center",
-      }}>
-        <Heart size={30} color={colors.accent} fill={colors.accent} style={{ marginBottom: 10 }} />
-        <div className="serif" style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
-          Find your life partner / உங்கள் வாழ்க்கைத் துணையைக் கண்டறியுங்கள்
-        </div>
-        <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
-          A trusted matrimony platform for the Naicker community — every profile reviewed and approved by admin before it goes live.
-          <br /><br />
-          நாயக்கர் சமூகத்திற்கான நம்பகமான திருமண தளம் — ஒவ்வொரு விவரமும் நிர்வாகியால் சரிபார்க்கப்பட்ட பின்னரே வெளியிடப்படும்.
-        </div>
+      <div style={{ marginBottom: 18, borderRadius: 16, overflow: "hidden" }}>
+        <img src="/images/hero-banner.svg" alt="Naicker Matrimony — trusted community alliances, free registration" style={{ width: "100%", display: "block" }} />
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
