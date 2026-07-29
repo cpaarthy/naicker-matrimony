@@ -81,8 +81,19 @@ export default function EditProfile({ onNavigate, showToast }) {
   }
 
   async function handleSubmit() {
-    if (!form.name || !form.age || !form.phone || !form.city) {
-      showToast("Fill required fields (name, age, phone, city)");
+    const missing = [];
+    if (!form.name) missing.push("name");
+    if (!form.age) missing.push("age");
+    if (!form.caste) missing.push("caste");
+    if (!form.sub_caste) missing.push("sub caste");
+    if (!form.occupation) missing.push("occupation");
+    if (!form.address) missing.push("address");
+    if (!form.district) missing.push("district");
+    if (!form.city) missing.push("city");
+    if (!form.state) missing.push("state");
+    if (!form.phone) missing.push("phone number");
+    if (missing.length > 0) {
+      showToast(`Fill required fields: ${missing.join(", ")}`);
       return;
     }
     setSubmitting(true);
@@ -147,21 +158,21 @@ export default function EditProfile({ onNavigate, showToast }) {
         <TextField label={'Height / உயரம் (e.g. 5\'6")'} value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} />
         <TextField label="Mother tongue / தாய்மொழி" value={form.mother_tongue} onChange={v => setForm(f => ({ ...f, mother_tongue: v }))} />
         <TextField label="Religion / மதம்" value={form.religion} onChange={v => setForm(f => ({ ...f, religion: v }))} />
-        <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} />
-        <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} />
+        <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} required />
+        <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} required />
         <TextField label="Education / கல்வி" value={form.education} onChange={v => setForm(f => ({ ...f, education: v }))} />
-        <TextField label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} />
+        <TextField label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} required />
         <TextField label="Monthly income / மாத வருமானம்" value={form.income} onChange={v => setForm(f => ({ ...f, income: v }))} />
       </div>
 
       <SectionTitle>Location / இருப்பிடம்</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
         <div style={{ gridColumn: "1 / -1" }}>
-          <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" />
+          <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" required />
         </div>
-        <MasterListSelect label="District / மாவட்டம்" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} options={districtOptions} />
+        <MasterListSelect label="District / மாவட்டம்" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} options={districtOptions} required />
         <MasterListSelect label="City / ஊர்" value={form.city} onChange={v => setForm(f => ({ ...f, city: v }))} options={cityOptions} required />
-        <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} />
+        <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} required />
       </div>
 
       <SectionTitle>Family Details / குடும்ப விவரங்கள்</SectionTitle>
