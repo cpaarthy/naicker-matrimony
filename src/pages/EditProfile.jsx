@@ -97,8 +97,9 @@ export default function EditProfile({ onNavigate, showToast }) {
       return;
     }
     setSubmitting(true);
+    const keepApproved = profile?.status === "approved";
     const record = {
-      ...form, id: userId, status: "pending",
+      ...form, id: userId, status: keepApproved ? "approved" : "pending",
       age: Number(form.age),
       pref_age_min: form.pref_age_min ? Number(form.pref_age_min) : null,
       pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
@@ -106,7 +107,7 @@ export default function EditProfile({ onNavigate, showToast }) {
     const { error } = await upsertProfile(record);
     setSubmitting(false);
     if (error) { showToast("Could not submit. Try again."); return; }
-    showToast("Profile submitted. Waiting for admin approval.");
+    showToast(keepApproved ? "Profile updated." : "Profile submitted. Waiting for admin approval.");
     await reloadProfile();
     onNavigate("dashboard");
   }
@@ -232,13 +233,20 @@ export default function EditProfile({ onNavigate, showToast }) {
 
       <TextField label="Phone number / தொலைபேசி எண் (kept private)" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="10-digit mobile number" required />
 
-      <div style={{ background: colors.pendingBg, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: colors.pendingText, display: "flex", gap: 8, alignItems: "flex-start", marginTop: 8, marginBottom: 16 }}>
-        <Lock size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-        <span>After you submit, an admin reviews your profile before it appears publicly. / சமர்ப்பித்த பிறகு, நிர்வாகி சரிபார்த்த பின்னரே வெளியிடப்படும்.</span>
-      </div>
+      {profile?.status === "approved" ? (
+        <div style={{ background: colors.approvedBg, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: colors.approvedText, display: "flex", gap: 8, alignItems: "flex-start", marginTop: 8, marginBottom: 16 }}>
+          <Lock size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+          <span>Your profile is already approved. Updates here go live immediately, no re-approval needed. / உங்கள் விவரம் ஏற்கனவே அனுமதிக்கப்பட்டது. மாற்றங்கள் உடனடியாக வெளியிடப்படும்.</span>
+        </div>
+      ) : (
+        <div style={{ background: colors.pendingBg, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: colors.pendingText, display: "flex", gap: 8, alignItems: "flex-start", marginTop: 8, marginBottom: 16 }}>
+          <Lock size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+          <span>After you submit, an admin reviews your profile before it appears publicly. / சமர்ப்பித்த பிறகு, நிர்வாகி சரிபார்த்த பின்னரே வெளியிடப்படும்.</span>
+        </div>
+      )}
 
       <PrimaryButton onClick={handleSubmit} disabled={submitting}>
-        {submitting ? "Submitting… / சமர்ப்பிக்கப்படுகிறது…" : "Submit for approval / சமர்ப்பிக்கவும்"}
+        {submitting ? "Saving… / சேமிக்கப்படுகிறது…" : profile?.status === "approved" ? "Save changes / மாற்றங்களை சேமிக்கவும்" : "Submit for approval / சமர்ப்பிக்கவும்"}
       </PrimaryButton>
     </div>
   );
