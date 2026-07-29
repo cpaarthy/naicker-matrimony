@@ -3,6 +3,7 @@ import { Mail, Phone, Camera, ArrowLeft } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { TextField, SelectField, MasterListSelect, PrimaryButton, Avatar } from "../components/ui";
+import TermsModal from "../components/TermsModal";
 import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/queries";
 
 const emptyForm = {
@@ -40,6 +41,8 @@ export default function Register({ onNavigate, showToast }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -97,6 +100,7 @@ export default function Register({ onNavigate, showToast }) {
 
   async function handleSendOtp() {
     setError("");
+    if (!agreedToTerms) { setError("Please accept the Terms & Conditions to continue"); return; }
     if (!email) { setError("Enter your email"); return; }
     setLoading(true);
     const { error } = await sendEmailOtp(email);
@@ -121,6 +125,7 @@ export default function Register({ onNavigate, showToast }) {
 
   async function handlePhoneSignup() {
     setError("");
+    if (!agreedToTerms) { setError("Please accept the Terms & Conditions to continue"); return; }
     if (!phone || !password) { setError("Enter phone number and password"); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
     setLoading(true);
@@ -232,11 +237,37 @@ export default function Register({ onNavigate, showToast }) {
           }}><Phone size={14} /> Phone + password</button>
         </div>
 
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={agreedToTerms}
+            onChange={e => setAgreedToTerms(e.target.checked)}
+            style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0 }}
+          />
+          <span style={{ fontSize: 12.5, color: colors.textMuted, lineHeight: 1.5 }}>
+            I agree to the{" "}
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setShowTerms(true); }}
+              style={{ background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, padding: 0, textDecoration: "underline" }}
+            >
+              Terms & Conditions
+            </button>
+            {" "}/ நான் <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setShowTerms(true); }}
+              style={{ background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, padding: 0, textDecoration: "underline" }}
+            >
+              விதிமுறைகளை
+            </button> ஏற்கிறேன்
+          </span>
+        </label>
+
         {method === "email" && (
           <>
             <TextField label="Email address / மின்னஞ்சல்" type="email" value={email} onChange={setEmail} placeholder="you@example.com" required />
             {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
-            <PrimaryButton onClick={handleSendOtp} disabled={loading}>
+            <PrimaryButton onClick={handleSendOtp} disabled={loading || !agreedToTerms}>
               {loading ? "Sending OTP…" : "Send OTP to email / OTP அனுப்பவும்"}
             </PrimaryButton>
           </>
@@ -247,11 +278,13 @@ export default function Register({ onNavigate, showToast }) {
             <TextField label="Phone number / தொலைபேசி எண்" value={phone} onChange={setPhone} placeholder="10-digit mobile number" required />
             <TextField label="Password / கடவுச்சொல்" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" required />
             {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
-            <PrimaryButton onClick={handlePhoneSignup} disabled={loading}>
+            <PrimaryButton onClick={handlePhoneSignup} disabled={loading || !agreedToTerms}>
               {loading ? "Creating account…" : "Create account / கணக்கு உருவாக்கவும்"}
             </PrimaryButton>
           </>
         )}
+
+        {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       </div>
     );
   }
