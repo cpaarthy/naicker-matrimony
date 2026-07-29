@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, SlidersHorizontal, Users } from "lucide-react";
+import { Search, SlidersHorizontal, Users, Lock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
-import { Avatar } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
+import { Avatar, PrimaryButton } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList } from "../data/queries";
 
 export default function Browse({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
+  const { session } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -24,12 +26,13 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
   const [stateOptions, setStateOptions] = useState([]);
 
   useEffect(() => {
+    if (!session) { setLoading(false); return; }
     fetchApprovedProfiles().then(({ data }) => { setProfiles(data); setLoading(false); });
     fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
-  }, []);
+  }, [session]);
 
   const filtered = useMemo(() => {
     return profiles.filter(p => {
@@ -58,6 +61,30 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
         <option value="">{placeholder}</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+          Please log in to browse profiles / விவரங்களை பார்க்க உள்நுழையவும்
+        </div>
+        <div style={{ fontSize: 13, marginBottom: 18 }}>
+          You need an account to view member profiles. / உறுப்பினர் விவரங்களை பார்க்க கணக்கு தேவை.
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button onClick={() => onNavigate("login")} style={{
+            background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+            padding: "10px 20px", fontWeight: 700, fontSize: 14,
+          }}>Log in / உள்நுழையவும்</button>
+          <button onClick={() => onNavigate("register")} style={{
+            background: "transparent", color: colors.primary, border: `1.5px solid ${colors.primary}`, borderRadius: 8,
+            padding: "10px 20px", fontWeight: 700, fontSize: 14,
+          }}>Register / பதிவு</button>
+        </div>
+      </div>
     );
   }
 
