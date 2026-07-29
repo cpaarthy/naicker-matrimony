@@ -107,6 +107,27 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     );
   }
 
+  const lastSignIn = session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at) : null;
+  const daysSinceLogin = lastSignIn ? (Date.now() - lastSignIn.getTime()) / (1000 * 60 * 60 * 24) : 0;
+  const isInactive = daysSinceLogin > 150;
+
+  if (isInactive) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+          Your account is inactive / உங்கள் கணக்கு செயலற்றது
+        </div>
+        <div style={{ fontSize: 13, marginBottom: 6 }}>
+          You haven't logged in for over 150 days, so browsing is paused for your account's safety.
+        </div>
+        <div style={{ fontSize: 13 }}>
+          150 நாட்களுக்கும் மேலாக நீங்கள் உள்நுழையவில்லை, எனவே பாதுகாப்பிற்காக பார்வையிடுதல் இடைநிறுத்தப்பட்டுள்ளது.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="serif" style={{ fontSize: 19, marginBottom: 12 }}>Browse profiles / விவரங்களை பார்க்க</h2>
