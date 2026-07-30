@@ -40,6 +40,7 @@ export default function Register({ onNavigate, showToast }) {
   const [otp, setOtp] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [securityAnswer, setSecurityAnswer] = useState("");
   const [error, setError] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -95,6 +96,7 @@ export default function Register({ onNavigate, showToast }) {
       ...form, id: newUserId, status: "pending", photo_url: photoUrl,
       age: Number(form.age),
       phone: form.phone || phone,
+      security_answer: securityAnswer || null,
     };
     await upsertProfile(record);
   }
@@ -129,6 +131,7 @@ export default function Register({ onNavigate, showToast }) {
     if (!agreedToTerms) { setError("Please accept the Terms & Conditions to continue"); return; }
     if (!phone || !password) { setError("Enter phone number and password"); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
+    if (!securityAnswer.trim()) { setError("Enter your mother's name (used to recover your password later)"); return; }
     setLoading(true);
     const { data, error } = await signUpWithPhone(phone, password, form.name);
     setLoading(false);
@@ -309,6 +312,10 @@ export default function Register({ onNavigate, showToast }) {
           <>
             <TextField label="Phone number / தொலைபேசி எண்" value={phone} onChange={setPhone} placeholder="10-digit mobile number" required />
             <TextField label="Password / கடவுச்சொல்" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" required />
+            <TextField label="Mother's name / தாயின் பெயர்" value={securityAnswer} onChange={setSecurityAnswer} placeholder="Used to recover your password later" required />
+            <p style={{ fontSize: 11.5, color: colors.textFaint, marginTop: -10, marginBottom: 14 }}>
+              If you forget your password, you'll need this answer to reset it — please remember it. / கடவுச்சொல் மறந்தால், இதைப் பயன்படுத்தி மீட்டெடுக்கலாம்.
+            </p>
             {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
             <PrimaryButton onClick={handlePhoneSignup} disabled={loading || !agreedToTerms}>
               {loading ? "Creating account…" : "Create account / கணக்கு உருவாக்கவும்"}
