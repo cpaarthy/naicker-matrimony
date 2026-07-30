@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
-  ListChecks, Plus, X, Download, Power, Key, History, CheckSquare, Square, Reply, Check,
+  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
@@ -11,11 +11,10 @@ import {
   fetchMasterList, addMasterListValue, deleteMasterListValue,
   bulkUpdateProfileStatus, bulkDeleteProfiles, setProfileDeactivated,
   resolveContactMessage, replyToContactMessage, logAdminAction, fetchActivityLog,
-  adminResetPassword,
 } from "../data/queries";
 import { exportToCsv } from "../utils/exportCsv";
 
-const ADMIN_PIN = "Akshara@123!";
+const ADMIN_PIN = "Naik@1998!";
 
 const TABS = [
   { key: "stats", label: "Overview", icon: BarChart3 },
@@ -39,7 +38,6 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingProfile, setEditingProfile] = useState(null);
-  const [resetPasswordProfile, setResetPasswordProfile] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   const loadAll = useCallback(async () => {
@@ -173,22 +171,6 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
           logAdminAction({ action: "edit", targetType: "profile", targetId: editingProfile.id, targetName: editingProfile.name });
           setEditingProfile(null); loadAll(); showToast("Profile updated");
         }}
-      />
-    );
-  }
-
-  if (resetPasswordProfile) {
-    return (
-      <AdminResetPassword
-        profile={resetPasswordProfile}
-        colors={colors}
-        adminPin={pin}
-        onCancel={() => setResetPasswordProfile(null)}
-        onDone={() => {
-          logAdminAction({ action: "reset_password", targetType: "profile", targetId: resetPasswordProfile.id, targetName: resetPasswordProfile.name });
-          setResetPasswordProfile(null); showToast("Password reset successfully");
-        }}
-        showToast={showToast}
       />
     );
   }
@@ -331,12 +313,6 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
               }}>
                 <Power size={13} color={p.admin_deactivated ? colors.approvedText : colors.pendingText} />
               </button>
-              <button onClick={() => setResetPasswordProfile(p)} title="Reset password" style={{
-                background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, width: 30, height: 30,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <Key size={13} color={colors.textMuted} />
-              </button>
               <button onClick={() => setEditingProfile(p)} style={{
                 background: colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
@@ -470,63 +446,6 @@ function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
           flex: 1, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
           padding: "11px", fontWeight: 700, fontSize: 14, opacity: saving ? 0.6 : 1,
         }}>{saving ? "Saving…" : "Save changes"}</button>
-      </div>
-    </div>
-  );
-}
-
-function AdminResetPassword({ profile, colors, adminPin, onCancel, onDone, showToast }) {
-  const [newPassword, setNewPassword] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleReset() {
-    setError("");
-    if (newPassword.length < 6) { setError("Password must be at least 6 characters"); return; }
-    setSaving(true);
-    const { error: resetError } = await adminResetPassword(profile.id, newPassword, adminPin);
-    setSaving(false);
-    if (resetError) {
-      setError(resetError);
-      showToast("Password reset failed — check that the Edge Function is deployed");
-      return;
-    }
-    onDone();
-  }
-
-  return (
-    <div>
-      <h2 className="serif" style={{ fontSize: 18, marginBottom: 4 }}>Reset password for {profile.name}</h2>
-      <p style={{ fontSize: 12.5, color: colors.textFaint, marginBottom: 16 }}>
-        This requires the <code>admin-reset-password</code> Edge Function to be deployed in Supabase (see HOSTING_STEPS.md).
-      </p>
-      <label style={{ display: "block", marginBottom: 14 }}>
-        <span style={{ display: "block", fontSize: 12.5, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>New password</span>
-        <input
-          type="text"
-          value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
-          placeholder="At least 6 characters"
-          style={{
-            width: "100%", padding: "11px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-            fontSize: 15, background: colors.inputBg, color: colors.text, boxSizing: "border-box",
-          }}
-        />
-      </label>
-      {error && (
-        <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onCancel} style={{
-          flex: 1, background: "transparent", border: `1px solid ${colors.inputBorder}`, borderRadius: 8,
-          padding: "11px", fontSize: 14, color: colors.text,
-        }}>Cancel</button>
-        <button onClick={handleReset} disabled={saving} style={{
-          flex: 1, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "11px", fontWeight: 700, fontSize: 14, opacity: saving ? 0.6 : 1,
-        }}>{saving ? "Resetting…" : "Reset password"}</button>
       </div>
     </div>
   );
