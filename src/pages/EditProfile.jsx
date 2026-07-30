@@ -15,6 +15,7 @@ const emptyForm = {
   complexion: "", body_type: "", blood_group: "",
   diet: "Vegetarian", smoking: "No", drinking: "No",
   pref_age_min: "", pref_age_max: "", pref_education: "", pref_occupation: "",
+  security_answer: "",
 };
 
 function SectionTitle({ children }) {
@@ -64,6 +65,7 @@ export default function EditProfile({ onNavigate, showToast }) {
         diet: profile.diet || "Vegetarian", smoking: profile.smoking || "No", drinking: profile.drinking || "No",
         pref_age_min: String(profile.pref_age_min || ""), pref_age_max: String(profile.pref_age_max || ""),
         pref_education: profile.pref_education || "", pref_occupation: profile.pref_occupation || "",
+        security_answer: profile.security_answer || "",
       });
     }
   }, [profile]);
@@ -232,6 +234,8 @@ export default function EditProfile({ onNavigate, showToast }) {
       </label>
 
       <TextField label="Phone number / தொலைபேசி எண் (kept private)" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="10-digit mobile number" required />
+
+      <TextField label="Mother's name (for password recovery) / தாயின் பெயர்" value={form.security_answer} onChange={v => setForm(f => ({ ...f, security_answer: v }))} placeholder="Used if you ever need to reset your password" />
 
       {profile?.status === "approved" ? (
         <div style={{ background: colors.approvedBg, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: colors.approvedText, display: "flex", gap: 8, alignItems: "flex-start", marginTop: 8, marginBottom: 16 }}>
