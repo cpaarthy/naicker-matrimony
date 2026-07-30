@@ -118,3 +118,59 @@ export async function deleteMasterListValue(id) {
   const { error } = await supabase.from("master_lists").delete().eq("id", id);
   return { error };
 }
+
+// ============ BULK ACTIONS ============
+export async function bulkUpdateProfileStatus(ids, status) {
+  const { error } = await supabase.from("profiles").update({ status }).in("id", ids);
+  return { error };
+}
+
+export async function bulkDeleteProfiles(ids) {
+  const { error } = await supabase.from("profiles").delete().in("id", ids);
+  return { error };
+}
+
+// ============ ACCOUNT ACTIVATION ============
+export async function setProfileDeactivated(id, deactivated) {
+  const { error } = await supabase.from("profiles").update({ admin_deactivated: deactivated }).eq("id", id);
+  return { error };
+}
+
+// ============ CONTACT MESSAGES: resolve / reply ============
+export async function resolveContactMessage(id, resolved) {
+  const { error } = await supabase.from("contact_messages").update({ resolved }).eq("id", id);
+  return { error };
+}
+
+export async function replyToContactMessage(id, adminReply) {
+  const { error } = await supabase.from("contact_messages").update({ admin_reply: adminReply, resolved: true }).eq("id", id);
+  return { error };
+}
+
+// ============ ADMIN ACTIVITY LOG ============
+export async function logAdminAction({ action, targetType, targetId, targetName, details }) {
+  const { error } = await supabase.from("activity_log").insert({
+    action, target_type: targetType, target_id: targetId ? String(targetId) : null,
+    target_name: targetName || null, details: details || null,
+  });
+  return { error };
+}
+
+export async function fetchActivityLog() {
+  const { data, error } = await supabase
+    .from("activity_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  return { data: data || [], error };
+}
+
+// ============ ADMIN PASSWORD RESET (via Edge Function) ============
+export async function adminResetPassword(userId, newPassword, adminPin) {
+  const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+    body: { adminPin, userId, newPassword },
+  });
+  if (error) return { error: error.message || "Could not reset password" };
+  if (data?.error) return { error: data.error };
+  return { error: null };
+}
