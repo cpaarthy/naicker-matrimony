@@ -107,6 +107,20 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     );
   }
 
+  if (profile?.admin_deactivated) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+          Your account has been deactivated / உங்கள் கணக்கு முடக்கப்பட்டுள்ளது
+        </div>
+        <div style={{ fontSize: 13 }}>
+          Please contact the admin for more information. / மேலும் தகவலுக்கு நிர்வாகியை தொடர்பு கொள்ளவும்.
+        </div>
+      </div>
+    );
+  }
+
   const lastSignIn = session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at) : null;
   const daysSinceLogin = lastSignIn ? (Date.now() - lastSignIn.getTime()) / (1000 * 60 * 60 * 24) : 0;
   const isInactive = daysSinceLogin > 150;
