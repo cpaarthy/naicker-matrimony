@@ -165,12 +165,16 @@ export async function fetchActivityLog() {
   return { data: data || [], error };
 }
 
-// ============ ADMIN PASSWORD RESET (via Edge Function) ============
-export async function adminResetPassword(userId, newPassword, adminPin) {
-  const { data, error } = await supabase.functions.invoke("admin-reset-password", {
-    body: { adminPin, userId, newPassword },
+// ============ SELF-SERVICE PASSWORD RECOVERY (phone accounts) ============
+// Uses a Postgres function (deployed via SQL Editor, no CLI/Edge Functions needed).
+// The user proves ownership by answering their security question (mother's name).
+export async function resetPasswordWithSecurityAnswer(phone, securityAnswer, newPassword) {
+  const { data, error } = await supabase.rpc("reset_password_with_security_answer", {
+    p_phone: phone,
+    p_security_answer: securityAnswer,
+    p_new_password: newPassword,
   });
   if (error) return { error: error.message || "Could not reset password" };
-  if (data?.error) return { error: data.error };
+  if (data && data.success === false) return { error: data.error };
   return { error: null };
 }
