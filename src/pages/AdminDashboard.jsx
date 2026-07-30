@@ -15,7 +15,7 @@ import {
 } from "../data/queries";
 import { exportToCsv } from "../utils/exportCsv";
 
-const ADMIN_PIN = "Naik@1998!";
+const ADMIN_PIN = "Akshara@123!";
 
 const TABS = [
   { key: "stats", label: "Overview", icon: BarChart3 },
