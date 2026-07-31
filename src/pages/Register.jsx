@@ -104,7 +104,8 @@ export default function Register({ onNavigate, showToast }) {
   async function handleSendOtp() {
     setError("");
     if (!agreedToTerms) { setError("Please accept the Terms & Conditions to continue"); return; }
-    if (!email) { setError("Enter your email"); return; }
+    if (!email || !password) { setError("Enter your email and choose a password"); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
     setLoading(true);
     const { error } = await sendEmailOtp(email);
     setLoading(false);
@@ -117,9 +118,9 @@ export default function Register({ onNavigate, showToast }) {
     setError("");
     if (!otp) { setError("Enter the OTP sent to your email"); return; }
     setLoading(true);
-    const { data, error } = await verifyEmailOtp(email, otp);
+    const { data, error } = await verifyEmailOtp(email, otp, password);
     setLoading(false);
-    if (error) { setError("Invalid or expired OTP"); return; }
+    if (error) { setError("Invalid or expired OTP, or password could not be set"); return; }
     const newUserId = data?.session?.user?.id;
     if (newUserId) await saveProfileAfterAuth(newUserId);
     showToast("Account created and profile submitted!");
@@ -301,6 +302,10 @@ export default function Register({ onNavigate, showToast }) {
         {method === "email" && (
           <>
             <TextField label="Email address / மின்னஞ்சல்" type="email" value={email} onChange={setEmail} placeholder="you@example.com" required />
+            <TextField label="Password / கடவுச்சொல்" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" required />
+            <p style={{ fontSize: 11.5, color: colors.textFaint, marginTop: -10, marginBottom: 14 }}>
+              You'll verify your email with an OTP now, then use this password to log in next time. / இப்போது OTP மூலம் சரிபார்த்து, அடுத்த முறை இந்த கடவுச்சொல்லை பயன்படுத்தி நுழையலாம்.
+            </p>
             {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
             <PrimaryButton onClick={handleSendOtp} disabled={loading || !agreedToTerms}>
               {loading ? "Sending OTP…" : "Send OTP to email / OTP அனுப்பவும்"}
