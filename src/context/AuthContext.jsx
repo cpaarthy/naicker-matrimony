@@ -46,10 +46,28 @@ export function AuthProvider({ children }) {
     return { error };
   }
 
-  async function verifyEmailOtp(email, token) {
+  async function verifyEmailOtp(email, token, password) {
     const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+    if (error) return { data, error };
+    setSession(data.session);
+    // Set the password now that the user is verified and has an active session,
+    // so future logins can use email + password instead of requesting a new OTP.
+    if (password) {
+      const { error: pwError } = await supabase.auth.updateUser({ password });
+      if (pwError) return { data, error: pwError };
+    }
+    return { data, error: null };
+  }
+
+  async function loginWithEmailPassword(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error) setSession(data.session);
     return { data, error };
+  }
+
+  async function sendEmailPasswordResetLink(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    return { error };
   }
 
   // --- Phone + password flow ---
@@ -80,7 +98,7 @@ export function AuthProvider({ children }) {
   const value = {
     session, authChecked, userId,
     profile, profileLoading, reloadProfile: loadProfile,
-    sendEmailOtp, verifyEmailOtp,
+    sendEmailOtp, verifyEmailOtp, loginWithEmailPassword, sendEmailPasswordResetLink,
     signUpWithPhone, loginWithPhone,
     logout,
   };
