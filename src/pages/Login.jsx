@@ -7,12 +7,11 @@ import { resetPasswordWithSecurityAnswer } from "../data/queries";
 
 export default function Login({ onNavigate, showToast }) {
   const { colors } = useTheme();
-  const { sendEmailOtp, verifyEmailOtp, loginWithPhone } = useAuth();
+  const { loginWithEmailPassword, loginWithPhone, sendEmailPasswordResetLink } = useAuth();
 
   const [method, setMethod] = useState("email");
   const [step, setStep] = useState("form");
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,26 +21,25 @@ export default function Login({ onNavigate, showToast }) {
   const [forgotAnswer, setForgotAnswer] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
 
-  async function handleSendOtp() {
+  async function handleEmailLogin() {
     setError("");
-    if (!email) { setError("Enter your email"); return; }
+    if (!email || !password) { setError("Enter email and password"); return; }
     setLoading(true);
-    const { error } = await sendEmailOtp(email);
+    const { error } = await loginWithEmailPassword(email, password);
     setLoading(false);
-    if (error) { setError(error.message); return; }
-    setStep("otp");
-    showToast("OTP sent to your email");
-  }
-
-  async function handleVerifyOtp() {
-    setError("");
-    if (!otp) { setError("Enter the OTP sent to your email"); return; }
-    setLoading(true);
-    const { error } = await verifyEmailOtp(email, otp);
-    setLoading(false);
-    if (error) { setError("Invalid or expired OTP"); return; }
+    if (error) { setError("Incorrect email or password"); return; }
     showToast("Logged in successfully");
     onNavigate("dashboard");
+  }
+
+  async function handleEmailForgotPassword() {
+    setError("");
+    if (!email) { setError("Enter your email above first"); return; }
+    setLoading(true);
+    const { error } = await sendEmailPasswordResetLink(email);
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    showToast("Password reset link sent — check your email");
   }
 
   async function handlePhoneLogin() {
@@ -126,7 +124,7 @@ export default function Login({ onNavigate, showToast }) {
           background: method === "email" ? colors.primary : "transparent",
           color: method === "email" ? colors.primaryText : colors.textMuted,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-        }}><Mail size={14} /> Email OTP</button>
+        }}><Mail size={14} /> Email</button>
         <button onClick={() => { setMethod("phone"); setError(""); }} style={{
           flex: 1, padding: "9px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12.5,
           background: method === "phone" ? colors.primary : "transparent",
@@ -135,31 +133,18 @@ export default function Login({ onNavigate, showToast }) {
         }}><Phone size={14} /> Phone + password</button>
       </div>
 
-      {method === "email" && step === "form" && (
+      {method === "email" && (
         <>
           <TextField label="Email address / மின்னஞ்சல்" type="email" value={email} onChange={setEmail} placeholder="you@example.com" required />
+          <TextField label="Password / கடவுச்சொல்" type="password" value={password} onChange={setPassword} required />
           {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
-          <PrimaryButton onClick={handleSendOtp} disabled={loading}>
-            {loading ? "Sending OTP…" : "Send OTP to email / OTP அனுப்பவும்"}
+          <PrimaryButton onClick={handleEmailLogin} disabled={loading}>
+            {loading ? "Logging in…" : "Log in / உள்நுழையவும்"}
           </PrimaryButton>
-        </>
-      )}
-
-      {method === "email" && step === "otp" && (
-        <>
-          <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 14 }}>
-            We sent a 6-digit code to <b>{email}</b>. Enter it below.
-            <br />6 இலக்க குறியீடு உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்டது.
-          </p>
-          <TextField label="OTP code / OTP குறியீடு" value={otp} onChange={setOtp} placeholder="6-digit code" required />
-          {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
-          <PrimaryButton onClick={handleVerifyOtp} disabled={loading}>
-            {loading ? "Verifying…" : "Verify & log in / சரிபார்த்து நுழையவும்"}
-          </PrimaryButton>
-          <button onClick={() => setStep("form")} style={{
-            width: "100%", background: "none", border: "none", color: colors.textFaint, fontSize: 12.5, marginTop: 10,
+          <button onClick={handleEmailForgotPassword} style={{
+            width: "100%", background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, marginTop: 12,
           }}>
-            Change email / resend / மின்னஞ்சலை மாற்றவும்
+            Forgot password? / கடவுச்சொல் மறந்துவிட்டதா?
           </button>
         </>
       )}
