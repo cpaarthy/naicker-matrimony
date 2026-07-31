@@ -15,6 +15,9 @@ import InterestRequests from "./pages/InterestRequests";
 import Favourites from "./pages/Favourites";
 import Contact from "./pages/Contact";
 import AdminDashboard from "./pages/AdminDashboard";
+import Notifications from "./pages/Notifications";
+import AccountSettings from "./pages/AccountSettings";
+import RecentlyViewed from "./pages/RecentlyViewed";
 
 function AppShell() {
   const [page, setPage] = useState("home");
@@ -29,7 +32,8 @@ function AppShell() {
   }
 
   // Bottom nav "dashboard" key maps internally, but admin is reached via a hidden route
-  const navPageKey = page === "editProfile" || page === "requests" || page === "favourites" ? "dashboard"
+  const navPageKey = page === "editProfile" || page === "requests" || page === "favourites"
+    || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" ? "dashboard"
     : page === "profileDetails" ? "browse"
     : page;
 
@@ -52,6 +56,13 @@ function AppShell() {
         <Favourites onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />
       )}
       {page === "contact" && <Contact showToast={showToast} />}
+      {page === "notifications" && (
+        <Notifications onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />
+      )}
+      {page === "accountSettings" && <AccountSettings onNavigate={navigate} showToast={showToast} />}
+      {page === "recentlyViewed" && (
+        <RecentlyViewed onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />
+      )}
       {page === "admin" && (
         <AdminDashboard onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
       )}
