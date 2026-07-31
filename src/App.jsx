@@ -20,7 +20,10 @@ import AccountSettings from "./pages/AccountSettings";
 import RecentlyViewed from "./pages/RecentlyViewed";
 
 function AppShell() {
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("admin") === "1" ? "admin" : "home";
+  });
   const [selectedProfileId, setSelectedProfileId] = useState(null);
   const [toast, setToast] = useState("");
 
@@ -65,16 +68,6 @@ function AppShell() {
       )}
       {page === "admin" && (
         <AdminDashboard onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
-      )}
-
-      {page !== "admin" && (
-        <div style={{ textAlign: "center", padding: "24px 0 8px" }}>
-          <button onClick={() => navigate("admin")} style={{
-            background: "none", border: "none", fontSize: 11.5, color: "#8a7a63", textDecoration: "underline",
-          }}>
-            Admin login
-          </button>
-        </div>
       )}
     </Layout>
   );
