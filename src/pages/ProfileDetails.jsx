@@ -1,17 +1,22 @@
 import { useState, useEffect } from "react";
-import { MapPin, Lock, Heart } from "lucide-react";
+import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
-import { fetchProfileById, fetchRequestsFor, sendInterestRequest, fetchFavourites, toggleFavourite } from "../data/queries";
+import {
+  fetchProfileById, fetchRequestsFor, sendInterestRequest, fetchFavourites, toggleFavourite,
+  createNotification, recordProfileView, fetchBlockedProfiles, blockProfile, unblockProfile, submitProfileReport,
+} from "../data/queries";
 
 export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const { colors } = useTheme();
-  const { userId, session } = useAuth();
+  const { userId, session, profile: myProfile } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [myRequests, setMyRequests] = useState([]);
   const [isFav, setIsFav] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     load();
@@ -26,6 +31,9 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
       setMyRequests(reqs);
       const { data: favs } = await fetchFavourites(userId);
       setIsFav(favs.some(f => f.profile_id === profileId));
+      const { data: blocks } = await fetchBlockedProfiles(userId);
+      setIsBlocked(blocks.some(b => b.blocked_id === profileId));
+      if (profileId !== userId) recordProfileView(userId, profileId);
     }
     setLoading(false);
   }
@@ -36,6 +44,10 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
     if (existing) { showToast("Request already sent"); return; }
     const { error } = await sendInterestRequest(userId, profileId);
     if (error) { showToast("Could not send request"); return; }
+    await createNotification({
+      userId: profileId, type: "request_received", relatedProfileId: userId,
+      message: `${myProfile?.name || "Someone"} sent you an interest request.`,
+    });
     showToast("Interest request sent");
     load();
   }
@@ -44,6 +56,26 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
     if (!session) { showToast("Please log in first"); onNavigate("login"); return; }
     const { error } = await toggleFavourite(userId, profileId, isFav);
     if (!error) { setIsFav(!isFav); showToast(isFav ? "Removed from favourites" : "Added to favourites"); }
+  }
+
+  async function handleToggleBlock() {
+    if (!session) { showToast("Please log in first"); onNavigate("login"); return; }
+    if (isBlocked) {
+      const { error } = await unblockProfile(userId, profileId);
+      if (!error) { setIsBlocked(false); showToast("Profile unblocked"); }
+    } else {
+      if (!window.confirm(`Block ${profile.name}? You won't see them while browsing.`)) return;
+      const { error } = await blockProfile(userId, profileId);
+      if (!error) { setIsBlocked(true); showToast("Profile blocked"); }
+    }
+  }
+
+  async function handleSubmitReport(reason, details) {
+    if (!session) { showToast("Please log in first"); onNavigate("login"); return; }
+    const { error } = await submitProfileReport({ reporterId: userId, reportedId: profileId, reason, details });
+    if (error) { showToast("Could not submit report"); return; }
+    setShowReportModal(false);
+    showToast("Report submitted. Admin will review it.");
   }
 
   function addressVisible() {
@@ -80,6 +112,26 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
           {isFav ? <Heart size={18} color={colors.rejectedText} fill={colors.rejectedText} /> : <Heart size={18} color={colors.textFaint} />}
         </button>
       </div>
+
+      {profile.id !== userId && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <button onClick={handleToggleBlock} style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8,
+            padding: "8px", fontSize: 12.5, color: isBlocked ? colors.approvedText : colors.textMuted,
+          }}>
+            {isBlocked ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
+            {isBlocked ? "Unblock" : "Block"}
+          </button>
+          <button onClick={() => setShowReportModal(true)} style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8,
+            padding: "8px", fontSize: 12.5, color: colors.textMuted,
+          }}>
+            <Flag size={13} /> Report
+          </button>
+        </div>
+      )}
 
       <Section title="Basic Details / அடிப்படை விவரங்கள்" colors={colors}>
         <Row label="Religion / caste" value={`${profile.religion} · ${profile.caste}${profile.sub_caste ? " (" + profile.sub_caste + ")" : ""}`} />
@@ -160,6 +212,68 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
           {alreadySent ? "Request sent / அனுப்பப்பட்டது" : "Send interest request / ஆர்வம் தெரிவிக்கவும்"}
         </PrimaryButton>
       )}
+
+      {showReportModal && (
+        <ReportModal colors={colors} onClose={() => setShowReportModal(false)} onSubmit={handleSubmitReport} />
+      )}
+    </div>
+  );
+}
+
+function ReportModal({ colors, onClose, onSubmit }) {
+  const [reason, setReason] = useState("Fake profile");
+  const [details, setDetails] = useState("");
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex",
+      alignItems: "center", justifyContent: "center", zIndex: 90, padding: 16,
+    }}>
+      <div style={{ background: colors.bg, borderRadius: 14, padding: 20, width: "100%", maxWidth: 380 }}>
+        <h3 className="serif" style={{ fontSize: 16, marginBottom: 12 }}>Report this profile</h3>
+
+        <label style={{ display: "block", marginBottom: 12 }}>
+          <span style={{ display: "block", fontSize: 12.5, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Reason</span>
+          <select
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            style={{
+              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 14, background: colors.inputBg, color: colors.text,
+            }}
+          >
+            <option>Fake profile</option>
+            <option>Inappropriate content</option>
+            <option>Harassment</option>
+            <option>Asking for money</option>
+            <option>Other</option>
+          </select>
+        </label>
+
+        <label style={{ display: "block", marginBottom: 16 }}>
+          <span style={{ display: "block", fontSize: 12.5, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Details (optional)</span>
+          <textarea
+            value={details}
+            onChange={e => setDetails(e.target.value)}
+            rows={3}
+            style={{
+              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 14, background: colors.inputBg, color: colors.text, resize: "vertical",
+            }}
+          />
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{
+            flex: 1, background: "transparent", border: `1px solid ${colors.inputBorder}`, borderRadius: 8,
+            padding: "10px", fontSize: 14, color: colors.text,
+          }}>Cancel</button>
+          <button onClick={() => onSubmit(reason, details)} style={{
+            flex: 1, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+            padding: "10px", fontWeight: 700, fontSize: 14,
+          }}>Submit report</button>
+        </div>
+      </div>
     </div>
   );
 }
