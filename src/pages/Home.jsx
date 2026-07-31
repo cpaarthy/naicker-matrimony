@@ -66,6 +66,14 @@ export default function Home({ onNavigate }) {
           5. Address shared only after mutual acceptance — phone stays private always / இருதரப்பும் ஒப்புக்கொண்ட பின்னரே முகவரி பகிரப்படும்
         </div>
       </div>
+
+      <div style={{ textAlign: "center", padding: "20px 0 8px" }}>
+        <button onClick={() => onNavigate("admin")} style={{
+          background: "none", border: "none", fontSize: 11.5, color: colors.textFaint, textDecoration: "underline",
+        }}>
+          Admin login
+        </button>
+      </div>
     </div>
   );
 }
