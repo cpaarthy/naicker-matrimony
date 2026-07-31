@@ -3,7 +3,7 @@ import { Check, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
-import { fetchRequestsFor, fetchAllProfiles, respondToRequest } from "../data/queries";
+import { fetchRequestsFor, fetchAllProfiles, respondToRequest, createNotification } from "../data/queries";
 
 export default function InterestRequests({ onNavigate, setSelectedProfileId, showToast }) {
   const { colors } = useTheme();
@@ -26,8 +26,20 @@ export default function InterestRequests({ onNavigate, setSelectedProfileId, sho
   useEffect(() => { if (userId) load(); }, [userId, load]);
 
   async function handleRespond(reqId, accept) {
+    const req = requests.find(r => r.id === reqId);
     const { error } = await respondToRequest(reqId, accept);
     if (error) { showToast("Could not update request"); return; }
+    if (req) {
+      const myProfile = profiles.find(p => p.id === userId);
+      await createNotification({
+        userId: req.from_id,
+        type: accept ? "request_accepted" : "request_declined",
+        relatedProfileId: userId,
+        message: accept
+          ? `${myProfile?.name || "Someone"} accepted your interest request.`
+          : `${myProfile?.name || "Someone"} declined your interest request.`,
+      });
+    }
     showToast(accept ? "Request accepted" : "Request declined");
     load();
   }
