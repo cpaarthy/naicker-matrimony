@@ -178,3 +178,99 @@ export async function resetPasswordWithSecurityAnswer(phone, securityAnswer, new
   if (data && data.success === false) return { error: data.error };
   return { error: null };
 }
+
+// ============ NOTIFICATIONS ============
+export async function fetchNotifications(userId) {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return { data: data || [], error };
+}
+
+export async function createNotification({ userId, type, relatedProfileId, message }) {
+  const { error } = await supabase.from("notifications").insert({
+    user_id: userId, type, related_profile_id: relatedProfileId || null, message,
+  });
+  return { error };
+}
+
+export async function markNotificationRead(id) {
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
+  return { error };
+}
+
+export async function markAllNotificationsRead(userId) {
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
+  return { error };
+}
+
+// ============ CHANGE PASSWORD (logged-in user) ============
+export async function changeOwnPassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  return { error: error?.message || null };
+}
+
+// ============ DELETE OWN ACCOUNT ============
+export async function deleteOwnAccount() {
+  const { data, error } = await supabase.rpc("delete_own_account");
+  if (error) return { error: error.message || "Could not delete account" };
+  if (data && data.success === false) return { error: data.error };
+  return { error: null };
+}
+
+// ============ BLOCK PROFILES ============
+export async function fetchBlockedProfiles(userId) {
+  const { data, error } = await supabase.from("blocked_profiles").select("*").eq("blocker_id", userId);
+  return { data: data || [], error };
+}
+
+export async function blockProfile(blockerId, blockedId) {
+  const { error } = await supabase.from("blocked_profiles").insert({ blocker_id: blockerId, blocked_id: blockedId });
+  return { error };
+}
+
+export async function unblockProfile(blockerId, blockedId) {
+  const { error } = await supabase.from("blocked_profiles").delete().eq("blocker_id", blockerId).eq("blocked_id", blockedId);
+  return { error };
+}
+
+// ============ REPORT PROFILES ============
+export async function submitProfileReport({ reporterId, reportedId, reason, details }) {
+  const { error } = await supabase.from("profile_reports").insert({
+    reporter_id: reporterId, reported_id: reportedId, reason, details: details || null,
+  });
+  return { error };
+}
+
+export async function fetchProfileReports() {
+  const { data, error } = await supabase
+    .from("profile_reports")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return { data: data || [], error };
+}
+
+export async function updateReportStatus(id, status) {
+  const { error } = await supabase.from("profile_reports").update({ status }).eq("id", id);
+  return { error };
+}
+
+// ============ RECENTLY VIEWED ============
+export async function recordProfileView(viewerId, viewedId) {
+  const { error } = await supabase
+    .from("recently_viewed")
+    .upsert({ viewer_id: viewerId, viewed_id: viewedId, viewed_at: new Date().toISOString() }, { onConflict: "viewer_id,viewed_id" });
+  return { error };
+}
+
+export async function fetchRecentlyViewed(viewerId) {
+  const { data, error } = await supabase
+    .from("recently_viewed")
+    .select("*")
+    .eq("viewer_id", viewerId)
+    .order("viewed_at", { ascending: false })
+    .limit(20);
+  return { data: data || [], error };
+}
