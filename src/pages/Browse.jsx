@@ -3,7 +3,7 @@ import { Search, SlidersHorizontal, Users, Lock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
-import { fetchApprovedProfiles, fetchMasterList } from "../data/queries";
+import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
 
 export default function Browse({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
@@ -18,6 +18,7 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
   const [cityFilter, setCityFilter] = useState("");
   const [districtFilter, setDistrictFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("");
+  const [blockedIds, setBlockedIds] = useState(new Set());
 
   const [subCasteOptions, setSubCasteOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
@@ -31,6 +32,9 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
+    if (session.user?.id) {
+      fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
+    }
   }, [session]);
 
   const opposingGender = profile?.gender === "Male" ? "Female" : profile?.gender === "Female" ? "Male" : null;
@@ -38,6 +42,7 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
   const filtered = useMemo(() => {
     return profiles.filter(p => {
       if (opposingGender && p.gender !== opposingGender) return false;
+      if (blockedIds.has(p.id)) return false;
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
@@ -51,7 +56,22 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
       if (stateFilter && p.state !== stateFilter) return false;
       return true;
     });
-  }, [profiles, opposingGender, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter]);
+  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter]);
+
+  const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter);
+
+  const recommended = useMemo(() => {
+    if (hasActiveFilters || !profile) return [];
+    const hasPrefs = profile.pref_age_min || profile.pref_age_max || profile.pref_education || profile.pref_occupation;
+    if (!hasPrefs) return [];
+    return filtered.filter(p => {
+      if (profile.pref_age_min && p.age < profile.pref_age_min) return false;
+      if (profile.pref_age_max && p.age > profile.pref_age_max) return false;
+      if (profile.pref_education && !p.education?.toLowerCase().includes(profile.pref_education.toLowerCase())) return false;
+      if (profile.pref_occupation && !p.occupation?.toLowerCase().includes(profile.pref_occupation.toLowerCase())) return false;
+      return true;
+    }).slice(0, 5);
+  }, [filtered, profile, hasActiveFilters]);
 
   function DropdownFilter({ value, onChange, options, placeholder }) {
     return (
@@ -187,6 +207,28 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
           <div style={{ display: "flex", gap: 8 }}>
             <DropdownFilter value={districtFilter} onChange={setDistrictFilter} options={districtOptions} placeholder="District / மாவட்டம்" />
             <DropdownFilter value={cityFilter} onChange={setCityFilter} options={cityOptions} placeholder="City / ஊர்" />
+          </div>
+        </div>
+      )}
+
+      {recommended.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: colors.primary, marginBottom: 8 }}>
+            Recommended for you / உங்களுக்கான பரிந்துரைகள்
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {recommended.map(p => (
+              <div key={p.id} onClick={() => { setSelectedProfileId(p.id); onNavigate("profileDetails"); }} style={{
+                background: colors.pendingBg, border: `1px solid ${colors.pendingText}`, borderRadius: 14, padding: 12,
+                display: "flex", gap: 12, alignItems: "center", cursor: "pointer",
+              }}>
+                <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={44} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="serif" style={{ fontWeight: 700, fontSize: 14.5 }}>{p.name}</div>
+                  <div style={{ fontSize: 12, color: colors.textMuted }}>{p.occupation || "—"} · {p.city}, {p.age} yrs</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
