@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
-  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check,
+  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
@@ -11,6 +11,7 @@ import {
   fetchMasterList, addMasterListValue, deleteMasterListValue,
   bulkUpdateProfileStatus, bulkDeleteProfiles, setProfileDeactivated,
   resolveContactMessage, replyToContactMessage, logAdminAction, fetchActivityLog,
+  fetchProfileReports, updateReportStatus,
 } from "../data/queries";
 import { exportToCsv } from "../utils/exportCsv";
 
@@ -22,6 +23,7 @@ const TABS = [
   { key: "all", label: "All Profiles", icon: Users },
   { key: "requests", label: "Requests", icon: Heart },
   { key: "contact", label: "Messages", icon: Mail },
+  { key: "reports", label: "Reports", icon: Flag },
   { key: "lists", label: "Lists", icon: ListChecks },
   { key: "log", label: "Activity Log", icon: History },
 ];
@@ -36,18 +38,20 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const [profiles, setProfiles] = useState([]);
   const [requests, setRequests] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingProfile, setEditingProfile] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [{ data: profs }, { data: reqs }, { data: msgs }] = await Promise.all([
-      fetchAllProfiles(), fetchAllRequests(), fetchContactMessages(),
+    const [{ data: profs }, { data: reqs }, { data: msgs }, { data: reps }] = await Promise.all([
+      fetchAllProfiles(), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(),
     ]);
     setProfiles(profs);
     setRequests(reqs);
     setMessages(msgs);
+    setReports(reps);
     setLoading(false);
   }, []);
 
@@ -183,6 +187,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const acceptedReqs = requests.filter(r => r.status === "accepted");
   const pendingReqs = requests.filter(r => r.status === "pending");
   const unresolvedMessages = messages.filter(m => !m.resolved);
+  const openReports = reports.filter(r => r.status === "open");
 
   return (
     <div>
@@ -225,6 +230,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
             <StatCard label="Matches (accepted)" value={acceptedReqs.length} colors={colors} tone="approved" />
             <StatCard label="Pending requests" value={pendingReqs.length} colors={colors} tone="pending" />
             <StatCard label="Unresolved messages" value={unresolvedMessages.length} colors={colors} tone="pending" />
+            <StatCard label="Open reports" value={openReports.length} colors={colors} tone="pending" />
           </div>
         </div>
       )}
@@ -358,6 +364,16 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
       {tab === "contact" && (
         <ContactMessagesTab
           messages={messages}
+          colors={colors}
+          showToast={showToast}
+          onReload={loadAll}
+        />
+      )}
+
+      {tab === "reports" && (
+        <ReportsTab
+          reports={reports}
+          profiles={profiles}
           colors={colors}
           showToast={showToast}
           onReload={loadAll}
@@ -532,6 +548,51 @@ function ContactMessagesTab({ messages, colors, showToast, onReload }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
+  async function handleStatusChange(id, status) {
+    await updateReportStatus(id, status);
+    await logAdminAction({ action: status === "reviewed" ? "review_report" : "dismiss_report", targetType: "report", targetId: id });
+    showToast(`Report marked as ${status}`);
+    onReload();
+  }
+
+  if (reports.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No reports yet.</div>;
+
+  return (
+    <div>
+      {reports.map(r => {
+        const reporter = profiles.find(p => p.id === r.reporter_id);
+        const reported = profiles.find(p => p.id === r.reported_id);
+        return (
+          <div key={r.id} style={{
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{r.reason}</div>
+              <Badge tone={r.status === "reviewed" ? "approved" : r.status === "dismissed" ? "rejected" : "pending"}>{r.status}</Badge>
+            </div>
+            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>
+              Reported by <b>{reporter?.name || "Unknown"}</b> against <b>{reported?.name || "Unknown"}</b>
+            </div>
+            {r.details && <div style={{ fontSize: 12.5, color: colors.text, marginBottom: 8 }}>{r.details}</div>}
+            <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>{new Date(r.created_at).toLocaleString()}</div>
+            {r.status === "open" && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => handleStatusChange(r.id, "reviewed")} style={{
+                  fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+                }}>Mark reviewed</button>
+                <button onClick={() => handleStatusChange(r.id, "dismissed")} style={{
+                  fontSize: 12, background: "transparent", color: colors.textMuted, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
+                }}>Dismiss</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
