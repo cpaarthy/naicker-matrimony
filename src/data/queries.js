@@ -179,6 +179,17 @@ export async function resetPasswordWithSecurityAnswer(phone, securityAnswer, new
   return { error: null };
 }
 
+export async function resetPasswordWithSecurityAnswerEmail(email, securityAnswer, newPassword) {
+  const { data, error } = await supabase.rpc("reset_password_with_security_answer_email", {
+    p_email: email,
+    p_security_answer: securityAnswer,
+    p_new_password: newPassword,
+  });
+  if (error) return { error: error.message || "Could not reset password" };
+  if (data && data.success === false) return { error: data.error };
+  return { error: null };
+}
+
 // ============ NOTIFICATIONS ============
 export async function fetchNotifications(userId) {
   const { data, error } = await supabase
