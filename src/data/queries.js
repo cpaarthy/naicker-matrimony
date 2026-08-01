@@ -285,3 +285,42 @@ export async function fetchRecentlyViewed(viewerId) {
     .limit(20);
   return { data: data || [], error };
 }
+
+// ============ SITE ANNOUNCEMENTS (admin banner) ============
+export async function fetchActiveAnnouncement() {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .eq("active", true)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { data, error };
+}
+
+export async function fetchAllAnnouncements() {
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return { data: data || [], error };
+}
+
+export async function createAnnouncement({ message, expiresAt }) {
+  const { error } = await supabase.from("announcements").insert({
+    message, expires_at: expiresAt || null, active: true,
+  });
+  return { error };
+}
+
+export async function setAnnouncementActive(id, active) {
+  const { error } = await supabase.from("announcements").update({ active }).eq("id", id);
+  return { error };
+}
+
+export async function deleteAnnouncement(id) {
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  return { error };
+}
