@@ -7,6 +7,7 @@ import {
   fetchProfileById, fetchRequestsFor, sendInterestRequest, fetchFavourites, toggleFavourite,
   createNotification, recordProfileView, fetchBlockedProfiles, blockProfile, unblockProfile, submitProfileReport,
 } from "../data/queries";
+import { calculateMatchScore } from "../utils/matchScore";
 
 export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const { colors } = useTheme();
@@ -113,6 +114,10 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
         </button>
       </div>
 
+      {profile.id !== userId && myProfile && (
+        <MatchScoreCard myProfile={myProfile} otherProfile={profile} colors={colors} />
+      )}
+
       {profile.id !== userId && (
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           <button onClick={handleToggleBlock} style={{
@@ -215,6 +220,54 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 
       {showReportModal && (
         <ReportModal colors={colors} onClose={() => setShowReportModal(false)} onSubmit={handleSubmitReport} />
+      )}
+    </div>
+  );
+}
+
+function MatchScoreCard({ myProfile, otherProfile, colors }) {
+  const [expanded, setExpanded] = useState(false);
+  const result = calculateMatchScore(myProfile, otherProfile);
+  if (!result) return null;
+
+  const { percentage, breakdown } = result;
+  const scoreColor = percentage >= 70 ? colors.approvedText : percentage >= 40 ? colors.pendingText : colors.rejectedText;
+
+  return (
+    <div style={{
+      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 14,
+    }}>
+      <button onClick={() => setExpanded(e => !e)} style={{
+        width: "100%", background: "none", border: "none", padding: 0, display: "flex",
+        alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: "50%", border: `3px solid ${scoreColor}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12.5, fontWeight: 800, color: scoreColor, flexShrink: 0,
+          }}>
+            {percentage}%
+          </div>
+          <div style={{ textAlign: "left" }}>
+            <div className="serif" style={{ fontWeight: 700, fontSize: 14, color: colors.text }}>Match Score</div>
+            <div style={{ fontSize: 11, color: colors.textFaint }}>Based on your profile & preferences</div>
+          </div>
+        </div>
+        <span style={{ fontSize: 11, color: colors.primary, fontWeight: 700 }}>{expanded ? "Hide" : "Details"}</span>
+      </button>
+
+      {expanded && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.cardBorder}` }}>
+          {breakdown.map((item, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+              <span style={{ color: colors.textMuted }}>{item.label}</span>
+              <span style={{ color: item.matched ? colors.approvedText : colors.rejectedText, fontWeight: 700 }}>
+                {item.matched ? "✓" : "✗"}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
