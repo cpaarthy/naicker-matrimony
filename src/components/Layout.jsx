@@ -2,7 +2,7 @@ import { ArrowLeft, LogOut, Moon, Sun, Home as HomeIcon, Users, User, Mail } fro
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
-export default function Layout({ page, onNavigate, children }) {
+export default function Layout({ page, onNavigate, onBack, children }) {
   const { session, logout } = useAuth();
   const { mode, toggle, colors } = useTheme();
 
@@ -63,7 +63,7 @@ export default function Layout({ page, onNavigate, children }) {
               </button>
             )}
             {page !== "home" && (
-              <button onClick={() => onNavigate("home")} style={{
+              <button onClick={onBack} style={{
                 background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8,
                 width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
                 color: colors.headerText,
