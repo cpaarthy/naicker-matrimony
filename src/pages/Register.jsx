@@ -106,6 +106,7 @@ export default function Register({ onNavigate, showToast }) {
     if (!agreedToTerms) { setError("Please accept the Terms & Conditions to continue"); return; }
     if (!email || !password) { setError("Enter your email and choose a password"); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
+    if (!securityAnswer.trim()) { setError("Enter your mother's name (used to recover your password later)"); return; }
     setLoading(true);
     const { error } = await sendEmailOtp(email);
     setLoading(false);
@@ -303,8 +304,9 @@ export default function Register({ onNavigate, showToast }) {
           <>
             <TextField label="Email address / மின்னஞ்சல்" type="email" value={email} onChange={setEmail} placeholder="you@example.com" required />
             <TextField label="Password / கடவுச்சொல்" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" required />
+            <TextField label="Mother's name / தாயின் பெயர்" value={securityAnswer} onChange={setSecurityAnswer} placeholder="Used to recover your password later" required />
             <p style={{ fontSize: 11.5, color: colors.textFaint, marginTop: -10, marginBottom: 14 }}>
-              You'll verify your email with an OTP now, then use this password to log in next time. / இப்போது OTP மூலம் சரிபார்த்து, அடுத்த முறை இந்த கடவுச்சொல்லை பயன்படுத்தி நுழையலாம்.
+              You'll verify your email with an OTP now, then use this password to log in next time. If you forget it, you'll need your mother's name to reset it. / இப்போது OTP மூலம் சரிபார்த்து, அடுத்த முறை இந்த கடவுச்சொல்லை பயன்படுத்தி நுழையலாம்.
             </p>
             {error && <ErrorBox colors={colors}>{error}</ErrorBox>}
             <PrimaryButton onClick={handleSendOtp} disabled={loading || !agreedToTerms}>
