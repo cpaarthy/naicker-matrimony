@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
+import { calculateMatchScore } from "../utils/matchScore";
 
 export default function Browse({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
@@ -245,24 +246,36 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.map(p => (
-          <div key={p.id} onClick={() => { setSelectedProfileId(p.id); onNavigate("profileDetails"); }} style={{
-            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14,
-            display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer",
-          }}>
-            <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div className="serif" style={{ fontWeight: 700, fontSize: 16.5 }}>{p.name}</div>
-                <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.age} yrs</div>
-              </div>
-              <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · {p.city}</div>
-              <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 2 }}>
-                {p.religion} · {p.caste}{p.sub_caste ? ` (${p.sub_caste})` : ""} · {p.mother_tongue}
+        {filtered.map(p => {
+          const match = profile ? calculateMatchScore(profile, p) : null;
+          return (
+            <div key={p.id} onClick={() => { setSelectedProfileId(p.id); onNavigate("profileDetails"); }} style={{
+              background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14,
+              display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer",
+            }}>
+              <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <div className="serif" style={{ fontWeight: 700, fontSize: 16.5 }}>{p.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {match && (
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999,
+                        background: match.percentage >= 70 ? colors.approvedBg : match.percentage >= 40 ? colors.pendingBg : colors.rejectedBg,
+                        color: match.percentage >= 70 ? colors.approvedText : match.percentage >= 40 ? colors.pendingText : colors.rejectedText,
+                      }}>{match.percentage}% match</span>
+                    )}
+                    <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.age} yrs</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · {p.city}</div>
+                <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 2 }}>
+                  {p.religion} · {p.caste}{p.sub_caste ? ` (${p.sub_caste})` : ""} · {p.mother_tongue}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
