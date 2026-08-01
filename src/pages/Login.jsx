@@ -3,11 +3,11 @@ import { Mail, Phone, ArrowLeft } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { TextField, PrimaryButton } from "../components/ui";
-import { resetPasswordWithSecurityAnswer } from "../data/queries";
+import { resetPasswordWithSecurityAnswer, resetPasswordWithSecurityAnswerEmail } from "../data/queries";
 
 export default function Login({ onNavigate, showToast }) {
   const { colors } = useTheme();
-  const { loginWithEmailPassword, loginWithPhone, sendEmailPasswordResetLink } = useAuth();
+  const { loginWithEmailPassword, loginWithPhone } = useAuth();
 
   const [method, setMethod] = useState("email");
   const [step, setStep] = useState("form");
@@ -17,7 +17,7 @@ export default function Login({ onNavigate, showToast }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [forgotPhone, setForgotPhone] = useState("");
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
   const [forgotAnswer, setForgotAnswer] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
 
@@ -30,16 +30,6 @@ export default function Login({ onNavigate, showToast }) {
     if (error) { setError("Incorrect email or password"); return; }
     showToast("Logged in successfully");
     onNavigate("dashboard");
-  }
-
-  async function handleEmailForgotPassword() {
-    setError("");
-    if (!email) { setError("Enter your email above first"); return; }
-    setLoading(true);
-    const { error } = await sendEmailPasswordResetLink(email);
-    setLoading(false);
-    if (error) { setError(error.message); return; }
-    showToast("Password reset link sent — check your email");
   }
 
   async function handlePhoneLogin() {
@@ -55,7 +45,7 @@ export default function Login({ onNavigate, showToast }) {
 
   async function handleForgotPasswordSubmit() {
     setError("");
-    if (!forgotPhone || !forgotAnswer || !forgotNewPassword) {
+    if (!forgotIdentifier || !forgotAnswer || !forgotNewPassword) {
       setError("Fill all fields");
       return;
     }
@@ -64,7 +54,9 @@ export default function Login({ onNavigate, showToast }) {
       return;
     }
     setLoading(true);
-    const { error } = await resetPasswordWithSecurityAnswer(forgotPhone, forgotAnswer, forgotNewPassword);
+    const { error } = method === "email"
+      ? await resetPasswordWithSecurityAnswerEmail(forgotIdentifier, forgotAnswer, forgotNewPassword)
+      : await resetPasswordWithSecurityAnswer(forgotIdentifier, forgotAnswer, forgotNewPassword);
     setLoading(false);
     if (error) { setError(error); return; }
     setStep("forgotSuccess");
@@ -82,11 +74,15 @@ export default function Login({ onNavigate, showToast }) {
 
         <h2 className="serif" style={{ fontSize: 19, marginBottom: 4 }}>Reset your password / கடவுச்சொல்லை மீட்டமைக்கவும்</h2>
         <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18 }}>
-          Enter your phone number and answer your security question to set a new password.
-          <br />உங்கள் தொலைபேசி எண்ணையும் பாதுகாப்பு கேள்விக்கான பதிலையும் உள்ளிடவும்.
+          Enter your {method === "email" ? "email" : "phone number"} and answer your security question to set a new password.
+          <br />உங்கள் {method === "email" ? "மின்னஞ்சல்" : "தொலைபேசி எண்"}ணையும் பாதுகாப்பு கேள்விக்கான பதிலையும் உள்ளிடவும்.
         </p>
 
-        <TextField label="Phone number / தொலைபேசி எண்" value={forgotPhone} onChange={setForgotPhone} placeholder="10-digit mobile number" required />
+        {method === "email" ? (
+          <TextField label="Email address / மின்னஞ்சல்" type="email" value={forgotIdentifier} onChange={setForgotIdentifier} placeholder="you@example.com" required />
+        ) : (
+          <TextField label="Phone number / தொலைபேசி எண்" value={forgotIdentifier} onChange={setForgotIdentifier} placeholder="10-digit mobile number" required />
+        )}
         <TextField label="Mother's name / தாயின் பெயர்" value={forgotAnswer} onChange={setForgotAnswer} placeholder="The answer you set when registering" required />
         <TextField label="New password / புதிய கடவுச்சொல்" type="password" value={forgotNewPassword} onChange={setForgotNewPassword} placeholder="At least 6 characters" required />
 
@@ -106,7 +102,11 @@ export default function Login({ onNavigate, showToast }) {
         <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18 }}>
           You can now log in with your new password. / இப்போது புதிய கடவுச்சொல்லுடன் உள்நுழையலாம்.
         </p>
-        <button onClick={() => { setStep("form"); setMethod("phone"); setPhone(forgotPhone); setPassword(""); }} style={{
+        <button onClick={() => {
+          setStep("form");
+          if (method === "email") setEmail(forgotIdentifier); else setPhone(forgotIdentifier);
+          setPassword("");
+        }} style={{
           background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
           padding: "10px 24px", fontWeight: 700, fontSize: 14,
         }}>Go to login / உள்நுழைய செல்லவும்</button>
@@ -141,7 +141,7 @@ export default function Login({ onNavigate, showToast }) {
           <PrimaryButton onClick={handleEmailLogin} disabled={loading}>
             {loading ? "Logging in…" : "Log in / உள்நுழையவும்"}
           </PrimaryButton>
-          <button onClick={handleEmailForgotPassword} style={{
+          <button onClick={() => { setStep("forgot"); setForgotIdentifier(""); setError(""); }} style={{
             width: "100%", background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, marginTop: 12,
           }}>
             Forgot password? / கடவுச்சொல் மறந்துவிட்டதா?
@@ -157,7 +157,7 @@ export default function Login({ onNavigate, showToast }) {
           <PrimaryButton onClick={handlePhoneLogin} disabled={loading}>
             {loading ? "Logging in…" : "Log in / உள்நுழையவும்"}
           </PrimaryButton>
-          <button onClick={() => { setStep("forgot"); setError(""); }} style={{
+          <button onClick={() => { setStep("forgot"); setForgotIdentifier(""); setError(""); }} style={{
             width: "100%", background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, marginTop: 12,
           }}>
             Forgot password? / கடவுச்சொல் மறந்துவிட்டதா?
