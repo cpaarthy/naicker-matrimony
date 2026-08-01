@@ -24,13 +24,29 @@ function AppShell() {
     const params = new URLSearchParams(window.location.search);
     return params.get("admin") === "1" ? "admin" : "home";
   });
+  const [history, setHistory] = useState([]);
   const [selectedProfileId, setSelectedProfileId] = useState(null);
   const [toast, setToast] = useState("");
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2600); };
 
   function navigate(target) {
+    setHistory(prev => [...prev, page]);
     setPage(target);
+    window.scrollTo(0, 0);
+  }
+
+  function goBack() {
+    setHistory(prev => {
+      if (prev.length === 0) {
+        setPage("home");
+        return prev;
+      }
+      const next = [...prev];
+      const previousPage = next.pop();
+      setPage(previousPage);
+      return next;
+    });
     window.scrollTo(0, 0);
   }
 
@@ -41,7 +57,7 @@ function AppShell() {
     : page;
 
   return (
-    <Layout page={navPageKey} onNavigate={navigate}>
+    <Layout page={navPageKey} onNavigate={navigate} onBack={goBack}>
       <Toast message={toast} />
       {page === "home" && <Home onNavigate={navigate} />}
       {page === "register" && <Register onNavigate={navigate} showToast={showToast} />}
