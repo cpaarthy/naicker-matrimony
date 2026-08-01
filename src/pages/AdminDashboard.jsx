@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
-  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag,
+  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
@@ -12,6 +12,7 @@ import {
   bulkUpdateProfileStatus, bulkDeleteProfiles, setProfileDeactivated,
   resolveContactMessage, replyToContactMessage, logAdminAction, fetchActivityLog,
   fetchProfileReports, updateReportStatus,
+  fetchAllAnnouncements, createAnnouncement, setAnnouncementActive, deleteAnnouncement,
 } from "../data/queries";
 import { exportToCsv } from "../utils/exportCsv";
 
@@ -24,6 +25,7 @@ const TABS = [
   { key: "requests", label: "Requests", icon: Heart },
   { key: "contact", label: "Messages", icon: Mail },
   { key: "reports", label: "Reports", icon: Flag },
+  { key: "announce", label: "Announcement", icon: Megaphone },
   { key: "lists", label: "Lists", icon: ListChecks },
   { key: "log", label: "Activity Log", icon: History },
 ];
@@ -380,6 +382,8 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
         />
       )}
 
+      {tab === "announce" && <AnnouncementManager colors={colors} showToast={showToast} />}
+
       {tab === "lists" && <MasterListsManager colors={colors} />}
 
       {tab === "log" && <ActivityLogTab colors={colors} />}
@@ -632,6 +636,133 @@ function ActivityLogTab({ colors }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function AnnouncementManager({ colors, showToast }) {
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await fetchAllAnnouncements();
+    setAnnouncements(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  async function handleCreate() {
+    if (!message.trim()) { showToast("Enter an announcement message"); return; }
+    setSaving(true);
+    const { error } = await createAnnouncement({
+      message: message.trim(),
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+    });
+    setSaving(false);
+    if (error) { showToast("Could not create announcement"); return; }
+    await logAdminAction({ action: "create_announcement", targetType: "announcement", details: message.trim() });
+    setMessage("");
+    setExpiresAt("");
+    showToast("Announcement posted");
+    load();
+  }
+
+  async function handleToggleActive(a) {
+    await setAnnouncementActive(a.id, !a.active);
+    await logAdminAction({ action: a.active ? "deactivate_announcement" : "activate_announcement", targetType: "announcement", targetId: a.id });
+    load();
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm("Delete this announcement?")) return;
+    await deleteAnnouncement(id);
+    await logAdminAction({ action: "delete_announcement", targetType: "announcement", targetId: id });
+    showToast("Announcement deleted");
+    load();
+  }
+
+  function isExpired(a) {
+    return a.expires_at && new Date(a.expires_at) < new Date();
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 12.5, color: colors.textFaint, marginBottom: 14 }}>
+        Post a banner that appears at the top of every page for all visitors. / அனைத்து பயனர்களுக்கும் தலைப்பில் தோன்றும் அறிவிப்பு.
+      </p>
+
+      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
+        <label style={{ display: "block", marginBottom: 12 }}>
+          <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Message</span>
+          <textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            rows={2}
+            placeholder="e.g. Site maintenance on Sunday 10 PM - 11 PM"
+            style={{
+              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 14, background: colors.inputBg, color: colors.text, resize: "vertical", boxSizing: "border-box",
+            }}
+          />
+        </label>
+        <label style={{ display: "block", marginBottom: 14 }}>
+          <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Expires on (optional)</span>
+          <input
+            type="datetime-local"
+            value={expiresAt}
+            onChange={e => setExpiresAt(e.target.value)}
+            style={{
+              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 14, background: colors.inputBg, color: colors.text, boxSizing: "border-box",
+            }}
+          />
+        </label>
+        <button onClick={handleCreate} disabled={saving} style={{
+          width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+          padding: "10px", fontWeight: 700, fontSize: 14, opacity: saving ? 0.6 : 1,
+        }}>{saving ? "Posting…" : "Post announcement"}</button>
+      </div>
+
+      <h3 style={{ fontSize: 14, color: colors.textMuted, marginBottom: 8 }}>All announcements</h3>
+      {loading ? (
+        <div style={{ textAlign: "center", color: colors.textFaint, padding: 20 }}>Loading…</div>
+      ) : announcements.length === 0 ? (
+        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20 }}>No announcements yet.</div>
+      ) : (
+        announcements.map(a => (
+          <div key={a.id} style={{
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 12, marginBottom: 8,
+          }}>
+            <div style={{ fontSize: 13, color: colors.text, marginBottom: 6 }}>{a.message}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+              <Badge tone={a.active && !isExpired(a) ? "approved" : "rejected"}>
+                {isExpired(a) ? "expired" : a.active ? "active" : "inactive"}
+              </Badge>
+              {a.expires_at && (
+                <span style={{ fontSize: 11, color: colors.textFaint }}>
+                  Expires: {new Date(a.expires_at).toLocaleString()}
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => handleToggleActive(a)} style={{
+                fontSize: 12, background: a.active ? colors.pendingBg : colors.approvedBg,
+                color: a.active ? colors.pendingText : colors.approvedText,
+                border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>{a.active ? "Deactivate" : "Activate"}</button>
+              <button onClick={() => handleDelete(a.id)} style={{
+                fontSize: 12, background: colors.rejectedBg, color: colors.rejectedText,
+                border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>Delete</button>
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }
