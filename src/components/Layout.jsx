@@ -1,6 +1,7 @@
 import { ArrowLeft, LogOut, Moon, Sun, Home as HomeIcon, Users, User, Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import AnnouncementBanner from "./AnnouncementBanner";
 
 export default function Layout({ page, onNavigate, onBack, children }) {
   const { session, logout } = useAuth();
@@ -74,6 +75,8 @@ export default function Layout({ page, onNavigate, onBack, children }) {
           </div>
         </div>
       </div>
+
+      <AnnouncementBanner />
 
       <div style={{ padding: "16px 16px 0" }}>
         {children}
