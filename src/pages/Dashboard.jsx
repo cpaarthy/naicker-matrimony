@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Heart, Mail, ShieldCheck, Bell, Settings, Clock } from "lucide-react";
+import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
 import Login from "./Login";
+import ShareProfileModal from "../components/ShareProfileModal";
 import { fetchRequestsFor, fetchNotifications } from "../data/queries";
 
 const COMPLETENESS_FIELDS = [
@@ -28,6 +29,7 @@ export default function Dashboard({ onNavigate, showToast }) {
   const { session, profile, profileLoading, userId } = useAuth();
   const [pendingIncoming, setPendingIncoming] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -97,6 +99,16 @@ export default function Dashboard({ onNavigate, showToast }) {
               }}>Complete more details →</button>
             )}
           </div>
+
+          {profile.status === "approved" && (
+            <button onClick={() => setShowShareModal(true)} style={{
+              width: "100%", marginTop: 12, background: colors.pendingBg, color: colors.pendingText,
+              border: "none", borderRadius: 8, padding: "9px", fontWeight: 700, fontSize: 12.5,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}>
+              <Share2 size={13} /> Share my profile / சுயவிவரத்தை பகிரவும்
+            </button>
+          )}
         </div>
       )}
 
@@ -108,6 +120,10 @@ export default function Dashboard({ onNavigate, showToast }) {
         <DashCard icon={Mail} title="Contact Us / தொடர்பு கொள்ள" onClick={() => onNavigate("contact")} colors={colors} />
         <DashCard icon={Settings} title="Account Settings / அமைப்புகள்" onClick={() => onNavigate("accountSettings")} colors={colors} />
       </div>
+
+      {showShareModal && profile && (
+        <ShareProfileModal profileId={profile.id} onClose={() => setShowShareModal(false)} />
+      )}
     </div>
   );
 }
