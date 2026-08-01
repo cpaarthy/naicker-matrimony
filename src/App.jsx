@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AuthProvider } from "./context/AuthContext";
+import { useState, useEffect } from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import Layout from "./components/Layout";
 import { Toast } from "./components/ui";
@@ -20,15 +20,40 @@ import AccountSettings from "./pages/AccountSettings";
 import RecentlyViewed from "./pages/RecentlyViewed";
 
 function AppShell() {
+  const { session, authChecked } = useAuth();
+
   const [page, setPage] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("admin") === "1" ? "admin" : "home";
+    if (params.get("admin") === "1") return "admin";
+    if (params.get("profile")) return "loading"; // resolved once auth state is known, see effect below
+    return "home";
   });
   const [history, setHistory] = useState([]);
-  const [selectedProfileId, setSelectedProfileId] = useState(null);
+  const [selectedProfileId, setSelectedProfileId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("profile") || null;
+  });
   const [toast, setToast] = useState("");
+  const [pendingSharedProfile, setPendingSharedProfile] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("profile") || null;
+  });
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2600); };
+
+  // Resolve a shared-profile deep link (?profile=<id>) once we know whether the visitor is logged in.
+  useEffect(() => {
+    if (!pendingSharedProfile || !authChecked) return;
+    if (session) {
+      setSelectedProfileId(pendingSharedProfile);
+      setPage("profileDetails");
+    } else {
+      setPage("login");
+    }
+    // Clean the query string so refreshing/navigating doesn't keep re-triggering this.
+    window.history.replaceState({}, "", window.location.pathname);
+    setPendingSharedProfile(null);
+  }, [authChecked, session, pendingSharedProfile]);
 
   function navigate(target) {
     setHistory(prev => [...prev, page]);
@@ -55,6 +80,14 @@ function AppShell() {
     || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" ? "dashboard"
     : page === "profileDetails" ? "browse"
     : page;
+
+  if (page === "loading") {
+    return (
+      <Layout page="home" onNavigate={navigate} onBack={goBack}>
+        <div style={{ textAlign: "center", color: "#8a7a63", padding: 60 }}>Loading…</div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout page={navPageKey} onNavigate={navigate} onBack={goBack}>
