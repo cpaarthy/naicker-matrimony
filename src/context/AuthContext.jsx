@@ -65,11 +65,6 @@ export function AuthProvider({ children }) {
     return { data, error };
   }
 
-  async function sendEmailPasswordResetLink(email) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    return { error };
-  }
-
   // --- Phone + password flow ---
   async function signUpWithPhone(phone, password, name) {
     const email = phoneToEmail(phone);
@@ -98,7 +93,7 @@ export function AuthProvider({ children }) {
   const value = {
     session, authChecked, userId,
     profile, profileLoading, reloadProfile: loadProfile,
-    sendEmailOtp, verifyEmailOtp, loginWithEmailPassword, sendEmailPasswordResetLink,
+    sendEmailOtp, verifyEmailOtp, loginWithEmailPassword,
     signUpWithPhone, loginWithPhone,
     logout,
   };
