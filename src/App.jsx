@@ -18,6 +18,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Notifications from "./pages/Notifications";
 import AccountSettings from "./pages/AccountSettings";
 import RecentlyViewed from "./pages/RecentlyViewed";
+import PoruthamDashboard from "./pages/PoruthamDashboard";
 
 function AppShell() {
   const { session, authChecked } = useAuth();
@@ -78,7 +79,7 @@ function AppShell() {
   // Bottom nav "dashboard" key maps internally, but admin is reached via a hidden route
   const navPageKey = page === "editProfile" || page === "requests" || page === "favourites"
     || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" ? "dashboard"
-    : page === "profileDetails" ? "browse"
+    : page === "profileDetails" || page === "porutham" ? "browse"
     : page;
 
   if (page === "loading") {
@@ -114,6 +115,9 @@ function AppShell() {
       {page === "accountSettings" && <AccountSettings onNavigate={navigate} showToast={showToast} />}
       {page === "recentlyViewed" && (
         <RecentlyViewed onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />
+      )}
+      {page === "porutham" && (
+        <PoruthamDashboard profileId={selectedProfileId} onNavigate={navigate} />
       )}
       {page === "admin" && (
         <AdminDashboard onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
