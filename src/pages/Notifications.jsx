@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Bell, Heart, Check, X as XIcon } from "lucide-react";
+import { Bell, Heart, Check, X as XIcon, Sparkles } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from "../data/queries";
@@ -8,6 +8,7 @@ const ICONS = {
   request_received: Heart,
   request_accepted: Check,
   request_declined: XIcon,
+  new_match: Sparkles,
 };
 
 export default function Notifications({ onNavigate, setSelectedProfileId }) {
