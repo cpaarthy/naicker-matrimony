@@ -355,3 +355,28 @@ export async function updateLastActive(userId) {
   const { error } = await supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
   return { error };
 }
+
+// ============ FULL DATABASE BACKUP ============
+const BACKUP_TABLES = [
+  "profiles", "requests", "favourites", "notifications", "blocked_profiles",
+  "profile_reports", "recently_viewed", "activity_log", "master_lists",
+  "announcements", "contact_messages", "porutham_reviews",
+];
+
+export async function fetchFullBackup() {
+  const backup = {
+    generated_at: new Date().toISOString(),
+    tables: {},
+    errors: [],
+  };
+  for (const table of BACKUP_TABLES) {
+    const { data, error } = await supabase.from(table).select("*");
+    if (error) {
+      backup.errors.push({ table, message: error.message });
+      backup.tables[table] = [];
+    } else {
+      backup.tables[table] = data || [];
+    }
+  }
+  return backup;
+}
