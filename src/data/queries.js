@@ -324,3 +324,34 @@ export async function deleteAnnouncement(id) {
   const { error } = await supabase.from("announcements").delete().eq("id", id);
   return { error };
 }
+
+// ============ MANUAL POROTHAM REVIEWS (admin/astrologer override) ============
+export async function fetchPoruthamReviews() {
+  const { data, error } = await supabase
+    .from("porutham_reviews")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return { data: data || [], error };
+}
+
+export async function savePoruthamReview({ profileAId, profileBId, calculatedMatchedCount, calculatedVerdict, manualVerdict, notes }) {
+  // Store the pair in a consistent order so the unique constraint works regardless of selection order
+  const [a, b] = [profileAId, profileBId].sort();
+  const { error } = await supabase.from("porutham_reviews").upsert({
+    profile_a_id: a, profile_b_id: b,
+    calculated_matched_count: calculatedMatchedCount, calculated_verdict: calculatedVerdict,
+    manual_verdict: manualVerdict, notes: notes || null,
+  }, { onConflict: "profile_a_id,profile_b_id" });
+  return { error };
+}
+
+export async function deletePoruthamReview(id) {
+  const { error } = await supabase.from("porutham_reviews").delete().eq("id", id);
+  return { error };
+}
+
+// ============ USER ENGAGEMENT TRACKING ============
+export async function updateLastActive(userId) {
+  const { error } = await supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
+  return { error };
+}
