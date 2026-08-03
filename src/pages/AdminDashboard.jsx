@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
-  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone,
+  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
@@ -13,8 +13,13 @@ import {
   resolveContactMessage, replyToContactMessage, logAdminAction, fetchActivityLog,
   fetchProfileReports, updateReportStatus,
   fetchAllAnnouncements, createAnnouncement, setAnnouncementActive, deleteAnnouncement,
+  createNotification,
+  fetchPoruthamReviews, savePoruthamReview, deletePoruthamReview,
 } from "../data/queries";
+import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
+import { BarChart, DonutChart } from "../components/AdminCharts";
 import { exportToCsv } from "../utils/exportCsv";
+import { calculateMatchScore } from "../utils/matchScore";
 
 const ADMIN_PIN = "Naik@1998!";
 
@@ -26,6 +31,7 @@ const TABS = [
   { key: "contact", label: "Messages", icon: Mail },
   { key: "reports", label: "Reports", icon: Flag },
   { key: "announce", label: "Announcement", icon: Megaphone },
+  { key: "porutham", label: "Porutham Check", icon: Star },
   { key: "lists", label: "Lists", icon: ListChecks },
   { key: "log", label: "Activity Log", icon: History },
 ];
@@ -44,6 +50,9 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const [loading, setLoading] = useState(true);
   const [editingProfile, setEditingProfile] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [allProfilesSearch, setAllProfilesSearch] = useState("");
+  const [allProfilesStatusFilter, setAllProfilesStatusFilter] = useState("all");
+  const [detailProfile, setDetailProfile] = useState(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -61,10 +70,35 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleStatus(id, status) {
     const p = profiles.find(x => x.id === id);
+    const wasAlreadyApproved = p?.status === "approved";
     await updateProfileStatus(id, status);
     await logAdminAction({ action: status, targetType: "profile", targetId: id, targetName: p?.name });
+
+    if (status === "approved" && p && !wasAlreadyApproved) {
+      await notifyMatchesForNewProfile(p);
+    }
+
     showToast(`Profile ${status}`);
     loadAll();
+  }
+
+  async function notifyMatchesForNewProfile(newProfile) {
+    // Notify existing approved, opposite-gender members whose match score with this
+    // newly-approved profile is 25% or higher.
+    const opposingGender = newProfile.gender === "Male" ? "Female" : newProfile.gender === "Female" ? "Male" : null;
+    if (!opposingGender) return;
+    const candidates = profiles.filter(x => x.status === "approved" && x.gender === opposingGender && x.id !== newProfile.id);
+    for (const candidate of candidates) {
+      const result = calculateMatchScore(candidate, newProfile);
+      if (result && result.percentage >= 25) {
+        await createNotification({
+          userId: candidate.id,
+          type: "new_match",
+          relatedProfileId: newProfile.id,
+          message: `New match found! ${newProfile.name} is a ${result.percentage}% match for you.`,
+        });
+      }
+    }
   }
 
   async function handleDelete(id, name) {
@@ -102,8 +136,12 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   async function handleBulkApprove() {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
+    const newlyApproved = profiles.filter(p => ids.includes(p.id) && p.status !== "approved");
     await bulkUpdateProfileStatus(ids, "approved");
     await logAdminAction({ action: "bulk_approve", targetType: "profile", details: `${ids.length} profiles` });
+    for (const p of newlyApproved) {
+      await notifyMatchesForNewProfile(p);
+    }
     showToast(`${ids.length} profiles approved`);
     setSelectedIds(new Set());
     loadAll();
@@ -181,6 +219,20 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     );
   }
 
+  if (detailProfile) {
+    return (
+      <AdminProfileDetail
+        profile={detailProfile}
+        profiles={profiles}
+        requests={requests}
+        reports={reports}
+        colors={colors}
+        onBack={() => setDetailProfile(null)}
+        onEdit={(p) => { setDetailProfile(null); setEditingProfile(p); }}
+      />
+    );
+  }
+
   const pending = profiles.filter(p => p.status === "pending");
   const approved = profiles.filter(p => p.status === "approved");
   const rejected = profiles.filter(p => p.status === "rejected");
@@ -190,6 +242,33 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const pendingReqs = requests.filter(r => r.status === "pending");
   const unresolvedMessages = messages.filter(m => !m.resolved);
   const openReports = reports.filter(r => r.status === "open");
+
+  // Registrations per day, last 14 days
+  const registrationsByDay = (() => {
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      days.push(d);
+    }
+    return days.map(day => {
+      const next = new Date(day);
+      next.setDate(next.getDate() + 1);
+      const count = profiles.filter(p => {
+        const created = new Date(p.created_at);
+        return created >= day && created < next;
+      }).length;
+      return { label: `${day.getDate()}/${day.getMonth() + 1}`, value: count };
+    });
+  })();
+
+  // Active vs inactive (based on last_active_at within 30 days)
+  const now = Date.now();
+  const activeUsers = profiles.filter(p => p.last_active_at && (now - new Date(p.last_active_at).getTime()) < 30 * 24 * 60 * 60 * 1000);
+  const inactiveUsers = profiles.filter(p => !p.last_active_at || (now - new Date(p.last_active_at).getTime()) >= 30 * 24 * 60 * 60 * 1000);
+  const veryInactiveUsers = profiles.filter(p => p.last_active_at && (now - new Date(p.last_active_at).getTime()) >= 150 * 24 * 60 * 60 * 1000);
+
 
   return (
     <div>
@@ -233,6 +312,57 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
             <StatCard label="Pending requests" value={pendingReqs.length} colors={colors} tone="pending" />
             <StatCard label="Unresolved messages" value={unresolvedMessages.length} colors={colors} tone="pending" />
             <StatCard label="Open reports" value={openReports.length} colors={colors} tone="pending" />
+          </div>
+
+          <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>
+              Registrations — last 14 days
+            </div>
+            <BarChart data={registrationsByDay} colors={colors} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>Gender ratio</div>
+              <DonutChart
+                colors={colors}
+                size={110}
+                segments={[
+                  { label: "Male", value: male.length, color: "#1f4d3d" },
+                  { label: "Female", value: female.length, color: "#7a1f3d" },
+                ]}
+              />
+            </div>
+            <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>Status split</div>
+              <DonutChart
+                colors={colors}
+                size={110}
+                segments={[
+                  { label: "Approved", value: approved.length, color: colors.approvedText },
+                  { label: "Pending", value: pending.length, color: colors.pendingText },
+                  { label: "Rejected", value: rejected.length, color: colors.rejectedText },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>User engagement</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: colors.approvedText, fontFamily: "'Playfair Display', Georgia, serif" }}>{activeUsers.length}</div>
+                <div style={{ fontSize: 10.5, color: colors.textFaint }}>Active (30 days)</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: colors.pendingText, fontFamily: "'Playfair Display', Georgia, serif" }}>{inactiveUsers.length}</div>
+                <div style={{ fontSize: 10.5, color: colors.textFaint }}>Inactive (30+ days)</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: colors.rejectedText, fontFamily: "'Playfair Display', Georgia, serif" }}>{veryInactiveUsers.length}</div>
+                <div style={{ fontSize: 10.5, color: colors.textFaint }}>Inactive (150+ days)</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -304,9 +434,41 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
       {tab === "all" && (
         <div>
-          {profiles.map(p => (
-            <div key={p.id} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`, flexWrap: "wrap",
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <input
+              value={allProfilesSearch}
+              onChange={e => setAllProfilesSearch(e.target.value)}
+              placeholder="Search by name, city, phone…"
+              style={{
+                flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+                fontSize: 13, background: colors.inputBg, color: colors.text,
+              }}
+            />
+            <select value={allProfilesStatusFilter} onChange={e => setAllProfilesStatusFilter(e.target.value)} style={{
+              padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 13, background: colors.inputBg, color: colors.text,
+            }}>
+              <option value="all">All status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          {profiles
+            .filter(p => {
+              if (allProfilesStatusFilter !== "all" && p.status !== allProfilesStatusFilter) return false;
+              if (allProfilesSearch) {
+                const q = allProfilesSearch.toLowerCase();
+                const hay = `${p.name} ${p.city} ${p.phone} ${p.district} ${p.state}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+              }
+              return true;
+            })
+            .map(p => (
+            <div key={p.id} onClick={() => setDetailProfile(p)} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
+              flexWrap: "wrap", cursor: "pointer",
             }}>
               <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={40} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -315,19 +477,19 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
               </div>
               <Badge tone={p.status === "approved" ? "approved" : p.status === "rejected" ? "rejected" : "pending"}>{p.status}</Badge>
               {p.admin_deactivated && <Badge tone="rejected">inactive</Badge>}
-              <button onClick={() => handleToggleActive(p)} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
+              <button onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
                 background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
                 <Power size={13} color={p.admin_deactivated ? colors.approvedText : colors.pendingText} />
               </button>
-              <button onClick={() => setEditingProfile(p)} style={{
+              <button onClick={(e) => { e.stopPropagation(); setEditingProfile(p); }} style={{
                 background: colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
                 <Pencil size={13} color={colors.pendingText} />
               </button>
-              <button onClick={() => handleDelete(p.id, p.name)} style={{
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id, p.name); }} style={{
                 background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
@@ -384,6 +546,8 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
       {tab === "announce" && <AnnouncementManager colors={colors} showToast={showToast} />}
 
+      {tab === "porutham" && <PoruthamCheckManager profiles={profiles} colors={colors} showToast={showToast} />}
+
       {tab === "lists" && <MasterListsManager colors={colors} />}
 
       {tab === "log" && <ActivityLogTab colors={colors} />}
@@ -400,6 +564,125 @@ function StatCard({ label, value, colors, tone, icon: Icon }) {
       {Icon && <Icon size={16} color={toneColors} style={{ marginBottom: 4 }} />}
       <div style={{ fontSize: 22, fontWeight: 800, color: toneColors, fontFamily: "'Playfair Display', Georgia, serif" }}>{value}</div>
       <div style={{ fontSize: 11.5, color: colors.textFaint, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBack, onEdit }) {
+  const incoming = requests.filter(r => r.to_id === profile.id);
+  const outgoing = requests.filter(r => r.from_id === profile.id);
+  const reportsAgainst = reports.filter(r => r.reported_id === profile.id);
+  const reportsBy = reports.filter(r => r.reporter_id === profile.id);
+
+  const FIELDS = [
+    ["Age", profile.age], ["Gender", profile.gender], ["Height", profile.height],
+    ["Religion", profile.religion], ["Caste", profile.caste], ["Sub caste", profile.sub_caste],
+    ["Education", profile.education], ["Occupation", profile.occupation], ["Income", profile.income],
+    ["Address", profile.address], ["District", profile.district], ["City", profile.city], ["State", profile.state],
+    ["Mother tongue", profile.mother_tongue], ["Phone", profile.phone],
+    ["Father's occupation", profile.father_occupation], ["Mother's occupation", profile.mother_occupation],
+    ["Siblings", profile.siblings], ["Family type", profile.family_type],
+    ["Star", profile.star], ["Rasi", profile.rasi], ["Birth time", profile.birth_time], ["Birth place", profile.birth_place],
+    ["Complexion", profile.complexion], ["Body type", profile.body_type], ["Blood group", profile.blood_group],
+    ["Diet", profile.diet], ["Smoking", profile.smoking], ["Drinking", profile.drinking],
+  ].filter(([, v]) => v);
+
+  return (
+    <div>
+      <button onClick={onBack} style={{
+        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
+        color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
+      }}>← Back to All Profiles</button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} size={56} />
+        <div style={{ flex: 1 }}>
+          <div className="serif" style={{ fontWeight: 700, fontSize: 18 }}>{profile.name}</div>
+          <div style={{ fontSize: 12.5, color: colors.textFaint }}>{profile.city} · {profile.age} yrs</div>
+        </div>
+        <Badge tone={profile.status === "approved" ? "approved" : profile.status === "rejected" ? "rejected" : "pending"}>{profile.status}</Badge>
+      </div>
+
+      {profile.admin_deactivated && (
+        <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 8, padding: "8px 12px", fontSize: 12.5, marginBottom: 14, fontWeight: 700 }}>
+          Account deactivated by admin
+        </div>
+      )}
+
+      <button onClick={() => onEdit(profile)} style={{
+        width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+        padding: "10px", fontWeight: 700, fontSize: 13.5, marginBottom: 16,
+      }}>Edit this profile</button>
+
+      <Section title="Profile Details" colors={colors}>
+        {FIELDS.map(([label, value]) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5, borderBottom: `1px solid ${colors.cardBorder}` }}>
+            <span style={{ color: colors.textFaint }}>{label}</span>
+            <span style={{ color: colors.text, fontWeight: 600, textAlign: "right" }}>{value}</span>
+          </div>
+        ))}
+        {profile.about && (
+          <div style={{ marginTop: 10, fontSize: 12.5, color: colors.text }}>
+            <b>About:</b> {profile.about}
+          </div>
+        )}
+      </Section>
+
+      <Section title={`Interest requests received (${incoming.length})`} colors={colors}>
+        {incoming.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint }}>None</div>}
+        {incoming.map(r => {
+          const p = profiles.find(x => x.id === r.from_id);
+          return (
+            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+              <span style={{ color: colors.text }}>{p?.name || "Unknown"}</span>
+              <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>{r.status}</Badge>
+            </div>
+          );
+        })}
+      </Section>
+
+      <Section title={`Interest requests sent (${outgoing.length})`} colors={colors}>
+        {outgoing.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint }}>None</div>}
+        {outgoing.map(r => {
+          const p = profiles.find(x => x.id === r.to_id);
+          return (
+            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+              <span style={{ color: colors.text }}>{p?.name || "Unknown"}</span>
+              <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>{r.status}</Badge>
+            </div>
+          );
+        })}
+      </Section>
+
+      {(reportsAgainst.length > 0 || reportsBy.length > 0) && (
+        <Section title="Reports" colors={colors}>
+          {reportsAgainst.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11.5, color: colors.textFaint, fontWeight: 700, marginBottom: 4 }}>Reported by others ({reportsAgainst.length})</div>
+              {reportsAgainst.map(r => (
+                <div key={r.id} style={{ fontSize: 12, color: colors.text, padding: "3px 0" }}>{r.reason} — {r.status}</div>
+              ))}
+            </div>
+          )}
+          {reportsBy.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11.5, color: colors.textFaint, fontWeight: 700, marginBottom: 4 }}>Reports filed by this user ({reportsBy.length})</div>
+              {reportsBy.map(r => (
+                <div key={r.id} style={{ fontSize: 12, color: colors.text, padding: "3px 0" }}>{r.reason} — {r.status}</div>
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, children, colors }) {
+  return (
+    <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: colors.primary, marginBottom: 8 }}>{title}</div>
+      {children}
     </div>
   );
 }
@@ -617,11 +900,31 @@ function ActivityLogTab({ colors }) {
   };
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
+
+  function handleExport() {
+    const rows = log.map(entry => ({
+      action: actionLabels[entry.action] || entry.action,
+      target_type: entry.target_type,
+      target_name: entry.target_name || "",
+      details: entry.details || "",
+      timestamp: new Date(entry.created_at).toLocaleString(),
+    }));
+    exportToCsv(`naicker-matrimony-activity-log-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  }
+
   if (log.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No activity yet.</div>;
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: colors.textFaint, marginBottom: 12 }}>Showing the most recent 200 admin actions.</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <p style={{ fontSize: 12, color: colors.textFaint, margin: 0 }}>Showing the most recent 200 admin actions.</p>
+        <button onClick={handleExport} style={{
+          display: "flex", alignItems: "center", gap: 6, background: colors.primary, color: colors.primaryText,
+          border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 700, fontSize: 12, flexShrink: 0,
+        }}>
+          <Download size={13} /> Export CSV
+        </button>
+      </div>
       {log.map(entry => (
         <div key={entry.id} style={{
           padding: "9px 0", borderBottom: `1px solid ${colors.cardBorder}`, display: "flex", justifyContent: "space-between", gap: 8,
@@ -636,6 +939,197 @@ function ActivityLogTab({ colors }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function PoruthamCheckManager({ profiles, colors, showToast }) {
+  const [profileAId, setProfileAId] = useState("");
+  const [profileBId, setProfileBId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const approvedProfiles = profiles.filter(p => p.status === "approved");
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await fetchPoruthamReviews();
+    setReviews(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const profileA = approvedProfiles.find(p => p.id === profileAId);
+  const profileB = approvedProfiles.find(p => p.id === profileBId);
+
+  let calcResult = null;
+  let horoscopeMissing = false;
+  if (profileA && profileB) {
+    if (!isHoroscopeDataAvailable(profileA) || !isHoroscopeDataAvailable(profileB)) {
+      horoscopeMissing = true;
+    } else {
+      calcResult = calculatePorutham(profileA, profileB);
+    }
+  }
+
+  const existingReview = profileA && profileB
+    ? reviews.find(r => {
+        const pair = [profileAId, profileBId].sort();
+        return r.profile_a_id === pair[0] && r.profile_b_id === pair[1];
+      })
+    : null;
+
+  async function handleSaveVerdict(manualVerdict) {
+    if (!profileA || !profileB || !calcResult) return;
+    setSaving(true);
+    const { error } = await savePoruthamReview({
+      profileAId, profileBId,
+      calculatedMatchedCount: calcResult.matchedCount,
+      calculatedVerdict: calcResult.verdict,
+      manualVerdict, notes,
+    });
+    setSaving(false);
+    if (error) { showToast("Could not save review"); return; }
+    await logAdminAction({
+      action: manualVerdict === "approved" ? "porutham_approved" : "porutham_rejected",
+      targetType: "porutham_review", details: `${profileA.name} × ${profileB.name}`,
+    });
+    // Let both members know an astrologer has reviewed their horoscope match.
+    await createNotification({ userId: profileA.id, type: "new_match", relatedProfileId: profileB.id, message: `Astrologer review: your Porutham with ${profileB.name} — ${manualVerdict}.` });
+    await createNotification({ userId: profileB.id, type: "new_match", relatedProfileId: profileA.id, message: `Astrologer review: your Porutham with ${profileA.name} — ${manualVerdict}.` });
+    showToast(`Marked as ${manualVerdict} by astrologer`);
+    setNotes("");
+    load();
+  }
+
+  async function handleDeleteReview(id) {
+    await deletePoruthamReview(id);
+    showToast("Review removed");
+    load();
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 12.5, color: colors.textFaint, marginBottom: 14 }}>
+        Select two approved profiles to see the calculated Porutham, then record an
+        astrologer's manual verdict. / இரு விவரங்களைத் தேர்ந்தெடுத்து பொருத்தத்தை பார்க்கவும்.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+        <select value={profileAId} onChange={e => setProfileAId(e.target.value)} style={{
+          padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+          fontSize: 13, background: colors.inputBg, color: colors.text,
+        }}>
+          <option value="">Select profile A…</option>
+          {approvedProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gender})</option>)}
+        </select>
+        <select value={profileBId} onChange={e => setProfileBId(e.target.value)} style={{
+          padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+          fontSize: 13, background: colors.inputBg, color: colors.text,
+        }}>
+          <option value="">Select profile B…</option>
+          {approvedProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gender})</option>)}
+        </select>
+      </div>
+
+      {profileA && profileB && profileAId === profileBId && (
+        <div style={{ fontSize: 13, color: colors.rejectedText, textAlign: "center", padding: 20 }}>
+          Please select two different profiles.
+        </div>
+      )}
+
+      {profileA && profileB && profileAId !== profileBId && horoscopeMissing && (
+        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20, background: colors.card, borderRadius: 12, border: `1px solid ${colors.cardBorder}` }}>
+          One or both profiles are missing Star/Rasi details.
+        </div>
+      )}
+
+      {calcResult && profileAId !== profileBId && (
+        <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+          <div style={{ textAlign: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: colors.primary, fontFamily: "'Playfair Display', Georgia, serif" }}>
+              {calcResult.matchedCount} / {calcResult.totalCount}
+            </div>
+            <div style={{ fontSize: 12.5, color: colors.textFaint }}>{calcResult.verdict}</div>
+            {calcResult.hasSeriousDosham && (
+              <div style={{ fontSize: 11.5, color: colors.rejectedText, marginTop: 4, fontWeight: 700 }}>⚠ Rajju Dosham present</div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            {calcResult.poruthams.map((p, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+                <span style={{ color: colors.textMuted }}>{p.label}</span>
+                <span style={{ color: p.matched ? colors.approvedText : colors.rejectedText, fontWeight: 700 }}>{p.matched ? "✓" : "✗"}</span>
+              </div>
+            ))}
+          </div>
+
+          {existingReview && (
+            <div style={{ background: colors.pendingBg, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: colors.pendingText, marginBottom: 10 }}>
+              Previously reviewed: <b>{existingReview.manual_verdict}</b>
+              {existingReview.notes && <div style={{ marginTop: 3 }}>{existingReview.notes}</div>}
+            </div>
+          )}
+
+          <label style={{ display: "block", marginBottom: 10 }}>
+            <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Astrologer notes (optional)</span>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              style={{
+                width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+                fontSize: 13, background: colors.inputBg, color: colors.text, resize: "vertical", boxSizing: "border-box",
+              }}
+            />
+          </label>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => handleSaveVerdict("approved")} disabled={saving} style={{
+              flex: 1, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 8,
+              padding: "10px", fontWeight: 700, fontSize: 13.5, opacity: saving ? 0.6 : 1,
+            }}>Approved by astrologer</button>
+            <button onClick={() => handleSaveVerdict("rejected")} disabled={saving} style={{
+              flex: 1, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 8,
+              padding: "10px", fontWeight: 700, fontSize: 13.5, opacity: saving ? 0.6 : 1,
+            }}>Rejected</button>
+          </div>
+        </div>
+      )}
+
+      <h3 style={{ fontSize: 14, color: colors.textMuted, margin: "20px 0 8px" }}>Past reviews</h3>
+      {loading ? (
+        <div style={{ textAlign: "center", color: colors.textFaint, padding: 20 }}>Loading…</div>
+      ) : reviews.length === 0 ? (
+        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20 }}>No reviews yet.</div>
+      ) : (
+        reviews.map(r => {
+          const pa = profiles.find(p => p.id === r.profile_a_id);
+          const pb = profiles.find(p => p.id === r.profile_b_id);
+          return (
+            <div key={r.id} style={{
+              background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 12, marginBottom: 8,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{pa?.name || "Unknown"} × {pb?.name || "Unknown"}</div>
+                <Badge tone={r.manual_verdict === "approved" ? "approved" : "rejected"}>{r.manual_verdict}</Badge>
+              </div>
+              <div style={{ fontSize: 11.5, color: colors.textFaint, marginBottom: 6 }}>
+                System: {r.calculated_matched_count}/10 ({r.calculated_verdict})
+              </div>
+              {r.notes && <div style={{ fontSize: 12, color: colors.text, marginBottom: 8 }}>{r.notes}</div>}
+              <button onClick={() => handleDeleteReview(r.id)} style={{
+                fontSize: 11.5, background: colors.rejectedBg, color: colors.rejectedText,
+                border: "none", borderRadius: 6, padding: "5px 9px", fontWeight: 700,
+              }}>Delete</button>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
