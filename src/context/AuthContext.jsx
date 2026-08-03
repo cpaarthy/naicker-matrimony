@@ -33,6 +33,10 @@ export function AuthProvider({ children }) {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
     setProfile(data || null);
     setProfileLoading(false);
+    if (data) {
+      // Fire-and-forget: track engagement without blocking the UI or its own error handling.
+      supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId).then(() => {});
+    }
   }, [userId]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
