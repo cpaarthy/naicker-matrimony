@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck } from "lucide-react";
+import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck, Star } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
@@ -116,6 +116,16 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 
       {profile.id !== userId && myProfile && (
         <MatchScoreCard myProfile={myProfile} otherProfile={profile} colors={colors} />
+      )}
+
+      {profile.id !== userId && myProfile && (
+        <button onClick={() => onNavigate("porutham")} style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12,
+          padding: "12px", fontSize: 13, fontWeight: 700, color: colors.primary, marginBottom: 14,
+        }}>
+          <Star size={15} /> View Porutham / பொருத்தம் பார்க்கவும்
+        </button>
       )}
 
       {profile.id !== userId && (
