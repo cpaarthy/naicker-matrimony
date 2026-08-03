@@ -31,14 +31,33 @@ export default function AnnouncementBanner() {
 
   return (
     <div style={{
-      background: colors.accent, color: colors.accentText, padding: "10px 16px",
-      display: "flex", alignItems: "center", gap: 10, fontSize: 12.5,
+      background: colors.accent, color: colors.accentText, padding: "10px 0",
+      display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, overflow: "hidden",
+      position: "relative",
     }}>
-      <Megaphone size={15} style={{ flexShrink: 0 }} />
-      <div style={{ flex: 1 }}>{announcement.message}</div>
+      <style>{`
+        @keyframes naicker-marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        .naicker-marquee-track {
+          display: inline-block;
+          white-space: nowrap;
+          animation: naicker-marquee 18s linear infinite;
+          padding-left: 100%;
+        }
+      `}</style>
+
+      <Megaphone size={15} style={{ flexShrink: 0, marginLeft: 12 }} />
+
+      <div style={{ flex: 1, overflow: "hidden", whiteSpace: "nowrap" }}>
+        <span className="naicker-marquee-track">{announcement.message}</span>
+      </div>
+
       <button onClick={handleDismiss} style={{
         background: "rgba(0,0,0,0.1)", border: "none", borderRadius: 6, width: 24, height: 24,
-        display: "flex", alignItems: "center", justifyContent: "center", color: colors.accentText, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center", color: colors.accentText,
+        flexShrink: 0, marginRight: 12,
       }}>
         <X size={13} />
       </button>
