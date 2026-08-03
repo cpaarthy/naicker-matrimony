@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
   ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
+  Database as DatabaseIcon,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
@@ -15,10 +16,12 @@ import {
   fetchAllAnnouncements, createAnnouncement, setAnnouncementActive, deleteAnnouncement,
   createNotification,
   fetchPoruthamReviews, savePoruthamReview, deletePoruthamReview,
+  fetchFullBackup,
 } from "../data/queries";
 import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
 import { BarChart, DonutChart } from "../components/AdminCharts";
 import { exportToCsv } from "../utils/exportCsv";
+import { downloadJson } from "../utils/downloadJson";
 import { calculateMatchScore } from "../utils/matchScore";
 
 const ADMIN_PIN = "Naik@1998!";
@@ -53,6 +56,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const [allProfilesSearch, setAllProfilesSearch] = useState("");
   const [allProfilesStatusFilter, setAllProfilesStatusFilter] = useState("all");
   const [detailProfile, setDetailProfile] = useState(null);
+  const [backingUp, setBackingUp] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -179,6 +183,20 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     showToast("CSV downloaded");
   }
 
+  async function handleFullBackup() {
+    setBackingUp(true);
+    const backup = await fetchFullBackup();
+    setBackingUp(false);
+    downloadJson(`naicker-matrimony-backup-${new Date().toISOString().slice(0, 10)}.json`, backup);
+    const totalRows = Object.values(backup.tables).reduce((sum, rows) => sum + rows.length, 0);
+    await logAdminAction({ action: "full_backup", targetType: "database", details: `${totalRows} rows across ${Object.keys(backup.tables).length} tables` });
+    if (backup.errors.length > 0) {
+      showToast(`Backup downloaded with ${backup.errors.length} table(s) skipped due to errors`);
+    } else {
+      showToast("Full backup downloaded");
+    }
+  }
+
   if (!unlocked) {
     return (
       <div style={{ textAlign: "center", padding: "30px 16px" }}>
@@ -294,12 +312,21 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
       {tab === "stats" && (
         <div>
-          <button onClick={handleExportCsv} style={{
-            display: "flex", alignItems: "center", gap: 6, background: colors.primary, color: colors.primaryText,
-            border: "none", borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13, marginBottom: 14,
-          }}>
-            <Download size={14} /> Export all profiles (CSV)
-          </button>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <button onClick={handleExportCsv} style={{
+              display: "flex", alignItems: "center", gap: 6, background: colors.primary, color: colors.primaryText,
+              border: "none", borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13,
+            }}>
+              <Download size={14} /> Export all profiles (CSV)
+            </button>
+            <button onClick={handleFullBackup} disabled={backingUp} style={{
+              display: "flex", alignItems: "center", gap: 6, background: colors.card, color: colors.text,
+              border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13,
+              opacity: backingUp ? 0.6 : 1,
+            }}>
+              <DatabaseIcon size={14} /> {backingUp ? "Backing up…" : "Backup full database (JSON)"}
+            </button>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
             <StatCard label="Total profiles" value={profiles.length} colors={colors} />
             <StatCard label="Pending review" value={pending.length} colors={colors} tone="pending" />
@@ -897,6 +924,7 @@ function ActivityLogTab({ colors }) {
     reply_message: "Replied to message", resolve_message: "Resolved message", reopen_message: "Reopened message",
     reset_password: "Reset password", deactivate: "Deactivated account", activate: "Activated account",
     bulk_approve: "Bulk approved", bulk_reject: "Bulk rejected", bulk_delete: "Bulk deleted", export: "Exported data",
+    full_backup: "Downloaded full backup",
   };
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
