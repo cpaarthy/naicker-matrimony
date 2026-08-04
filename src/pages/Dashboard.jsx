@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2 } from "lucide-react";
+import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
@@ -119,6 +119,7 @@ export default function Dashboard({ onNavigate, showToast }) {
         <DashCard icon={Clock} title="Recently Viewed / சமீபத்தியவை" onClick={() => onNavigate("recentlyViewed")} colors={colors} />
         <DashCard icon={Mail} title="Contact Us / தொடர்பு கொள்ள" onClick={() => onNavigate("contact")} colors={colors} />
         <DashCard icon={Settings} title="Account Settings / அமைப்புகள்" onClick={() => onNavigate("accountSettings")} colors={colors} />
+        <DashCard icon={HelpCircle} title="FAQ / கேள்விகள்" onClick={() => onNavigate("faq")} colors={colors} />
       </div>
 
       {showShareModal && profile && (
