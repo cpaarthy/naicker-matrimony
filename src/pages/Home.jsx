@@ -14,13 +14,13 @@ export default function Home({ onNavigate }) {
       }}>
         <span style={{ fontSize: 16 }}>🎉</span>
         <span style={{ fontWeight: 800, fontSize: 13, color: colors.accentText, fontFamily: "'Playfair Display', Georgia, serif" }}>
-          ❤️ Grand Opening of Our Matchmaking Center! / ❤️ எங்கள் திருமணத் தகவல் மையத்தின் மாபெரும் திறப்பு விழா!
+          Celebrating 1 Year of Matchmaking! / 1 வருட மேட்ச்மேக்கிங்!
         </span>
         <span style={{ fontSize: 16 }}>🎉</span>
       </div>
 
       <div style={{ marginBottom: 18, borderRadius: 16, overflow: "hidden" }}>
-        <img src="/images/hero-banner.svg" alt="Naicker Matrimony — trusted community alliances, free registration" style={{ width: "100%", display: "block" }} />
+        <img src="/images/hero-banner.png" alt="Naicker Matrimony — trusted community alliances, free registration" style={{ width: "100%", display: "block" }} />
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
