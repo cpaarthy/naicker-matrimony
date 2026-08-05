@@ -39,12 +39,16 @@ export default function EditProfile({ onNavigate, showToast }) {
   const [cityOptions, setCityOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [stateOptions, setStateOptions] = useState([]);
+  const [starOptions, setStarOptions] = useState([]);
+  const [rasiOptions, setRasiOptions] = useState([]);
 
   useEffect(() => {
     fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
+    fetchMasterList("star").then(({ data }) => setStarOptions(data.map(d => d.value)));
+    fetchMasterList("rasi").then(({ data }) => setRasiOptions(data.map(d => d.value)));
   }, []);
 
   useEffect(() => {
@@ -191,8 +195,8 @@ export default function EditProfile({ onNavigate, showToast }) {
 
       <SectionTitle>Horoscope Details / ஜாதக விவரங்கள்</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-        <TextField label="Star / நட்சத்திரம்" value={form.star} onChange={v => setForm(f => ({ ...f, star: v }))} />
-        <TextField label="Rasi / ராசி" value={form.rasi} onChange={v => setForm(f => ({ ...f, rasi: v }))} />
+        <MasterListSelect label="Star / நட்சத்திரம்" value={form.star} onChange={v => setForm(f => ({ ...f, star: v }))} options={starOptions} />
+        <MasterListSelect label="Rasi / ராசி" value={form.rasi} onChange={v => setForm(f => ({ ...f, rasi: v }))} options={rasiOptions} />
         <TextField label="Birth time / பிறந்த நேரம்" value={form.birth_time} onChange={v => setForm(f => ({ ...f, birth_time: v }))} placeholder="e.g. 6:30 AM" />
         <TextField label="Birth place / பிறந்த ஊர்" value={form.birth_place} onChange={v => setForm(f => ({ ...f, birth_place: v }))} />
       </div>
