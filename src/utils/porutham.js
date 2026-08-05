@@ -192,7 +192,7 @@ function dinaPorutham(boyIdx, girlIdx) {
   const goodCounts = [2, 4, 6, 8, 9, 11, 13, 15, 18, 20, 24, 26];
   const badCounts = [7, 22];
   const matched = goodCounts.includes(count) && !badCounts.includes(count);
-  return { label: "Dina Porutham", matched, note: "Health & prosperity" };
+  return { label: "Dina Porutham / தின பொருத்தம்", matched, note: "Health & prosperity / ஆரோக்கியம் & செழிப்பு" };
 }
 
 function ganaPorutham(boyNak, girlNak) {
@@ -202,69 +202,69 @@ function ganaPorutham(boyNak, girlNak) {
   if (bg === gg) matched = true;
   else if ((bg === "Deva" && gg === "Manushya") || (bg === "Manushya" && gg === "Deva")) matched = true;
   else matched = false;
-  return { label: "Gana Porutham", matched, note: "Temperament compatibility" };
+  return { label: "Gana Porutham / கண பொருத்தம்", matched, note: "Temperament compatibility / மனநிலை பொருத்தம்" };
 }
 
 function mahendraPorutham(boyIdx, girlIdx) {
   const count = countFromTo(girlIdx, boyIdx);
   const goodCounts = [4, 7, 10, 13, 16, 19, 22, 25];
   const matched = goodCounts.includes(count);
-  return { label: "Mahendra Porutham", matched, note: "Longevity & progeny" };
+  return { label: "Mahendra Porutham / மகேந்திர பொருத்தம்", matched, note: "Longevity & progeny / ஆயுள் & சந்ததி" };
 }
 
 function sthreeDheerghaPorutham(boyIdx, girlIdx) {
   const count = countFromTo(girlIdx, boyIdx);
   const matched = count >= 13;
-  return { label: "Sthree Dheergha Porutham", matched, note: "Bride's prosperity" };
+  return { label: "Sthree Dheergha Porutham / ஸ்திரீ தீர்க்க பொருத்தம்", matched, note: "Bride's prosperity / மணமகள் செழிப்பு" };
 }
 
 function yoniPorutham(boyNak, girlNak) {
   const by = YONI[boyNak];
   const gy = YONI[girlNak];
-  if (!by || !gy) return { label: "Yoni Porutham", matched: false, note: "Sexual compatibility" };
-  if (by === gy) return { label: "Yoni Porutham", matched: true, note: "Sexual compatibility" };
+  if (!by || !gy) return { label: "Yoni Porutham / யோனி பொருத்தம்", matched: false, note: "Sexual compatibility / பாலியல் பொருத்தம்" };
+  if (by === gy) return { label: "Yoni Porutham / யோனி பொருத்தம்", matched: true, note: "Sexual compatibility / பாலியல் பொருத்தம்" };
   const enemies = YONI_ENEMIES.some(([a, b]) => (a === by && b === gy) || (a === gy && b === by));
-  return { label: "Yoni Porutham", matched: !enemies, note: "Sexual compatibility" };
+  return { label: "Yoni Porutham / யோனி பொருத்தம்", matched: !enemies, note: "Sexual compatibility / பாலியல் பொருத்தம்" };
 }
 
 function rasiPorutham(boyRasi, girlRasi) {
   const bi = RASIS.indexOf(boyRasi);
   const gi = RASIS.indexOf(girlRasi);
-  if (bi === -1 || gi === -1) return { label: "Rasi Porutham", matched: false, note: "Emotional compatibility" };
+  if (bi === -1 || gi === -1) return { label: "Rasi Porutham / ராசி பொருத்தம்", matched: false, note: "Emotional compatibility / உணர்வு பொருத்தம்" };
   const diff = Math.abs(bi - gi);
   const distance = Math.min(diff, 12 - diff);
   const matched = !(distance === 6 || distance === 1);
-  return { label: "Rasi Porutham", matched, note: "Emotional compatibility" };
+  return { label: "Rasi Porutham / ராசி பொருத்தம்", matched, note: "Emotional compatibility / உணர்வு பொருத்தம்" };
 }
 
 function rasiAdhipathiPorutham(boyRasi, girlRasi) {
   const bl = RASI_LORD[boyRasi];
   const gl = RASI_LORD[girlRasi];
-  if (!bl || !gl) return { label: "Rasi Adhipathi Porutham", matched: false, note: "Ruling planet friendship" };
+  if (!bl || !gl) return { label: "Rasi Adhipathi Porutham / ராசி அதிபதி பொருத்தம்", matched: false, note: "Ruling planet friendship / ஆளும் கிரக நட்பு" };
   const matched = bl === gl || (LORD_FRIENDS[bl] && LORD_FRIENDS[bl].includes(gl));
-  return { label: "Rasi Adhipathi Porutham", matched, note: "Ruling planet friendship" };
+  return { label: "Rasi Adhipathi Porutham / ராசி அதிபதி பொருத்தம்", matched, note: "Ruling planet friendship / ஆளும் கிரக நட்பு" };
 }
 
 function vasiyaPorutham(boyRasi, girlRasi) {
   const bv = VASIYA_GROUP[boyRasi];
   const gv = VASIYA_GROUP[girlRasi];
-  if (!bv || !gv) return { label: "Vasiya Porutham", matched: false, note: "Mutual influence" };
+  if (!bv || !gv) return { label: "Vasiya Porutham / வசிய பொருத்தம்", matched: false, note: "Mutual influence / பரஸ்பர தாக்கம்" };
   const matched = bv === gv || (VASIYA_FRIENDS[bv] && VASIYA_FRIENDS[bv].includes(gv))
     || (VASIYA_FRIENDS[gv] && VASIYA_FRIENDS[gv].includes(bv));
-  return { label: "Vasiya Porutham", matched, note: "Mutual influence" };
+  return { label: "Vasiya Porutham / வசிய பொருத்தம்", matched, note: "Mutual influence / பரஸ்பர தாக்கம்" };
 }
 
 function rajjuPorutham(boyNak, girlNak) {
   const br = RAJJU[boyNak];
   const gr = RAJJU[girlNak];
-  if (!br || !gr) return { label: "Rajju Porutham", matched: false, note: "Longevity", critical: true };
+  if (!br || !gr) return { label: "Rajju Porutham / ராஜு பொருத்தம்", matched: false, note: "Longevity / ஆயுள்", critical: true };
   const matched = br !== gr;
-  return { label: "Rajju Porutham", matched, note: "Longevity of marriage", critical: true };
+  return { label: "Rajju Porutham / ராஜு பொருத்தம்", matched, note: "Longevity of marriage / திருமண ஆயுள்", critical: true };
 }
 
 function vedhaPorutham(boyNak, girlNak) {
   const matched = !isVedha(boyNak, girlNak);
-  return { label: "Vedha Porutham", matched, note: "Mutual affection" };
+  return { label: "Vedha Porutham / வேத பொருத்தம்", matched, note: "Mutual affection / பரஸ்பர பாசம்" };
 }
 
 export function calculatePorutham(profileA, profileB) {
