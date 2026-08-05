@@ -1,15 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
-import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin } from "lucide-react";
+import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin, BarChart3 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
+import { LineChart, BarChart, DonutChart } from "../components/AdminCharts";
 import Login from "./Login";
 import ShareProfileModal from "../components/ShareProfileModal";
-import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles } from "../data/queries";
+import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles, fetchProfileViewsReceived } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
 const RECENT_DAYS = 30;
 const ACTIVE_DAYS = 7;
+const MONTH_LABELS_TA = ["ஜன", "பிப்", "மார்", "ஏப்", "மே", "ஜூன்", "ஜூலை", "ஆக", "செப்", "அக்", "நவ", "டிச"];
 
 function daysAgo(dateStr) {
   if (!dateStr) return Infinity;
@@ -33,11 +35,21 @@ function computeMatchAnalytics(myProfile, candidates) {
   const matching = pool.filter(matchesPreference);
 
   let high = 0, medium = 0;
+  const scoreBuckets = [
+    { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 }, { label: "41-60%", value: 0 },
+    { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
+  ];
   matching.forEach(p => {
     const score = calculateMatchScore(myProfile, p);
     if (!score) return;
     if (score.percentage >= 90) high++;
     else if (score.percentage >= 50) medium++;
+    const pct = score.percentage;
+    if (pct <= 20) scoreBuckets[0].value++;
+    else if (pct <= 40) scoreBuckets[1].value++;
+    else if (pct <= 60) scoreBuckets[2].value++;
+    else if (pct <= 80) scoreBuckets[3].value++;
+    else scoreBuckets[4].value++;
   });
 
   const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
@@ -47,10 +59,81 @@ function computeMatchAnalytics(myProfile, candidates) {
     (myProfile.district && p.district && myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
   ).length;
 
+  // Matches by district — top 6 districts among the matching pool
+  const districtCounts = {};
+  matching.forEach(p => {
+    const d = (p.district || "Other").trim();
+    districtCounts[d] = (districtCounts[d] || 0) + 1;
+  });
+  const districtChart = Object.entries(districtCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([label, value]) => ({ label: label.length > 8 ? label.slice(0, 7) + "…" : label, value }));
+
+  // Age-wise histogram — 5-year buckets
+  const ageBuckets = {};
+  matching.forEach(p => {
+    if (!p.age) return;
+    const bucketStart = Math.floor(p.age / 5) * 5;
+    const key = `${bucketStart}-${bucketStart + 4}`;
+    ageBuckets[key] = (ageBuckets[key] || 0) + 1;
+  });
+  const ageChart = Object.entries(ageBuckets)
+    .sort((a, b) => Number(a[0].split("-")[0]) - Number(b[0].split("-")[0]))
+    .map(([label, value]) => ({ label, value }));
+
   return {
     total: matching.length,
     high, medium, newMembers, recentlyActive, nearby,
+    districtChart, ageChart, scoreBuckets,
   };
+}
+
+function computeProfileViewsChart(viewRows) {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTH_LABELS_TA[d.getMonth()], value: 0 });
+  }
+  const monthMap = Object.fromEntries(months.map(m => [m.key, m]));
+  viewRows.forEach(row => {
+    const d = new Date(row.viewed_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (monthMap[key]) monthMap[key].value++;
+  });
+  return months.map(({ label, value }) => ({ label, value }));
+}
+
+function computeInterestStatusChart(requests, userId, colors) {
+  const sent = requests.filter(r => r.from_id === userId);
+  const accepted = sent.filter(r => r.status === "accepted").length;
+  const pending = sent.filter(r => r.status === "pending").length;
+  const declined = sent.filter(r => r.status === "declined").length;
+  return [
+    { label: "Accepted / ஏற்கப்பட்டது", value: accepted, color: colors.approvedText },
+    { label: "Pending / நிலுவையில்", value: pending, color: colors.pendingText },
+    { label: "Declined / நிராகரிக்கப்பட்டது", value: declined, color: colors.rejectedText },
+  ];
+}
+
+const COMPLETION_SECTIONS = [
+  { key: "Basic", label: "Basic / அடிப்படை", fields: ["name", "gender", "age", "height", "religion", "caste", "sub_caste", "phone", "photo_url", "about"] },
+  { key: "Education", label: "Education & Career / கல்வி", fields: ["education", "occupation", "income"] },
+  { key: "Location", label: "Location / இருப்பிடம்", fields: ["address", "district", "city", "state", "mother_tongue"] },
+  { key: "Family", label: "Family / குடும்பம்", fields: ["father_occupation", "mother_occupation", "siblings", "family_type"] },
+  { key: "Horoscope", label: "Horoscope / ஜாதகம்", fields: ["star", "rasi", "birth_time", "birth_place"] },
+  { key: "Physical", label: "Physical / உடல் அமைப்பு", fields: ["complexion", "body_type", "blood_group", "diet", "smoking", "drinking"] },
+  { key: "Preference", label: "Preferences / விருப்பங்கள்", fields: ["pref_age_min", "pref_age_max", "pref_education", "pref_occupation"] },
+];
+
+function computeSectionCompletion(profile) {
+  if (!profile) return [];
+  return COMPLETION_SECTIONS.map(section => {
+    const filled = section.fields.filter(f => profile[f] !== null && profile[f] !== undefined && profile[f] !== "").length;
+    const pct = Math.round((filled / section.fields.length) * 100);
+    return { label: section.label, value: pct };
+  });
 }
 
 const COMPLETENESS_FIELDS = [
@@ -79,16 +162,20 @@ export default function Dashboard({ onNavigate, showToast }) {
   const [candidateProfiles, setCandidateProfiles] = useState([]);
   const [blockedIds, setBlockedIds] = useState(new Set());
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [myRequests, setMyRequests] = useState([]);
+  const [profileViews, setProfileViews] = useState([]);
 
   useEffect(() => {
     if (userId) {
       fetchRequestsFor(userId).then(({ data }) => {
+        setMyRequests(data);
         setPendingIncoming(data.filter(r => r.to_id === userId && r.status === "pending").length);
       });
       fetchNotifications(userId).then(({ data }) => {
         setUnreadNotifications(data.filter(n => !n.read).length);
       });
       fetchBlockedProfiles(userId).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
+      fetchProfileViewsReceived(userId).then(({ data }) => setProfileViews(data));
     }
   }, [userId]);
 
@@ -109,6 +196,10 @@ export default function Dashboard({ onNavigate, showToast }) {
     const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
     return computeMatchAnalytics(profile, pool);
   }, [profile, candidateProfiles, blockedIds]);
+
+  const profileViewsChart = useMemo(() => computeProfileViewsChart(profileViews), [profileViews]);
+  const interestStatusChart = useMemo(() => computeInterestStatusChart(myRequests, userId, colors), [myRequests, userId, colors]);
+  const completionChart = useMemo(() => computeSectionCompletion(profile), [profile]);
 
   if (!session) {
     return <Login onNavigate={onNavigate} showToast={showToast} />;
@@ -181,6 +272,42 @@ export default function Dashboard({ onNavigate, showToast }) {
       )}
 
       {profile && profile.status === "approved" && (
+        <div style={{ marginBottom: 8 }}>
+          <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary, display: "flex", alignItems: "center", gap: 6 }}>
+            <BarChart3 size={16} /> Your Insights / உங்கள் புள்ளிவிவரங்கள்
+          </h3>
+
+          <ChartCard title="📈 Monthly Profile Views / மாதாந்திர பார்வைகள்" subtitle="Last 6 months / கடந்த 6 மாதங்கள்" colors={colors}>
+            <LineChart data={profileViewsChart} colors={colors} />
+          </ChartCard>
+
+          <ChartCard title="🥧 Interest Status / ஆர்வ கோரிக்கை நிலை" subtitle="Requests you sent / நீங்கள் அனுப்பியவை" colors={colors}>
+            <DonutChart segments={interestStatusChart} colors={colors} />
+          </ChartCard>
+
+          <ChartCard title="📊 Profile Completion by Section / பிரிவு வாரியாக முழுமை" colors={colors}>
+            <BarChart data={completionChart} colors={colors} />
+          </ChartCard>
+
+          {!analyticsLoading && (
+            <>
+              <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
+                <BarChart data={analytics.districtChart} colors={colors} barColor={colors.accent} />
+              </ChartCard>
+
+              <ChartCard title="👥 Age-wise Matching Profiles / வயது வாரியாக பொருத்தங்கள்" colors={colors}>
+                <BarChart data={analytics.ageChart} colors={colors} />
+              </ChartCard>
+
+              <ChartCard title="⭐ Compatibility Score Distribution / பொருத்த மதிப்பெண் பரவல்" colors={colors}>
+                <BarChart data={analytics.scoreBuckets} colors={colors} barColor={colors.approvedText} />
+              </ChartCard>
+            </>
+          )}
+        </div>
+      )}
+
+      {profile && profile.status === "approved" && (
         <div style={{ marginBottom: 16 }}>
           <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary }}>
             Match Analytics / பொருத்த புள்ளிவிவரம்
@@ -213,6 +340,19 @@ export default function Dashboard({ onNavigate, showToast }) {
       {showShareModal && profile && (
         <ShareProfileModal profileId={profile.id} onClose={() => setShowShareModal(false)} />
       )}
+    </div>
+  );
+}
+
+function ChartCard({ title, subtitle, colors, children }) {
+  return (
+    <div style={{
+      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14,
+      padding: 14, marginBottom: 12,
+    }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: colors.text, marginBottom: subtitle ? 2 : 10 }}>{title}</div>
+      {subtitle && <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 10 }}>{subtitle}</div>}
+      {children}
     </div>
   );
 }
