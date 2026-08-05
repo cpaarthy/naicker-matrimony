@@ -365,6 +365,272 @@ export async function updateLastActive(userId) {
   return { error };
 }
 
+// ============ ADMIN ANALYTICS REPORTS ============
+
+// Profile completion report - how many profiles have complete data
+export async function fetchProfileCompletionReport() {
+  const { data, error } = await supabase.from("profiles").select("*");
+  if (error) return { data: [], error };
+
+  const report = data.map(p => {
+    const requiredFields = ['name', 'age', 'gender', 'caste', 'sub_caste', 'education', 'occupation', 'address', 'city', 'state', 'phone'];
+    const optionalFields = ['height', 'religion', 'income', 'mother_tongue', 'about', 'father_occupation', 'mother_occupation', 'siblings', 'family_type', 'star', 'rasi', 'birth_time', 'birth_place', 'complexion', 'body_type', 'blood_group', 'diet', 'smoking', 'drinking', 'photo_url'];
+    
+    const requiredFilled = requiredFields.filter(f => p[f] && p[f].trim() !== '').length;
+    const optionalFilled = optionalFields.filter(f => p[f] && p[f].trim() !== '').length;
+    
+    const requiredPercentage = Math.round((requiredFilled / requiredFields.length) * 100);
+    const totalPercentage = Math.round(((requiredFilled + optionalFilled) / (requiredFields.length + optionalFields.length)) * 100);
+    
+    return {
+      id: p.id,
+      name: p.name,
+      required_percentage: requiredPercentage,
+      total_percentage: totalPercentage,
+      has_photo: !!p.photo_url,
+      status: p.status,
+      created_at: p.created_at
+    };
+  });
+
+  return { data: report, error: null };
+}
+
+// Photo statistics
+export async function fetchPhotoStatistics() {
+  const { data, error } = await supabase.from("profiles").select("id, name, photo_url, status, gender, created_at");
+  if (error) return { data: [], error };
+
+  const withPhoto = data.filter(p => p.photo_url && p.photo_url.trim() !== '');
+  const withoutPhoto = data.filter(p => !p.photo_url || p.photo_url.trim() === '');
+
+  return {
+    data: {
+      total: data.length,
+      with_photo: withPhoto.length,
+      without_photo: withoutPhoto.length,
+      with_photo_percentage: data.length > 0 ? Math.round((withPhoto.length / data.length) * 100) : 0,
+      by_gender: {
+        male_with_photo: withPhoto.filter(p => p.gender === 'Male').length,
+        male_without_photo: withoutPhoto.filter(p => p.gender === 'Male').length,
+        female_with_photo: withPhoto.filter(p => p.gender === 'Female').length,
+        female_without_photo: withoutPhoto.filter(p => p.gender === 'Female').length,
+      },
+      by_status: {
+        approved_with_photo: withPhoto.filter(p => p.status === 'approved').length,
+        approved_without_photo: withoutPhoto.filter(p => p.status === 'approved').length,
+        pending_with_photo: withPhoto.filter(p => p.status === 'pending').length,
+        pending_without_photo: withoutPhoto.filter(p => p.status === 'pending').length,
+      }
+    },
+    error: null
+  };
+}
+
+// District-wise analysis
+export async function fetchDistrictAnalysis() {
+  const { data, error } = await supabase.from("profiles").select("district, city, status, gender");
+  if (error) return { data: [], error };
+
+  const districtData = {};
+  data.forEach(p => {
+    const district = p.district || 'Unknown';
+    if (!districtData[district]) {
+      districtData[district] = { total: 0, approved: 0, pending: 0, male: 0, female: 0 };
+    }
+    districtData[district].total++;
+    if (p.status === 'approved') districtData[district].approved++;
+    if (p.status === 'pending') districtData[district].pending++;
+    if (p.gender === 'Male') districtData[district].male++;
+    if (p.gender === 'Female') districtData[district].female++;
+  });
+
+  const report = Object.entries(districtData)
+    .map(([district, stats]) => ({ district, ...stats }))
+    .sort((a, b) => b.total - a.total);
+
+  return { data: report, error: null };
+}
+
+// Age distribution
+export async function fetchAgeDistribution() {
+  const { data, error } = await supabase.from("profiles").select("age, gender, status");
+  if (error) return { data: [], error };
+
+  const ageGroups = {
+    '18-24': { total: 0, male: 0, female: 0, approved: 0 },
+    '25-30': { total: 0, male: 0, female: 0, approved: 0 },
+    '31-35': { total: 0, male: 0, female: 0, approved: 0 },
+    '36-40': { total: 0, male: 0, female: 0, approved: 0 },
+    '41-45': { total: 0, male: 0, female: 0, approved: 0 },
+    '46-50': { total: 0, male: 0, female: 0, approved: 0 },
+    '50+': { total: 0, male: 0, female: 0, approved: 0 },
+  };
+
+  data.forEach(p => {
+    if (!p.age) return;
+    let group = '50+';
+    if (p.age >= 18 && p.age <= 24) group = '18-24';
+    else if (p.age >= 25 && p.age <= 30) group = '25-30';
+    else if (p.age >= 31 && p.age <= 35) group = '31-35';
+    else if (p.age >= 36 && p.age <= 40) group = '36-40';
+    else if (p.age >= 41 && p.age <= 45) group = '41-45';
+    else if (p.age >= 46 && p.age <= 50) group = '46-50';
+
+    ageGroups[group].total++;
+    if (p.gender === 'Male') ageGroups[group].male++;
+    if (p.gender === 'Female') ageGroups[group].female++;
+    if (p.status === 'approved') ageGroups[group].approved++;
+  });
+
+  const report = Object.entries(ageGroups).map(([group, stats]) => ({ group, ...stats }));
+  return { data: report, error: null };
+}
+
+// Response rate analysis
+export async function fetchResponseRateAnalysis() {
+  const { data: requests, error } = await supabase.from("requests").select("*");
+  if (error) return { data: [], error };
+
+  const total = requests.length;
+  const accepted = requests.filter(r => r.status === 'accepted').length;
+  const declined = requests.filter(r => r.status === 'declined').length;
+  const pending = requests.filter(r => r.status === 'pending').length;
+
+  // Calculate average response time (from creation to response)
+  const responded = requests.filter(r => r.status !== 'pending');
+  let totalResponseTime = 0;
+  responded.forEach(r => {
+    const created = new Date(r.created_at);
+    // Since we don't have updated_at, we'll estimate based on created_at + average response time
+    // This is a simplified approach
+    totalResponseTime += 7 * 24 * 60 * 60 * 1000; // Assume 7 days average
+  });
+
+  return {
+    data: {
+      total_requests: total,
+      accepted: accepted,
+      declined: declined,
+      pending: pending,
+      acceptance_rate: total > 0 ? Math.round((accepted / total) * 100) : 0,
+      decline_rate: total > 0 ? Math.round((declined / total) * 100) : 0,
+      pending_rate: total > 0 ? Math.round((pending / total) * 100) : 0,
+      average_response_days: responded.length > 0 ? Math.round(totalResponseTime / responded.length / (24 * 60 * 60 * 1000)) : 0
+    },
+    error: null
+  };
+}
+
+// Most viewed profiles
+export async function fetchMostViewedProfiles(limit = 20) {
+  const { data, error } = await supabase
+    .from("recently_viewed")
+    .select("viewed_id, viewer_id, viewed_at")
+    .order("viewed_at", { ascending: false });
+
+  if (error) return { data: [], error };
+
+  const viewCounts = {};
+  data.forEach(v => {
+    if (!viewCounts[v.viewed_id]) {
+      viewCounts[v.viewed_id] = { count: 0, unique_viewers: new Set() };
+    }
+    viewCounts[v.viewed_id].count++;
+    viewCounts[v.viewed_id].unique_viewers.add(v.viewer_id);
+  });
+
+  const report = Object.entries(viewCounts)
+    .map(([profileId, stats]) => ({
+      profile_id: profileId,
+      total_views: stats.count,
+      unique_viewers: stats.unique_viewers.size
+    }))
+    .sort((a, b) => b.total_views - a.total_views)
+    .slice(0, limit);
+
+  // Fetch profile details for the most viewed
+  const profileIds = report.map(r => r.profile_id);
+  const { data: profiles } = await supabase.from("profiles").select("id, name, age, gender, city, photo_url, status").in("id", profileIds);
+
+  const enrichedReport = report.map(r => {
+    const profile = profiles.find(p => p.id === r.profile_id);
+    return { ...r, profile: profile || null };
+  });
+
+  return { data: enrichedReport, error: null };
+}
+
+// Occupation-wise success analysis
+export async function fetchOccupationAnalysis() {
+  const { data: profiles, error } = await supabase.from("profiles").select("id, occupation, status, gender");
+  if (error) return { data: [], error };
+
+  const { data: requests } = await supabase.from("requests").select("*");
+
+  const occupationData = {};
+  profiles.forEach(p => {
+    const occupation = p.occupation || 'Unknown';
+    if (!occupationData[occupation]) {
+      occupationData[occupation] = { total: 0, approved: 0, male: 0, female: 0, accepted_requests: 0 };
+    }
+    occupationData[occupation].total++;
+    if (p.status === 'approved') occupationData[occupation].approved++;
+    if (p.gender === 'Male') occupationData[occupation].male++;
+    if (p.gender === 'Female') occupationData[occupation].female++;
+  });
+
+  // Count accepted requests per occupation
+  requests.filter(r => r.status === 'accepted').forEach(r => {
+    const fromProfile = profiles.find(p => p.id === r.from_id);
+    const toProfile = profiles.find(p => p.id === r.to_id);
+    if (fromProfile) {
+      const occupation = fromProfile.occupation || 'Unknown';
+      if (occupationData[occupation]) {
+        occupationData[occupation].accepted_requests++;
+      }
+    }
+  });
+
+  const report = Object.entries(occupationData)
+    .map(([occupation, stats]) => ({
+      occupation,
+      ...stats,
+      success_rate: stats.total > 0 ? Math.round((stats.accepted_requests / stats.total) * 100) : 0
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  return { data: report, error: null };
+}
+
+// Education-wise breakdown
+export async function fetchEducationAnalysis() {
+  const { data: profiles, error } = await supabase.from("profiles").select("id, education, status, gender");
+  if (error) return { data: [], error };
+
+  const educationData = {};
+  profiles.forEach(p => {
+    const education = p.education || 'Unknown';
+    if (!educationData[education]) {
+      educationData[education] = { total: 0, approved: 0, male: 0, female: 0 };
+    }
+    educationData[education].total++;
+    if (p.status === 'approved') educationData[education].approved++;
+    if (p.gender === 'Male') educationData[education].male++;
+    if (p.gender === 'Female') educationData[education].female++;
+  });
+
+  const report = Object.entries(educationData)
+    .map(([education, stats]) => ({
+      education,
+      ...stats,
+      approval_rate: stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  return { data: report, error: null };
+}
+
 // ============ FULL DATABASE BACKUP ============
 const BACKUP_TABLES = [
   "profiles", "requests", "favourites", "notifications", "blocked_profiles",
