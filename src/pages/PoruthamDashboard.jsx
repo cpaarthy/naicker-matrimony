@@ -138,6 +138,17 @@ export default function PoruthamDashboard({ profileId, onNavigate }) {
           </div>
         ))}
       </div>
+
+      <div style={{
+        display: "flex", gap: 8, alignItems: "flex-start", background: colors.pendingBg,
+        borderRadius: 10, padding: 12, marginTop: 14,
+      }}>
+        <AlertTriangle size={15} color={colors.pendingText} style={{ flexShrink: 0, marginTop: 1 }} />
+        <div style={{ fontSize: 12, color: colors.pendingText }}>
+          This is an automatic reference calculation, not a certified reading. Please check with an astrologer before making any decisions based on this result.
+          <br />இது ஒரு தானியங்கு கணக்கீடு மட்டுமே — இதன் அடிப்படையில் முடிவெடுக்கும் முன் ஜோதிடரிடம் ஆலோசிக்கவும்.
+        </div>
+      </div>
     </div>
   );
 }
