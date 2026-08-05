@@ -1,5 +1,35 @@
 // Minimal, dependency-free SVG chart components for the Admin Overview tab.
 
+export function LineChart({ data, colors, height = 140, lineColor }) {
+  if (!data || data.length === 0) return null;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const stepX = data.length > 1 ? 100 / (data.length - 1) : 0;
+  const chartHeight = height - 20;
+
+  const points = data.map((d, i) => {
+    const x = data.length > 1 ? i * stepX : 50;
+    const y = chartHeight - (d.value / max) * chartHeight;
+    return { x, y, ...d };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const areaD = `${pathD} L ${points[points.length - 1].x} ${chartHeight} L ${points[0].x} ${chartHeight} Z`;
+
+  return (
+    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ width: "100%", height, display: "block", overflow: "visible" }}>
+      <path d={areaD} fill={lineColor || colors.primary} opacity="0.12" stroke="none" />
+      <path d={pathD} fill="none" stroke={lineColor || colors.primary} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+      {points.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r="1.6" fill={lineColor || colors.primary} />
+          <text x={p.x} y={height - 6} fontSize="4" textAnchor="middle" fill={colors.textFaint}>{p.label}</text>
+          <text x={p.x} y={Math.max(p.y - 3, 5)} fontSize="4.5" textAnchor="middle" fill={colors.text} fontWeight="700">{p.value}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export function BarChart({ data, colors, height = 140, barColor }) {
   if (!data || data.length === 0) return null;
   const max = Math.max(...data.map(d => d.value), 1);
