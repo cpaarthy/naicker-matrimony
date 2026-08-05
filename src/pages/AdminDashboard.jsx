@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
   ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
-  Database as DatabaseIcon,
+  Database as DatabaseIcon, Camera, MapPin, Eye, Briefcase, BookOpen,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
@@ -17,6 +17,9 @@ import {
   createNotification,
   fetchPoruthamReviews, savePoruthamReview, deletePoruthamReview,
   fetchFullBackup,
+  fetchProfileCompletionReport, fetchPhotoStatistics, fetchDistrictAnalysis,
+  fetchAgeDistribution, fetchResponseRateAnalysis, fetchMostViewedProfiles,
+  fetchOccupationAnalysis, fetchEducationAnalysis,
 } from "../data/queries";
 import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
 import { BarChart, DonutChart } from "../components/AdminCharts";
@@ -33,6 +36,7 @@ const TABS = [
   { key: "requests", label: "Requests", icon: Heart },
   { key: "contact", label: "Messages", icon: Mail },
   { key: "reports", label: "Reports", icon: Flag },
+  { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "announce", label: "Announcement", icon: Megaphone },
   { key: "porutham", label: "Porutham Check", icon: Star },
   { key: "lists", label: "Lists", icon: ListChecks },
@@ -571,6 +575,13 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
         />
       )}
 
+      {tab === "analytics" && (
+        <AnalyticsTab
+          colors={colors}
+          showToast={showToast}
+        />
+      )}
+
       {tab === "announce" && <AnnouncementManager colors={colors} showToast={showToast} />}
 
       {tab === "porutham" && <PoruthamCheckManager profiles={profiles} colors={colors} showToast={showToast} />}
@@ -907,6 +918,357 @@ function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function AnalyticsTab({ colors, showToast }) {
+  const [loading, setLoading] = useState(true);
+  const [currentReport, setCurrentReport] = useState("profile_completion");
+  const [reportData, setReportData] = useState(null);
+
+  const REPORTS = [
+    { key: "profile_completion", label: "Profile Completion", icon: User },
+    { key: "photo_stats", label: "Photo Statistics", icon: Camera },
+    { key: "district_analysis", label: "District Analysis", icon: MapPin },
+    { key: "age_distribution", label: "Age Distribution", icon: BarChart3 },
+    { key: "response_rate", label: "Response Rate", icon: Heart },
+    { key: "most_viewed", label: "Most Viewed Profiles", icon: Eye },
+    { key: "occupation_analysis", label: "Occupation Analysis", icon: Briefcase },
+    { key: "education_analysis", label: "Education Analysis", icon: BookOpen },
+  ];
+
+  useEffect(() => {
+    loadReport();
+  }, [currentReport]);
+
+  async function loadReport() {
+    setLoading(true);
+    let result;
+    switch (currentReport) {
+      case "profile_completion":
+        result = await fetchProfileCompletionReport();
+        break;
+      case "photo_stats":
+        result = await fetchPhotoStatistics();
+        break;
+      case "district_analysis":
+        result = await fetchDistrictAnalysis();
+        break;
+      case "age_distribution":
+        result = await fetchAgeDistribution();
+        break;
+      case "response_rate":
+        result = await fetchResponseRateAnalysis();
+        break;
+      case "most_viewed":
+        result = await fetchMostViewedProfiles(20);
+        break;
+      case "occupation_analysis":
+        result = await fetchOccupationAnalysis();
+        break;
+      case "education_analysis":
+        result = await fetchEducationAnalysis();
+        break;
+      default:
+        result = { data: [], error: null };
+    }
+    setReportData(result.data);
+    setLoading(false);
+  }
+
+  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
+        {REPORTS.map(r => {
+          const Icon = r.icon;
+          const active = currentReport === r.key;
+          return (
+            <button key={r.key} onClick={() => { setCurrentReport(r.key); }} style={{
+              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 8,
+              fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
+              background: active ? colors.primary : colors.card,
+              color: active ? colors.primaryText : colors.textMuted,
+              border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
+            }}>
+              <Icon size={13} /> {r.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16 }}>
+        {currentReport === "profile_completion" && <ProfileCompletionReport data={reportData} colors={colors} />}
+        {currentReport === "photo_stats" && <PhotoStatisticsReport data={reportData} colors={colors} />}
+        {currentReport === "district_analysis" && <DistrictAnalysisReport data={reportData} colors={colors} />}
+        {currentReport === "age_distribution" && <AgeDistributionReport data={reportData} colors={colors} />}
+        {currentReport === "response_rate" && <ResponseRateReport data={reportData} colors={colors} />}
+        {currentReport === "most_viewed" && <MostViewedReport data={reportData} colors={colors} />}
+        {currentReport === "occupation_analysis" && <OccupationAnalysisReport data={reportData} colors={colors} />}
+        {currentReport === "education_analysis" && <EducationAnalysisReport data={reportData} colors={colors} />}
+      </div>
+    </div>
+  );
+}
+
+function ProfileCompletionReport({ data, colors }) {
+  const total = data.length;
+  const highCompletion = data.filter(d => d.total_percentage >= 80).length;
+  const mediumCompletion = data.filter(d => d.total_percentage >= 50 && d.total_percentage < 80).length;
+  const lowCompletion = data.filter(d => d.total_percentage < 50).length;
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <div style={{ background: colors.approvedBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: colors.approvedText }}>{highCompletion}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>High (80%+)</div>
+        </div>
+        <div style={{ background: colors.pendingBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: colors.pendingText }}>{mediumCompletion}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Medium (50-79%)</div>
+        </div>
+        <div style={{ background: colors.rejectedBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: colors.rejectedText }}>{lowCompletion}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Low (&lt;50%)</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 8 }}>Top 5 least complete profiles:</div>
+      {data.slice(0, 5).map(d => (
+        <div key={d.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${colors.cardBorder}`, fontSize: 12.5 }}>
+          <span>{d.name}</span>
+          <span style={{ fontWeight: 600 }}>{d.total_percentage}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PhotoStatisticsReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Photo Statistics</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <div style={{ background: colors.card, padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${colors.cardBorder}` }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: colors.text }}>{data.with_photo}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>With Photo ({data.with_photo_percentage}%)</div>
+        </div>
+        <div style={{ background: colors.card, padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${colors.cardBorder}` }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: colors.text }}>{data.without_photo}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Without Photo</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>By Gender:</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div style={{ fontSize: 12 }}>
+          <span style={{ color: colors.textMuted }}>Male: </span>
+          {data.by_gender.male_with_photo} with / {data.by_gender.male_without_photo} without
+        </div>
+        <div style={{ fontSize: 12 }}>
+          <span style={{ color: colors.textMuted }}>Female: </span>
+          {data.by_gender.female_with_photo} with / {data.by_gender.female_without_photo} without
+        </div>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>By Status:</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ fontSize: 12 }}>
+          <span style={{ color: colors.textMuted }}>Approved: </span>
+          {data.by_status.approved_with_photo} with / {data.by_status.approved_without_photo} without
+        </div>
+        <div style={{ fontSize: 12 }}>
+          <span style={{ color: colors.textMuted }}>Pending: </span>
+          {data.by_status.pending_with_photo} with / {data.by_status.pending_without_photo} without
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DistrictAnalysisReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
+      {data.length === 0 ? (
+        <div style={{ fontSize: 12, color: colors.textFaint }}>No data available</div>
+      ) : (
+        <div>
+          {data.slice(0, 10).map(d => (
+            <div key={d.district} style={{ 
+              background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}` 
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{d.district}</span>
+                <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
+                <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
+                <div><span style={{ color: colors.pendingText }}>{d.pending}</span> pending</div>
+                <div>Male: {d.male} / Female: {d.female}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgeDistributionReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
+      {data.map(d => (
+        <div key={d.group} style={{ marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{d.group}</span>
+            <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+          </div>
+          <div style={{ 
+            height: 8, background: colors.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 4 
+          }}>
+            <div style={{ 
+              height: "100%", background: colors.primary, width: `${Math.min(d.total * 2, 100)}%` 
+            }} />
+          </div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>
+            Male: {d.male} | Female: {d.female} | Approved: {d.approved}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResponseRateReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Response Rate Analysis</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Total Requests</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: colors.text }}>{data.total_requests}</div>
+        </div>
+        <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Acceptance Rate</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: colors.approvedText }}>{data.acceptance_rate}%</div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <div style={{ background: colors.approvedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{data.accepted}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Accepted</div>
+        </div>
+        <div style={{ background: colors.rejectedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: colors.rejectedText }}>{data.declined}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Declined</div>
+        </div>
+        <div style={{ background: colors.pendingBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{data.pending}</div>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>Pending</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: colors.textMuted }}>
+        Average response time: ~{data.average_response_days} days
+      </div>
+    </div>
+  );
+}
+
+function MostViewedReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
+      {data.length === 0 ? (
+        <div style={{ fontSize: 12, color: colors.textFaint }}>No view data available</div>
+      ) : (
+        <div>
+          {data.map((d, index) => (
+            <div key={d.profile_id} style={{ 
+              display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}` 
+            }}>
+              <div style={{ 
+                width: 24, height: 24, borderRadius: "50%", background: colors.primary, color: colors.primaryText,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 
+              }}>
+                {index + 1}
+              </div>
+              {d.profile && (
+                <>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{d.profile.name}</div>
+                    <div style={{ fontSize: 11, color: colors.textMuted }}>{d.profile.city} · {d.profile.age} yrs</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{d.total_views}</div>
+                    <div style={{ fontSize: 10, color: colors.textMuted }}>{d.unique_viewers} unique</div>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OccupationAnalysisReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
+      {data.length === 0 ? (
+        <div style={{ fontSize: 12, color: colors.textFaint }}>No data available</div>
+      ) : (
+        <div>
+          {data.slice(0, 15).map(d => (
+            <div key={d.occupation} style={{ 
+              background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}` 
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{d.occupation}</span>
+                <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
+                <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
+                <div>Male: {d.male} / Female: {d.female}</div>
+                <div>Success: {d.success_rate}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EducationAnalysisReport({ data, colors }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
+      {data.length === 0 ? (
+        <div style={{ fontSize: 12, color: colors.textFaint }}>No data available</div>
+      ) : (
+        <div>
+          {data.slice(0, 15).map(d => (
+            <div key={d.education} style={{ 
+              background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}` 
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{d.education}</span>
+                <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
+                <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
+                <div>Male: {d.male} / Female: {d.female}</div>
+                <div>Approval: {d.approval_rate}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
