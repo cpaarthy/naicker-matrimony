@@ -945,36 +945,43 @@ function AnalyticsTab({ colors, showToast }) {
   async function loadReport() {
     setLoading(true);
     let result;
-    switch (currentReport) {
-      case "profile_completion":
-        result = await fetchProfileCompletionReport();
-        break;
-      case "photo_stats":
-        result = await fetchPhotoStatistics();
-        break;
-      case "district_analysis":
-        result = await fetchDistrictAnalysis();
-        break;
-      case "age_distribution":
-        result = await fetchAgeDistribution();
-        break;
-      case "response_rate":
-        result = await fetchResponseRateAnalysis();
-        break;
-      case "most_viewed":
-        result = await fetchMostViewedProfiles(20);
-        break;
-      case "occupation_analysis":
-        result = await fetchOccupationAnalysis();
-        break;
-      case "education_analysis":
-        result = await fetchEducationAnalysis();
-        break;
-      default:
-        result = { data: [], error: null };
+    try {
+      switch (currentReport) {
+        case "profile_completion":
+          result = await fetchProfileCompletionReport();
+          break;
+        case "photo_stats":
+          result = await fetchPhotoStatistics();
+          break;
+        case "district_analysis":
+          result = await fetchDistrictAnalysis();
+          break;
+        case "age_distribution":
+          result = await fetchAgeDistribution();
+          break;
+        case "response_rate":
+          result = await fetchResponseRateAnalysis();
+          break;
+        case "most_viewed":
+          result = await fetchMostViewedProfiles(20);
+          break;
+        case "occupation_analysis":
+          result = await fetchOccupationAnalysis();
+          break;
+        case "education_analysis":
+          result = await fetchEducationAnalysis();
+          break;
+        default:
+          result = { data: [], error: null };
+      }
+      setReportData(result.data);
+    } catch (error) {
+      console.error("Error loading report:", error);
+      setReportData([]);
+      showToast("Error loading analytics data");
+    } finally {
+      setLoading(false);
     }
-    setReportData(result.data);
-    setLoading(false);
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
