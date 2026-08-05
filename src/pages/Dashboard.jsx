@@ -1,11 +1,57 @@
-import { useEffect, useState } from "react";
-import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
 import Login from "./Login";
 import ShareProfileModal from "../components/ShareProfileModal";
-import { fetchRequestsFor, fetchNotifications } from "../data/queries";
+import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles } from "../data/queries";
+import { calculateMatchScore } from "../utils/matchScore";
+
+const RECENT_DAYS = 30;
+const ACTIVE_DAYS = 7;
+
+function daysAgo(dateStr) {
+  if (!dateStr) return Infinity;
+  return (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function computeMatchAnalytics(myProfile, candidates) {
+  const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
+  const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
+
+  const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
+  const matchesPreference = (p) => {
+    if (!hasPrefs) return true;
+    if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
+    if (myProfile.pref_age_max && p.age > myProfile.pref_age_max) return false;
+    if (myProfile.pref_education && !p.education?.toLowerCase().includes(myProfile.pref_education.toLowerCase())) return false;
+    if (myProfile.pref_occupation && !p.occupation?.toLowerCase().includes(myProfile.pref_occupation.toLowerCase())) return false;
+    return true;
+  };
+
+  const matching = pool.filter(matchesPreference);
+
+  let high = 0, medium = 0;
+  matching.forEach(p => {
+    const score = calculateMatchScore(myProfile, p);
+    if (!score) return;
+    if (score.percentage >= 90) high++;
+    else if (score.percentage >= 50) medium++;
+  });
+
+  const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
+  const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
+  const nearby = matching.filter(p =>
+    (myProfile.city && p.city && myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
+    (myProfile.district && p.district && myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
+  ).length;
+
+  return {
+    total: matching.length,
+    high, medium, newMembers, recentlyActive, nearby,
+  };
+}
 
 const COMPLETENESS_FIELDS = [
   "name", "gender", "age", "height", "religion", "caste", "sub_caste", "education",
@@ -30,6 +76,9 @@ export default function Dashboard({ onNavigate, showToast }) {
   const [pendingIncoming, setPendingIncoming] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [candidateProfiles, setCandidateProfiles] = useState([]);
+  const [blockedIds, setBlockedIds] = useState(new Set());
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   useEffect(() => {
     if (userId) {
@@ -39,8 +88,27 @@ export default function Dashboard({ onNavigate, showToast }) {
       fetchNotifications(userId).then(({ data }) => {
         setUnreadNotifications(data.filter(n => !n.read).length);
       });
+      fetchBlockedProfiles(userId).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
     }
   }, [userId]);
+
+  useEffect(() => {
+    if (profile && profile.status === "approved") {
+      setAnalyticsLoading(true);
+      fetchApprovedProfiles().then(({ data }) => {
+        setCandidateProfiles(data || []);
+        setAnalyticsLoading(false);
+      });
+    } else {
+      setAnalyticsLoading(false);
+    }
+  }, [profile]);
+
+  const analytics = useMemo(() => {
+    if (!profile || profile.status !== "approved") return null;
+    const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
+    return computeMatchAnalytics(profile, pool);
+  }, [profile, candidateProfiles, blockedIds]);
 
   if (!session) {
     return <Login onNavigate={onNavigate} showToast={showToast} />;
@@ -112,6 +180,26 @@ export default function Dashboard({ onNavigate, showToast }) {
         </div>
       )}
 
+      {profile && profile.status === "approved" && (
+        <div style={{ marginBottom: 16 }}>
+          <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary }}>
+            Match Analytics / பொருத்த புள்ளிவிவரம்
+          </h3>
+          {analyticsLoading ? (
+            <div style={{ textAlign: "center", color: colors.textFaint, padding: 20, fontSize: 12.5 }}>Loading…</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse")} />
+              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse")} />
+              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse")} />
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <DashCard icon={Heart} title="Interest Requests / ஆர்வ கோரிக்கைகள்" badge={pendingIncoming > 0 ? pendingIncoming : null} onClick={() => onNavigate("requests")} colors={colors} />
         <DashCard icon={Bell} title="Notifications / அறிவிப்புகள்" badge={unreadNotifications > 0 ? unreadNotifications : null} onClick={() => onNavigate("notifications")} colors={colors} />
@@ -126,6 +214,22 @@ export default function Dashboard({ onNavigate, showToast }) {
         <ShareProfileModal profileId={profile.id} onClose={() => setShowShareModal(false)} />
       )}
     </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, colors, tone, onClick }) {
+  const valueColor = tone === "approved" ? colors.approvedText : tone === "pending" ? colors.pendingText : colors.primary;
+  return (
+    <button onClick={onClick} style={{
+      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14,
+      textAlign: "left",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <Icon size={17} color={colors.primary} />
+        <span style={{ fontSize: 20, fontWeight: 800, color: valueColor, fontFamily: "'Playfair Display', Georgia, serif" }}>{value}</span>
+      </div>
+      <div style={{ fontSize: 11.5, fontWeight: 600, color: colors.textFaint, lineHeight: 1.35 }}>{label}</div>
+    </button>
   );
 }
 
