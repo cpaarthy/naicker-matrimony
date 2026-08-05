@@ -1295,6 +1295,8 @@ function MasterListsManager({ colors }) {
     { key: "city", label: "City / ஊர்" },
     { key: "district", label: "District / மாவட்டம்" },
     { key: "state", label: "State / மாநிலம்" },
+    { key: "star", label: "Star / நட்சத்திரம்" },
+    { key: "rasi", label: "Rasi / ராசி" },
   ];
   const [activeList, setActiveList] = useState("sub_caste");
   const [items, setItems] = useState([]);
