@@ -286,6 +286,15 @@ export async function fetchRecentlyViewed(viewerId) {
   return { data: data || [], error };
 }
 
+export async function fetchProfileViewsReceived(profileId) {
+  const { data, error } = await supabase
+    .from("recently_viewed")
+    .select("*")
+    .eq("viewed_id", profileId)
+    .order("viewed_at", { ascending: false });
+  return { data: data || [], error };
+}
+
 // ============ SITE ANNOUNCEMENTS (admin banner) ============
 export async function fetchActiveAnnouncement() {
   const nowIso = new Date().toISOString();
