@@ -64,7 +64,9 @@ export function calculateMatchScore(myProfile, otherProfile) {
   }
 
   // Education — matches the viewer's stated preference (substring match), or if
-  // no preference was set, any filled-in education on both sides counts as a match.
+  // no preference was set, compares the actual education values (one contains
+  // the other) so this only counts as a match when they're genuinely similar —
+  // not just because both fields happen to be filled in.
   {
     const weight = 15;
     totalWeight += weight;
@@ -73,14 +75,18 @@ export function calculateMatchScore(myProfile, otherProfile) {
       matched = otherProfile.education
         && otherProfile.education.toLowerCase().includes(myProfile.pref_education.trim().toLowerCase());
     } else {
-      matched = !!(myProfile.education && otherProfile.education);
+      const a = (myProfile.education || "").trim().toLowerCase();
+      const b = (otherProfile.education || "").trim().toLowerCase();
+      matched = !!(a && b && (a === b || a.includes(b) || b.includes(a)));
     }
     if (matched) earnedWeight += weight;
     results.push({ label: "Education", matched: !!matched });
   }
 
   // Occupation — matches the viewer's stated preference (substring match), or if
-  // no preference was set, any filled-in occupation on both sides counts as a match.
+  // no preference was set, compares the actual occupation values (one contains
+  // the other) so this only counts as a match when they're genuinely similar —
+  // not just because both fields happen to be filled in.
   {
     const weight = 15;
     totalWeight += weight;
@@ -89,7 +95,9 @@ export function calculateMatchScore(myProfile, otherProfile) {
       matched = otherProfile.occupation
         && otherProfile.occupation.toLowerCase().includes(myProfile.pref_occupation.trim().toLowerCase());
     } else {
-      matched = !!(myProfile.occupation && otherProfile.occupation);
+      const a = (myProfile.occupation || "").trim().toLowerCase();
+      const b = (otherProfile.occupation || "").trim().toLowerCase();
+      matched = !!(a && b && (a === b || a.includes(b) || b.includes(a)));
     }
     if (matched) earnedWeight += weight;
     results.push({ label: "Occupation", matched: !!matched });
