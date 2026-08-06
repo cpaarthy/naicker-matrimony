@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Lock, Camera, Eye, EyeOff } from "lucide-react";
+import { Lock, Camera } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { TextField, SelectField, MasterListSelect, PrimaryButton, Avatar } from "../components/ui";
@@ -16,7 +16,6 @@ const emptyForm = {
   diet: "Vegetarian", smoking: "No", drinking: "No",
   pref_age_min: "", pref_age_max: "", pref_education: "", pref_occupation: "",
   security_answer: "",
-  visible: true,
 };
 
 function SectionTitle({ children }) {
@@ -120,7 +119,6 @@ export default function EditProfile({ onNavigate, showToast }) {
         pref_age_min: String(profile.pref_age_min || ""), pref_age_max: String(profile.pref_age_max || ""),
         pref_education: profile.pref_education || "", pref_occupation: profile.pref_occupation || "",
         security_answer: profile.security_answer || "",
-        visible: profile.visible !== false,
       });
     }
   }, [profile]);
@@ -320,30 +318,6 @@ export default function EditProfile({ onNavigate, showToast }) {
           <span>After you submit, an admin reviews your profile before it appears publicly. / சமர்ப்பித்த பிறகு, நிர்வாகி சரிபார்த்த பின்னரே வெளியிடப்படும்.</span>
         </div>
       )}
-
-      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          {form.visible ? <Eye size={16} color={colors.primary} /> : <EyeOff size={16} color={colors.textMuted} />}
-          <div style={{ fontWeight: 600, fontSize: 13 }}>Profile Visibility / சுயவிவர தெரிவு</div>
-        </div>
-        <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 10 }}>
-          {form.visible
-            ? "Your profile will be visible to other users. / உங்கள் சுயவிவரம் மற்ற பயனர்களுக்கு தெரியும்."
-            : "Your profile will be hidden from other users. / உங்கள் சுயவிவரம் மற்ற பயனர்களுக்கு தெரியாது."
-          }
-        </p>
-        <button
-          onClick={() => setForm(f => ({ ...f, visible: !f.visible }))}
-          style={{
-            background: form.visible ? colors.pendingBg : colors.approvedBg,
-            color: form.visible ? colors.pendingText : colors.approvedText,
-            border: "none", borderRadius: 6, padding: "8px 12px", fontWeight: 600, fontSize: 12,
-            display: "flex", alignItems: "center", gap: 6,
-          }}
-        >
-          {form.visible ? <><EyeOff size={14} /> Hide profile / மறைக்க</> : <><Eye size={14} /> Show profile / காட்டு</>}
-        </button>
-      </div>
 
       <PrimaryButton onClick={handleSubmit} disabled={submitting}>
         {submitting ? "Saving… / சேமிக்கப்படுகிறது…" : profile?.status === "approved" ? "Save changes / மாற்றங்களை சேமிக்கவும்" : "Submit for approval / சமர்ப்பிக்கவும்"}
