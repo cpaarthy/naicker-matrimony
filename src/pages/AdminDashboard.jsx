@@ -940,6 +940,7 @@ function AnalyticsTab({ colors, showToast }) {
 
   useEffect(() => {
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentReport]);
 
   async function loadReport() {
@@ -989,6 +990,16 @@ function AnalyticsTab({ colors, showToast }) {
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
 
+  if (!reportData) {
+    return (
+      <div>
+        <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>
+          No data available. Please try again or check your database connection.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
@@ -1018,12 +1029,28 @@ function AnalyticsTab({ colors, showToast }) {
         {currentReport === "most_viewed" && <MostViewedReport data={reportData} colors={colors} />}
         {currentReport === "occupation_analysis" && <OccupationAnalysisReport data={reportData} colors={colors} />}
         {currentReport === "education_analysis" && <EducationAnalysisReport data={reportData} colors={colors} />}
+        {!reportData && !loading && (
+          <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+            No data available for this report
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 function ProfileCompletionReport({ data, colors }) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No profile data available
+        </div>
+      </div>
+    );
+  }
+
   const total = data.length;
   const highCompletion = data.filter(d => d.total_percentage >= 80).length;
   const mediumCompletion = data.filter(d => d.total_percentage >= 50 && d.total_percentage < 80).length;
