@@ -141,10 +141,11 @@ export default function EditProfile({ onNavigate, showToast }) {
     const missing = [];
     if (!form.name) missing.push("name");
     if (!form.age) missing.push("age");
-    if (!form.religion) missing.push("religion");
-    if (!form.caste) missing.push("caste");
-    if (!form.sub_caste) missing.push("sub caste");
-    if (!form.occupation) missing.push("occupation");
+    // Temporarily make these optional for debugging
+    // if (!form.religion) missing.push("religion");
+    // if (!form.caste) missing.push("caste");
+    // if (!form.sub_caste) missing.push("sub caste");
+    // if (!form.occupation) missing.push("occupation");
     if (!form.address) missing.push("address");
     if (!form.district) missing.push("district");
     if (!form.city) missing.push("city");
@@ -167,7 +168,7 @@ export default function EditProfile({ onNavigate, showToast }) {
     setSubmitting(false);
     if (error) {
       console.error("Profile submission error:", error);
-      showToast("Could not submit. Try again.");
+      showToast("Could not submit. Try again. Error: " + error);
       return;
     }
     showToast(keepApproved ? "Profile updated." : "Profile submitted. Waiting for admin approval.");
