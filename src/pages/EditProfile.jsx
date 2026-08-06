@@ -162,9 +162,14 @@ export default function EditProfile({ onNavigate, showToast }) {
       pref_age_min: form.pref_age_min ? Number(form.pref_age_min) : null,
       pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
     };
+    console.log("Submitting profile record:", record);
     const { error } = await upsertProfile(record);
     setSubmitting(false);
-    if (error) { showToast("Could not submit. Try again."); return; }
+    if (error) {
+      console.error("Profile submission error:", error);
+      showToast("Could not submit. Try again.");
+      return;
+    }
     showToast(keepApproved ? "Profile updated." : "Profile submitted. Waiting for admin approval.");
     await reloadProfile();
     onNavigate("dashboard");
