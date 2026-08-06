@@ -1223,7 +1223,7 @@ function ActivityLogTab({ colors }) {
     if (selectedUser === "all") {
       setFilteredLog(log);
     } else {
-      setFilteredLog(log.filter(entry => entry.target_id === selectedUser));
+      setFilteredLog(log.filter(entry => entry.user_id === selectedUser || entry.target_id === selectedUser));
     }
   }, [log, selectedUser]);
 
