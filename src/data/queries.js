@@ -369,31 +369,36 @@ export async function updateLastActive(userId) {
 
 // Profile completion report - how many profiles have complete data
 export async function fetchProfileCompletionReport() {
-  const { data, error } = await supabase.from("profiles").select("*");
-  if (error) return { data: [], error };
+  try {
+    const { data, error } = await supabase.from("profiles").select("*");
+    if (error) return { data: [], error };
 
-  const report = data.map(p => {
-    const requiredFields = ['name', 'age', 'gender', 'caste', 'sub_caste', 'education', 'occupation', 'address', 'city', 'state', 'phone'];
-    const optionalFields = ['height', 'religion', 'income', 'mother_tongue', 'about', 'father_occupation', 'mother_occupation', 'siblings', 'family_type', 'star', 'rasi', 'birth_time', 'birth_place', 'complexion', 'body_type', 'blood_group', 'diet', 'smoking', 'drinking', 'photo_url'];
-    
-    const requiredFilled = requiredFields.filter(f => p[f] && p[f].trim() !== '').length;
-    const optionalFilled = optionalFields.filter(f => p[f] && p[f].trim() !== '').length;
-    
-    const requiredPercentage = Math.round((requiredFilled / requiredFields.length) * 100);
-    const totalPercentage = Math.round(((requiredFilled + optionalFilled) / (requiredFields.length + optionalFields.length)) * 100);
-    
-    return {
-      id: p.id,
-      name: p.name,
-      required_percentage: requiredPercentage,
-      total_percentage: totalPercentage,
-      has_photo: !!p.photo_url,
-      status: p.status,
-      created_at: p.created_at
-    };
-  });
+    const report = data.map(p => {
+      const requiredFields = ['name', 'age', 'gender', 'caste', 'sub_caste', 'education', 'occupation', 'address', 'city', 'state', 'phone'];
+      const optionalFields = ['height', 'religion', 'income', 'mother_tongue', 'about', 'father_occupation', 'mother_occupation', 'siblings', 'family_type', 'star', 'rasi', 'birth_time', 'birth_place', 'complexion', 'body_type', 'blood_group', 'diet', 'smoking', 'drinking', 'photo_url'];
+      
+      const requiredFilled = requiredFields.filter(f => p[f] && typeof p[f] === 'string' && p[f].trim() !== '').length;
+      const optionalFilled = optionalFields.filter(f => p[f] && typeof p[f] === 'string' && p[f].trim() !== '').length;
+      
+      const requiredPercentage = Math.round((requiredFilled / requiredFields.length) * 100);
+      const totalPercentage = Math.round(((requiredFilled + optionalFilled) / (requiredFields.length + optionalFields.length)) * 100);
+      
+      return {
+        id: p.id,
+        name: p.name,
+        required_percentage: requiredPercentage,
+        total_percentage: totalPercentage,
+        has_photo: !!p.photo_url,
+        status: p.status,
+        created_at: p.created_at
+      };
+    });
 
-  return { data: report, error: null };
+    return { data: report, error: null };
+  } catch (err) {
+    console.error("Profile completion report error:", err);
+    return { data: [], error: err.message };
+  }
 }
 
 // Photo statistics
@@ -409,8 +414,8 @@ export async function fetchPhotoStatistics() {
       return { data: null, error: null };
     }
 
-    const withPhoto = data.filter(p => p.photo_url && p.photo_url.trim() !== '');
-    const withoutPhoto = data.filter(p => !p.photo_url || p.photo_url.trim() === '');
+    const withPhoto = data.filter(p => p.photo_url && typeof p.photo_url === 'string' && p.photo_url.trim() !== '');
+    const withoutPhoto = data.filter(p => !p.photo_url || typeof p.photo_url !== 'string' || p.photo_url.trim() === '');
 
     const photoStats = {
       total: data.length,
