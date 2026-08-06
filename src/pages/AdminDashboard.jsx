@@ -1472,7 +1472,7 @@ function MasterListsTab({ colors, showToast }) {
   async function loadValues() {
     setLoading(true);
     const { data } = await fetchMasterList(listType);
-    setValues(data?.map(d => d.value) || []);
+    setValues(data || []);
     setLoading(false);
   }
 
@@ -1484,11 +1484,12 @@ function MasterListsTab({ colors, showToast }) {
     loadValues();
   }
 
-  async function handleDelete(value) {
-    const item = values.find(v => v === value);
-    if (!item) return;
-    const id = values.indexOf(item);
-    await deleteMasterListValue(id);
+  async function handleDelete(id) {
+    const { error } = await deleteMasterListValue(id);
+    if (error) {
+      showToast("Could not delete value: " + error);
+      return;
+    }
     showToast("Value deleted");
     loadValues();
   }
@@ -1516,6 +1517,7 @@ function MasterListsTab({ colors, showToast }) {
         <option value="complexion">Complexion</option>
         <option value="body_type">Body type</option>
         <option value="blood_group">Blood group</option>
+        <option value="village">Village</option>
       </select>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input
@@ -1532,12 +1534,12 @@ function MasterListsTab({ colors, showToast }) {
       {loading ? <div style={{ fontSize: 12, color: colors.textFaint }}>Loading…</div> : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {values.map(v => (
-            <div key={v} style={{
+            <div key={v.id} style={{
               background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 20,
               padding: "6px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 6,
             }}>
-              {v}
-              <button onClick={() => handleDelete(v)} style={{ background: "none", border: "none", color: colors.rejectedText, cursor: "pointer", padding: 0 }}>×</button>
+              {v.value}
+              <button onClick={() => handleDelete(v.id)} style={{ background: "none", border: "none", color: colors.rejectedText, cursor: "pointer", padding: 0 }}>×</button>
             </div>
           ))}
         </div>
