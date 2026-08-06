@@ -215,6 +215,8 @@ export default function Dashboard({ onNavigate, showToast }) {
     if (profile && profile.status === "approved") {
       setAnalyticsLoading(true);
       fetchApprovedProfiles().then(({ data }) => {
+        console.log("Fetched candidate profiles:", data?.length);
+        console.log("User profile:", profile);
         setCandidateProfiles(data || []);
         setAnalyticsLoading(false);
       });
@@ -226,6 +228,9 @@ export default function Dashboard({ onNavigate, showToast }) {
   const analytics = useMemo(() => {
     if (!profile || profile.status !== "approved") return null;
     const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
+    console.log("Candidate pool after filtering blocked:", pool.length);
+    console.log("Total candidates:", candidateProfiles.length);
+    console.log("Blocked IDs:", blockedIds.size);
     const result = computeMatchAnalytics(profile, pool);
     console.log("Analytics computed:", result);
     return result;
