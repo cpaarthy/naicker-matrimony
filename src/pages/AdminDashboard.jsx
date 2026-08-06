@@ -190,7 +190,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
         caste: p.caste, sub_caste: p.sub_caste, status: p.status, created_at: p.created_at,
       }));
       console.log("CSV rows:", rows.length);
-      exportToCsv(rows, "naicker-matrimony-profiles.csv");
+      exportToCsv("naicker-matrimony-profiles.csv", rows);
       showToast("CSV exported");
     } catch (err) {
       console.error("CSV export error:", err);
@@ -1223,7 +1223,7 @@ function ActivityLogTab({ colors }) {
         created_at: entry.created_at,
       }));
       console.log("Activity log rows:", rows.length);
-      exportToCsv(rows, "admin-activity-log.csv");
+      exportToCsv("admin-activity-log.csv", rows);
       showToast("Activity log exported");
     } catch (err) {
       console.error("Activity log export error:", err);
