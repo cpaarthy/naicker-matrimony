@@ -1505,6 +1505,10 @@ function MasterListsTab({ colors, showToast }) {
         <option value="city">City</option>
         <option value="district">District</option>
         <option value="state">State</option>
+        <option value="mother_tongue">Mother tongue</option>
+        <option value="religion">Religion</option>
+        <option value="education">Education</option>
+        <option value="occupation">Occupation</option>
       </select>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input
