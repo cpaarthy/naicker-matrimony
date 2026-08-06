@@ -7,9 +7,9 @@ import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/quer
 
 const emptyForm = {
   profile_for: "Self",
-  name: "", gender: "Male", age: "", height: "", religion: "Hindu", caste: "Naicker",
+  name: "", gender: "Male", age: "", height: "", religion: "", caste: "Naicker",
   sub_caste: "Malava", education: "", occupation: "", income: "", address: "", district: "",
-  city: "", state: "Tamil Nadu", mother_tongue: "Tamil", about: "", phone: "", photo_url: "",
+  city: "", state: "Tamil Nadu", mother_tongue: "", about: "", phone: "", photo_url: "",
   father_occupation: "", mother_occupation: "", siblings: "", family_type: "Nuclear",
   star: "", rasi: "", birth_time: "", birth_place: "",
   complexion: "", body_type: "", blood_group: "",
@@ -42,6 +42,10 @@ export default function EditProfile({ onNavigate, showToast }) {
   const [stateOptions, setStateOptions] = useState([]);
   const [starOptions, setStarOptions] = useState([]);
   const [rasiOptions, setRasiOptions] = useState([]);
+  const [motherTongueOptions, setMotherTongueOptions] = useState([]);
+  const [religionOptions, setReligionOptions] = useState([]);
+  const [educationOptions, setEducationOptions] = useState([]);
+  const [occupationOptions, setOccupationOptions] = useState([]);
 
   useEffect(() => {
     fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));
@@ -50,6 +54,10 @@ export default function EditProfile({ onNavigate, showToast }) {
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
     fetchMasterList("star").then(({ data }) => setStarOptions(data.map(d => d.value)));
     fetchMasterList("rasi").then(({ data }) => setRasiOptions(data.map(d => d.value)));
+    fetchMasterList("mother_tongue").then(({ data }) => setMotherTongueOptions(data.map(d => d.value)));
+    fetchMasterList("religion").then(({ data }) => setReligionOptions(data.map(d => d.value)));
+    fetchMasterList("education").then(({ data }) => setEducationOptions(data.map(d => d.value)));
+    fetchMasterList("occupation").then(({ data }) => setOccupationOptions(data.map(d => d.value)));
   }, []);
 
   useEffect(() => {
@@ -57,11 +65,11 @@ export default function EditProfile({ onNavigate, showToast }) {
       setForm({
         profile_for: profile.profile_for || "Self",
         name: profile.name || "", gender: profile.gender || "Male", age: String(profile.age || ""),
-        height: profile.height || "", religion: profile.religion || "Hindu", caste: profile.caste || "Naicker",
+        height: profile.height || "", religion: profile.religion || "", caste: profile.caste || "Naicker",
         sub_caste: profile.sub_caste || "Malava",
         education: profile.education || "", occupation: profile.occupation || "", income: profile.income || "",
         address: profile.address || "", district: profile.district || "",
-        city: profile.city || "", state: profile.state || "Tamil Nadu", mother_tongue: profile.mother_tongue || "Tamil",
+        city: profile.city || "", state: profile.state || "Tamil Nadu", mother_tongue: profile.mother_tongue || "",
         about: profile.about || "", phone: profile.phone || "", photo_url: profile.photo_url || "",
         father_occupation: profile.father_occupation || "", mother_occupation: profile.mother_occupation || "",
         siblings: profile.siblings || "", family_type: profile.family_type || "Nuclear",
@@ -92,6 +100,7 @@ export default function EditProfile({ onNavigate, showToast }) {
     const missing = [];
     if (!form.name) missing.push("name");
     if (!form.age) missing.push("age");
+    if (!form.religion) missing.push("religion");
     if (!form.caste) missing.push("caste");
     if (!form.sub_caste) missing.push("sub caste");
     if (!form.occupation) missing.push("occupation");
@@ -168,12 +177,12 @@ export default function EditProfile({ onNavigate, showToast }) {
         <SelectField label="Gender / பாலினம்" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} options={["Male", "Female"]} />
         <TextField label="Age / வயது" type="number" value={form.age} onChange={v => setForm(f => ({ ...f, age: v }))} required />
         <TextField label={'Height / உயரம் (e.g. 5\'6")'} value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} />
-        <TextField label="Mother tongue / தாய்மொழி" value={form.mother_tongue} onChange={v => setForm(f => ({ ...f, mother_tongue: v }))} />
-        <TextField label="Religion / மதம்" value={form.religion} onChange={v => setForm(f => ({ ...f, religion: v }))} />
+        <MasterListSelect label="Mother tongue / தாய்மொழி" value={form.mother_tongue} onChange={v => setForm(f => ({ ...f, mother_tongue: v }))} options={motherTongueOptions} />
+        <MasterListSelect label="Religion / மதம்" value={form.religion} onChange={v => setForm(f => ({ ...f, religion: v }))} options={religionOptions} />
         <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} required />
         <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} required />
-        <TextField label="Education / கல்வி" value={form.education} onChange={v => setForm(f => ({ ...f, education: v }))} />
-        <TextField label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} required />
+        <MasterListSelect label="Education / கல்வி" value={form.education} onChange={v => setForm(f => ({ ...f, education: v }))} options={educationOptions} />
+        <MasterListSelect label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} options={occupationOptions} required />
         <TextField label="Monthly income / மாத வருமானம்" value={form.income} onChange={v => setForm(f => ({ ...f, income: v }))} />
       </div>
 
