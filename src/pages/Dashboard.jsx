@@ -310,6 +310,36 @@ export default function Dashboard({ onNavigate, showToast }) {
         </div>
       )}
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <DashCard icon={Heart} title="Interest Requests / ஆர்வ கோரிக்கைகள்" badge={pendingIncoming > 0 ? pendingIncoming : null} onClick={() => onNavigate("requests")} colors={colors} />
+        <DashCard icon={Bell} title="Notifications / அறிவிப்புகள்" badge={unreadNotifications > 0 ? unreadNotifications : null} onClick={() => onNavigate("notifications")} colors={colors} />
+        <DashCard icon={ShieldCheck} title="Favourites / பிடித்தவை" onClick={() => onNavigate("favourites")} colors={colors} />
+        <DashCard icon={Clock} title="Recently Viewed / சமீபத்தியவை" onClick={() => onNavigate("recentlyViewed")} colors={colors} />
+        <DashCard icon={Mail} title="Contact Us / தொடர்பு கொள்ள" onClick={() => onNavigate("contact")} colors={colors} />
+        <DashCard icon={Settings} title="Account Settings / அமைப்புகள்" onClick={() => onNavigate("accountSettings")} colors={colors} />
+        <DashCard icon={HelpCircle} title="FAQ / கேள்விகள்" onClick={() => onNavigate("faq")} colors={colors} />
+      </div>
+
+      {profile && profile.status === "approved" && (
+        <div style={{ marginBottom: 16 }}>
+          <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary }}>
+            Match Analytics / பொருத்த புள்ளிவிவரம்
+          </h3>
+          {analyticsLoading ? (
+            <div style={{ textAlign: "center", color: colors.textFaint, padding: 20, fontSize: 12.5 }}>Loading…</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse")} />
+              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse")} />
+              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse")} />
+            </div>
+          )}
+        </div>
+      )}
+
       {profile && profile.status === "approved" && (
         <div style={{ marginBottom: 8 }}>
           <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary, display: "flex", alignItems: "center", gap: 6 }}>
@@ -378,36 +408,6 @@ export default function Dashboard({ onNavigate, showToast }) {
           )}
         </div>
       )}
-
-      {profile && profile.status === "approved" && (
-        <div style={{ marginBottom: 16 }}>
-          <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary }}>
-            Match Analytics / பொருத்த புள்ளிவிவரம்
-          </h3>
-          {analyticsLoading ? (
-            <div style={{ textAlign: "center", color: colors.textFaint, padding: 20, fontSize: 12.5 }}>Loading…</div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse")} />
-              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse")} />
-              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse")} />
-              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse")} />
-              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse")} />
-              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse")} />
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <DashCard icon={Heart} title="Interest Requests / ஆர்வ கோரிக்கைகள்" badge={pendingIncoming > 0 ? pendingIncoming : null} onClick={() => onNavigate("requests")} colors={colors} />
-        <DashCard icon={Bell} title="Notifications / அறிவிப்புகள்" badge={unreadNotifications > 0 ? unreadNotifications : null} onClick={() => onNavigate("notifications")} colors={colors} />
-        <DashCard icon={ShieldCheck} title="Favourites / பிடித்தவை" onClick={() => onNavigate("favourites")} colors={colors} />
-        <DashCard icon={Clock} title="Recently Viewed / சமீபத்தியவை" onClick={() => onNavigate("recentlyViewed")} colors={colors} />
-        <DashCard icon={Mail} title="Contact Us / தொடர்பு கொள்ள" onClick={() => onNavigate("contact")} colors={colors} />
-        <DashCard icon={Settings} title="Account Settings / அமைப்புகள்" onClick={() => onNavigate("accountSettings")} colors={colors} />
-        <DashCard icon={HelpCircle} title="FAQ / கேள்விகள்" onClick={() => onNavigate("faq")} colors={colors} />
-      </div>
 
       {showShareModal && profile && (
         <ShareProfileModal profileId={profile.id} onClose={() => setShowShareModal(false)} />
