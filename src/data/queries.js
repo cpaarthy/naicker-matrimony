@@ -32,6 +32,11 @@ export async function updateProfileStatus(id, status) {
   return { error };
 }
 
+export async function toggleProfileVisibility(userId, isVisible) {
+  const { error } = await supabase.from("profiles").update({ visible: isVisible }).eq("id", userId);
+  return { error };
+}
+
 export async function fetchRequestsFor(userId) {
   const { data, error } = await supabase
     .from("requests")
