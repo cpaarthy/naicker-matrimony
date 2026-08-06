@@ -8,7 +8,7 @@ import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/quer
 const emptyForm = {
   profile_for: "Self",
   name: "", gender: "Male", age: "", height: "", religion: "", caste: "",
-  sub_caste: "", education: "", occupation: "", income: "", address: "", village: "", district: "",
+  sub_caste: "", education: "", occupation: "", income: "", address: "", district: "",
   city: "", state: "Tamil Nadu", mother_tongue: "", about: "", phone: "", photo_url: "",
   father_occupation: "", mother_occupation: "", siblings: "", family_type: "Nuclear",
   star: "", rasi: "", birth_time: "", birth_place: "",
@@ -109,7 +109,7 @@ export default function EditProfile({ onNavigate, showToast }) {
         height: profile.height || "", religion: profile.religion || "", caste: profile.caste || "",
         sub_caste: profile.sub_caste || "",
         education: profile.education || "", occupation: profile.occupation || "", income: profile.income || "",
-        address: profile.address || "", village: profile.village || "", district: profile.district || "",
+        address: profile.address || "", district: profile.district || "",
         city: profile.city || "", state: profile.state || "Tamil Nadu", mother_tongue: profile.mother_tongue || "",
         about: profile.about || "", phone: profile.phone || "", photo_url: profile.photo_url || "",
         father_occupation: profile.father_occupation || "", mother_occupation: profile.mother_occupation || "",
@@ -141,11 +141,10 @@ export default function EditProfile({ onNavigate, showToast }) {
     const missing = [];
     if (!form.name) missing.push("name");
     if (!form.age) missing.push("age");
-    // Temporarily make these optional for debugging
-    // if (!form.religion) missing.push("religion");
-    // if (!form.caste) missing.push("caste");
-    // if (!form.sub_caste) missing.push("sub caste");
-    // if (!form.occupation) missing.push("occupation");
+    if (!form.religion) missing.push("religion");
+    if (!form.caste) missing.push("caste");
+    if (!form.sub_caste) missing.push("sub caste");
+    if (!form.occupation) missing.push("occupation");
     if (!form.address) missing.push("address");
     if (!form.district) missing.push("district");
     if (!form.city) missing.push("city");
@@ -164,11 +163,22 @@ export default function EditProfile({ onNavigate, showToast }) {
       pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
     };
     console.log("Submitting profile record:", record);
-    const { error } = await upsertProfile(record);
+    const result = await upsertProfile(record);
+    console.log("Upsert result:", result);
     setSubmitting(false);
-    if (error) {
-      console.error("Profile submission error:", error);
-      showToast("Could not submit. Try again. Error: " + error);
+    if (result.error) {
+      console.error("Profile submission error:", result.error);
+      let errorMessage = "Unknown error";
+      if (typeof result.error === 'string') {
+        errorMessage = result.error;
+      } else if (result.error.message) {
+        errorMessage = result.error.message;
+      } else if (result.error.details) {
+        errorMessage = result.error.details;
+      } else {
+        errorMessage = JSON.stringify(result.error);
+      }
+      showToast("Could not submit. Try again. Error: " + errorMessage);
       return;
     }
     showToast(keepApproved ? "Profile updated." : "Profile submitted. Waiting for admin approval.");
@@ -238,7 +248,6 @@ export default function EditProfile({ onNavigate, showToast }) {
         <div style={{ gridColumn: "1 / -1" }}>
           <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" required />
         </div>
-        <MasterListSelect label="Village / கிராமம்" value={form.village} onChange={v => setForm(f => ({ ...f, village: v }))} options={villageOptions} />
         <MasterListSelect label="District / மாவட்டம்" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} options={districtOptions} required />
         <MasterListSelect label="City / ஊர்" value={form.city} onChange={v => setForm(f => ({ ...f, city: v }))} options={cityOptions} required />
         <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} required />
