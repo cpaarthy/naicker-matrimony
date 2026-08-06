@@ -1197,10 +1197,35 @@ function EducationAnalysisReport({ data, colors }) {
 function ActivityLogTab({ colors }) {
   const [log, setLog] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filteredLog, setFilteredLog] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("all");
+  const [userOptions, setUserOptions] = useState([]);
 
   useEffect(() => {
-    fetchActivityLog().then(({ data }) => { setLog(data); setLoading(false); });
+    loadActivityLog();
+    loadUsers();
   }, []);
+
+  async function loadActivityLog() {
+    setLoading(true);
+    const { data } = await fetchActivityLog();
+    setLog(data || []);
+    setLoading(false);
+  }
+
+  async function loadUsers() {
+    const { data } = await fetchAllProfiles();
+    const users = data?.map(p => ({ id: p.id, name: p.name })) || [];
+    setUserOptions(users);
+  }
+
+  useEffect(() => {
+    if (selectedUser === "all") {
+      setFilteredLog(log);
+    } else {
+      setFilteredLog(log.filter(entry => entry.target_id === selectedUser));
+    }
+  }, [log, selectedUser]);
 
   const actionLabels = {
     approved: "Approved", rejected: "Rejected", delete: "Deleted", edit: "Edited",
@@ -1215,7 +1240,7 @@ function ActivityLogTab({ colors }) {
   function handleExport() {
     try {
       console.log("Starting activity log export...");
-      const rows = log.map(entry => ({
+      const rows = filteredLog.map(entry => ({
         action: actionLabels[entry.action] || entry.action,
         target_type: entry.target_type,
         target_name: entry.target_name || "",
@@ -1235,13 +1260,28 @@ function ActivityLogTab({ colors }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700 }}>Activity Log</h3>
-        <button onClick={handleExport} style={{
-          fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
-          borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-        }}>Export CSV</button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <select
+            value={selectedUser}
+            onChange={e => setSelectedUser(e.target.value)}
+            style={{
+              padding: "6px 10px", borderRadius: 6, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 12, background: colors.inputBg, color: colors.text,
+            }}
+          >
+            <option value="all">All Users</option>
+            {userOptions.map(u => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+          <button onClick={handleExport} style={{
+            fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
+            borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+          }}>Export CSV</button>
+        </div>
       </div>
-      {log.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No activity logged yet.</div>}
-      {log.map(entry => (
+      {filteredLog.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No activity logged yet.</div>}
+      {filteredLog.map(entry => (
         <div key={entry.id} style={{
           background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 10, marginBottom: 6,
           fontSize: 12,
