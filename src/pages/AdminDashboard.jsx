@@ -1509,6 +1509,13 @@ function MasterListsTab({ colors, showToast }) {
         <option value="religion">Religion</option>
         <option value="education">Education</option>
         <option value="occupation">Occupation</option>
+        <option value="caste">Caste</option>
+        <option value="father_occupation">Father occupation</option>
+        <option value="mother_occupation">Mother occupation</option>
+        <option value="siblings">Siblings</option>
+        <option value="complexion">Complexion</option>
+        <option value="body_type">Body type</option>
+        <option value="blood_group">Blood group</option>
       </select>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input
