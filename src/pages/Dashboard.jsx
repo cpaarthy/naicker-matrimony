@@ -19,76 +19,86 @@ function daysAgo(dateStr) {
 }
 
 function computeMatchAnalytics(myProfile, candidates) {
-  const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
-  const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
+  try {
+    if (!myProfile || !candidates) {
+      console.warn("computeMatchAnalytics: missing data", { myProfile, candidates });
+      return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
+    }
 
-  const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
-  const matchesPreference = (p) => {
-    if (!hasPrefs) return true;
-    if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
-    if (myProfile.pref_age_max && p.age > myProfile.pref_age_max) return false;
-    if (myProfile.pref_education && !p.education?.toLowerCase().includes(myProfile.pref_education.toLowerCase())) return false;
-    if (myProfile.pref_occupation && !p.occupation?.toLowerCase().includes(myProfile.pref_occupation.toLowerCase())) return false;
-    return true;
-  };
+    const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
+    const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
 
-  const matching = pool.filter(matchesPreference);
+    const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
+    const matchesPreference = (p) => {
+      if (!hasPrefs) return true;
+      if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
+      if (myProfile.pref_age_max && p.age > myProfile.pref_age_max) return false;
+      if (myProfile.pref_education && typeof p.education === 'string' && !p.education.toLowerCase().includes(myProfile.pref_education.toLowerCase())) return false;
+      if (myProfile.pref_occupation && typeof p.occupation === 'string' && !p.occupation.toLowerCase().includes(myProfile.pref_occupation.toLowerCase())) return false;
+      return true;
+    };
 
-  let high = 0, medium = 0;
-  const scoreBuckets = [
-    { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 }, { label: "41-60%", value: 0 },
-    { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
-  ];
-  matching.forEach(p => {
-    const score = calculateMatchScore(myProfile, p);
-    if (!score) return;
-    if (score.percentage >= 90) high++;
-    else if (score.percentage >= 50) medium++;
-    const pct = score.percentage;
-    if (pct <= 20) scoreBuckets[0].value++;
-    else if (pct <= 40) scoreBuckets[1].value++;
-    else if (pct <= 60) scoreBuckets[2].value++;
-    else if (pct <= 80) scoreBuckets[3].value++;
-    else scoreBuckets[4].value++;
-  });
+    const matching = pool.filter(matchesPreference);
 
-  const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
-  const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
-  const nearby = matching.filter(p =>
-    (myProfile.city && p.city && typeof myProfile.city === 'string' && typeof p.city === 'string' &&
-     myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
-    (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
-     myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
-  ).length;
+    let high = 0, medium = 0;
+    const scoreBuckets = [
+      { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 }, { label: "41-60%", value: 0 },
+      { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
+    ];
+    matching.forEach(p => {
+      const score = calculateMatchScore(myProfile, p);
+      if (!score) return;
+      if (score.percentage >= 90) high++;
+      else if (score.percentage >= 50) medium++;
+      const pct = score.percentage;
+      if (pct <= 20) scoreBuckets[0].value++;
+      else if (pct <= 40) scoreBuckets[1].value++;
+      else if (pct <= 60) scoreBuckets[2].value++;
+      else if (pct <= 80) scoreBuckets[3].value++;
+      else scoreBuckets[4].value++;
+    });
 
-  // Matches by district — top 6 districts among the matching pool
-  const districtCounts = {};
-  matching.forEach(p => {
-    const d = p.district && typeof p.district === 'string' ? p.district.trim() : "Other";
-    districtCounts[d] = (districtCounts[d] || 0) + 1;
-  });
-  const districtChart = Object.entries(districtCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([label, value]) => ({ label: label.length > 8 ? label.slice(0, 7) + "…" : label, value }));
+    const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
+    const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
+    const nearby = matching.filter(p =>
+      (myProfile.city && p.city && typeof myProfile.city === 'string' && typeof p.city === 'string' &&
+       myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
+      (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
+       myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
+    ).length;
 
-  // Age-wise histogram — 5-year buckets
-  const ageBuckets = {};
-  matching.forEach(p => {
-    if (!p.age) return;
-    const bucketStart = Math.floor(p.age / 5) * 5;
-    const key = `${bucketStart}-${bucketStart + 4}`;
-    ageBuckets[key] = (ageBuckets[key] || 0) + 1;
-  });
-  const ageChart = Object.entries(ageBuckets)
-    .sort((a, b) => Number(a[0].split("-")[0]) - Number(b[0].split("-")[0]))
-    .map(([label, value]) => ({ label, value }));
+    // Matches by district — top 6 districts among the matching pool
+    const districtCounts = {};
+    matching.forEach(p => {
+      const d = p.district && typeof p.district === 'string' ? p.district.trim() : "Other";
+      districtCounts[d] = (districtCounts[d] || 0) + 1;
+    });
+    const districtChart = Object.entries(districtCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([label, value]) => ({ label: label.length > 8 ? label.slice(0, 7) + "…" : label, value }));
 
-  return {
-    total: matching.length,
-    high, medium, newMembers, recentlyActive, nearby,
-    districtChart, ageChart, scoreBuckets,
-  };
+    // Age-wise histogram — 5-year buckets
+    const ageBuckets = {};
+    matching.forEach(p => {
+      if (!p.age) return;
+      const bucketStart = Math.floor(p.age / 5) * 5;
+      const key = `${bucketStart}-${bucketStart + 4}`;
+      ageBuckets[key] = (ageBuckets[key] || 0) + 1;
+    });
+    const ageChart = Object.entries(ageBuckets)
+      .sort((a, b) => Number(a[0].split("-")[0]) - Number(b[0].split("-")[0]))
+      .map(([label, value]) => ({ label, value }));
+
+    return {
+      total: matching.length,
+      high, medium, newMembers, recentlyActive, nearby,
+      districtChart, ageChart, scoreBuckets,
+    };
+  } catch (err) {
+    console.error("computeMatchAnalytics error:", err);
+    return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
+  }
 }
 
 function computeProfileViewsChart(viewRows) {
@@ -293,19 +303,31 @@ export default function Dashboard({ onNavigate, showToast }) {
             <BarChart data={completionChart} colors={colors} />
           </ChartCard>
 
-          {!analyticsLoading && (
+          {!analyticsLoading && analytics && (
             <>
-              <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
-                <BarChart data={analytics.districtChart} colors={colors} barColor={colors.accent} />
-              </ChartCard>
+              {analytics.districtChart && analytics.districtChart.length > 0 && (
+                <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
+                  <BarChart data={analytics.districtChart} colors={colors} barColor={colors.accent} />
+                </ChartCard>
+              )}
 
-              <ChartCard title="👥 Age-wise Matching Profiles / வயது வாரியாக பொருத்தங்கள்" colors={colors}>
-                <BarChart data={analytics.ageChart} colors={colors} />
-              </ChartCard>
+              {analytics.ageChart && analytics.ageChart.length > 0 && (
+                <ChartCard title="👥 Age-wise Matching Profiles / வயது வாரியாக பொருத்தங்கள்" colors={colors}>
+                  <BarChart data={analytics.ageChart} colors={colors} />
+                </ChartCard>
+              )}
 
-              <ChartCard title="⭐ Compatibility Score Distribution / பொருத்த மதிப்பெண் பரவல்" colors={colors}>
-                <BarChart data={analytics.scoreBuckets} colors={colors} barColor={colors.approvedText} />
-              </ChartCard>
+              {analytics.scoreBuckets && analytics.scoreBuckets.length > 0 && (
+                <ChartCard title="⭐ Compatibility Score Distribution / பொருத்த மதிப்பெண் பரவல்" colors={colors}>
+                  <BarChart data={analytics.scoreBuckets} colors={colors} barColor={colors.approvedText} />
+                </ChartCard>
+              )}
+
+              {!analytics.districtChart?.length && !analytics.ageChart?.length && !analytics.scoreBuckets?.length && (
+                <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 20, textAlign: "center", fontSize: 13, color: colors.textFaint }}>
+                  No matching profiles found yet. / பொருத்தமான விவரங்கள் இல்லை
+                </div>
+              )}
             </>
           )}
         </div>
