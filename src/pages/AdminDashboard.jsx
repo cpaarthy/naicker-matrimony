@@ -765,7 +765,7 @@ function ProfileCompletionReport({ data, colors }) {
     );
   }
 
-  const validData = data.filter(d => d && typeof d === 'object' && d.total_percentage !== undefined);
+  const validData = data.filter(d => d && typeof d === 'object' && d.total_percentage !== undefined && typeof d.total_percentage === 'number');
 
   if (validData.length === 0) {
     return (
@@ -803,8 +803,8 @@ function ProfileCompletionReport({ data, colors }) {
       <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 8 }}>Top 5 least complete profiles:</div>
       {validData.slice(0, 5).map((d, index) => (
         <div key={d.id || index} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${colors.cardBorder}`, fontSize: 12.5 }}>
-          <span>{d.name || 'Unknown'}</span>
-          <span style={{ fontWeight: 600 }}>{d.total_percentage || 0}%</span>
+          <span>{String(d.name || 'Unknown')}</span>
+          <span style={{ fontWeight: 600 }}>{d.total_percentage}%</span>
         </div>
       ))}
     </div>
@@ -867,7 +867,7 @@ function PhotoStatisticsReport({ data, colors }) {
 function DistrictAnalysisReport({ data, colors }) {
   console.log("DistrictAnalysisReport data:", data);
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
@@ -878,22 +878,35 @@ function DistrictAnalysisReport({ data, colors }) {
     );
   }
 
+  const validData = data.filter(d => d && typeof d === 'object' && d.district);
+
+  if (validData.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No valid district data available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
       <div>
-        {data.slice(0, 10).map(d => (
-          <div key={d.district} style={{
+        {validData.slice(0, 10).map((d, index) => (
+          <div key={d.district || index} style={{
             background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{d.district}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.district)}</span>
+              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
-              <div><span style={{ color: colors.pendingText }}>{d.pending}</span> pending</div>
-              <div>Male: {d.male} / Female: {d.female}</div>
+              <div><span style={{ color: colors.approvedText }}>{d.approved || 0}</span> approved</div>
+              <div><span style={{ color: colors.pendingText }}>{d.pending || 0}</span> pending</div>
+              <div>Male: {d.male || 0} / Female: {d.female || 0}</div>
             </div>
           </div>
         ))}
@@ -905,7 +918,7 @@ function DistrictAnalysisReport({ data, colors }) {
 function AgeDistributionReport({ data, colors }) {
   console.log("AgeDistributionReport data:", data);
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
@@ -916,24 +929,37 @@ function AgeDistributionReport({ data, colors }) {
     );
   }
 
+  const validData = data.filter(d => d && typeof d === 'object' && d.group);
+
+  if (validData.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No valid age data available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
-      {data.map(d => (
-        <div key={d.group} style={{ marginBottom: 8 }}>
+      {validData.map((d, index) => (
+        <div key={d.group || index} style={{ marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>{d.group}</span>
-            <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.group)}</span>
+            <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
           </div>
           <div style={{
             height: 8, background: colors.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 4
           }}>
             <div style={{
-              height: "100%", background: colors.primary, width: `${Math.min(d.total * 2, 100)}%`
+              height: "100%", background: colors.primary, width: `${Math.min((d.total || 0) * 2, 100)}%`
             }} />
           </div>
           <div style={{ fontSize: 11, color: colors.textMuted }}>
-            Male: {d.male} | Female: {d.female} | Approved: {d.approved}
+            Male: {d.male || 0} | Female: {d.female || 0} | Approved: {d.approved || 0}
           </div>
         </div>
       ))}
@@ -944,7 +970,7 @@ function AgeDistributionReport({ data, colors }) {
 function ResponseRateReport({ data, colors }) {
   console.log("ResponseRateReport data:", data);
 
-  if (!data || data.total_requests === 0) {
+  if (!data || typeof data !== 'object' || data.total_requests === 0) {
     return (
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Response Rate Analysis</h3>
@@ -961,29 +987,29 @@ function ResponseRateReport({ data, colors }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
         <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
           <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Total Requests</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: colors.text }}>{data.total_requests}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: colors.text }}>{data.total_requests || 0}</div>
         </div>
         <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
           <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Acceptance Rate</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: colors.approvedText }}>{data.acceptance_rate}%</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: colors.approvedText }}>{data.acceptance_rate || 0}%</div>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
         <div style={{ background: colors.approvedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{data.accepted}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{data.accepted || 0}</div>
           <div style={{ fontSize: 11, color: colors.textMuted }}>Accepted</div>
         </div>
         <div style={{ background: colors.rejectedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.rejectedText }}>{data.declined}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: colors.rejectedText }}>{data.declined || 0}</div>
           <div style={{ fontSize: 11, color: colors.textMuted }}>Declined</div>
         </div>
         <div style={{ background: colors.pendingBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{data.pending}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{data.pending || 0}</div>
           <div style={{ fontSize: 11, color: colors.textMuted }}>Pending</div>
         </div>
       </div>
       <div style={{ fontSize: 12, color: colors.textMuted }}>
-        Average response time: ~{data.average_response_days} days
+        Average response time: ~{data.average_response_days || 0} days
       </div>
     </div>
   );
@@ -992,7 +1018,7 @@ function ResponseRateReport({ data, colors }) {
 function MostViewedReport({ data, colors }) {
   console.log("MostViewedReport data:", data);
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
@@ -1003,12 +1029,25 @@ function MostViewedReport({ data, colors }) {
     );
   }
 
+  const validData = data.filter(d => d && typeof d === 'object' && d.profile_id);
+
+  if (validData.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No valid view data available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
       <div>
-        {data.map((d, index) => (
-          <div key={d.profile_id} style={{
+        {validData.map((d, index) => (
+          <div key={d.profile_id || index} style={{
             display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`
           }}>
             <div style={{
@@ -1017,17 +1056,21 @@ function MostViewedReport({ data, colors }) {
             }}>
               {index + 1}
             </div>
-            {d.profile && (
+            {d.profile && typeof d.profile === 'object' ? (
               <>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{d.profile.name}</div>
-                  <div style={{ fontSize: 11, color: colors.textMuted }}>{d.profile.city} · {d.profile.age} yrs</div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{String(d.profile.name || 'Unknown')}</div>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>{String(d.profile.city || 'Unknown')} · {d.profile.age || 0} yrs</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{d.total_views}</div>
-                  <div style={{ fontSize: 10, color: colors.textMuted }}>{d.unique_viewers} unique</div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{d.total_views || 0}</div>
+                  <div style={{ fontSize: 10, color: colors.textMuted }}>{d.unique_viewers || 0} unique</div>
                 </div>
               </>
+            ) : (
+              <div style={{ flex: 1, fontSize: 12, color: colors.textMaint }}>
+                Profile data not available
+              </div>
             )}
           </div>
         ))}
@@ -1039,7 +1082,7 @@ function MostViewedReport({ data, colors }) {
 function OccupationAnalysisReport({ data, colors }) {
   console.log("OccupationAnalysisReport data:", data);
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
@@ -1050,22 +1093,35 @@ function OccupationAnalysisReport({ data, colors }) {
     );
   }
 
+  const validData = data.filter(d => d && typeof d === 'object' && d.occupation);
+
+  if (validData.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No valid occupation data available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
       <div>
-        {data.slice(0, 15).map(d => (
-          <div key={d.occupation} style={{
+        {validData.slice(0, 15).map((d, index) => (
+          <div key={d.occupation || index} style={{
             background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{d.occupation}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.occupation)}</span>
+              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
-              <div>Male: {d.male} / Female: {d.female}</div>
-              <div>Success: {d.success_rate}%</div>
+              <div><span style={{ color: colors.approvedText }}>{d.approved || 0}</span> approved</div>
+              <div>Male: {d.male || 0} / Female: {d.female || 0}</div>
+              <div>Success: {d.success_rate || 0}%</div>
             </div>
           </div>
         ))}
@@ -1077,7 +1133,7 @@ function OccupationAnalysisReport({ data, colors }) {
 function EducationAnalysisReport({ data, colors }) {
   console.log("EducationAnalysisReport data:", data);
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
@@ -1088,22 +1144,35 @@ function EducationAnalysisReport({ data, colors }) {
     );
   }
 
+  const validData = data.filter(d => d && typeof d === 'object' && d.education);
+
+  if (validData.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No valid education data available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
       <div>
-        {data.slice(0, 15).map(d => (
-          <div key={d.education} style={{
+        {validData.slice(0, 15).map((d, index) => (
+          <div key={d.education || index} style={{
             background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{d.education}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.education)}</span>
+              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
-              <div>Male: {d.male} / Female: {d.female}</div>
-              <div>Approval: {d.approval_rate}%</div>
+              <div><span style={{ color: colors.approvedText }}>{d.approved || 0}</span> approved</div>
+              <div>Male: {d.male || 0} / Female: {d.female || 0}</div>
+              <div>Approval: {d.approval_rate || 0}%</div>
             </div>
           </div>
         ))}
