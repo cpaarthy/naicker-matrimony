@@ -1233,6 +1233,9 @@ function ActivityLogTab({ colors }) {
     reset_password: "Reset password", deactivate: "Deactivated account", activate: "Activated account",
     bulk_approve: "Bulk approved", bulk_reject: "Bulk rejected", bulk_delete: "Bulk deleted", export: "Exported data",
     full_backup: "Downloaded full backup",
+    sent_interest: "Sent interest", accepted_interest: "Accepted interest", declined_interest: "Declined interest",
+    added_favourite: "Added to favourites", removed_favourite: "Removed from favourites",
+    reported_profile: "Reported profile", viewed_profile: "Viewed profile",
   };
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
@@ -1281,19 +1284,23 @@ function ActivityLogTab({ colors }) {
         </div>
       </div>
       {filteredLog.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No activity logged yet.</div>}
-      {filteredLog.map(entry => (
-        <div key={entry.id} style={{
-          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 10, marginBottom: 6,
-          fontSize: 12,
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontWeight: 600 }}>{actionLabels[entry.action] || entry.action}</span>
-            <span style={{ color: colors.textFaint, fontSize: 11 }}>{new Date(entry.created_at).toLocaleString()}</span>
+      {filteredLog.map(entry => {
+        const user = userOptions.find(u => u.id === entry.user_id);
+        return (
+          <div key={entry.id} style={{
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 10, marginBottom: 6,
+            fontSize: 12,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontWeight: 600 }}>{actionLabels[entry.action] || entry.action}</span>
+              <span style={{ color: colors.textFaint, fontSize: 11 }}>{new Date(entry.created_at).toLocaleString()}</span>
+            </div>
+            {user && <div style={{ color: colors.textMuted, fontSize: 11.5 }}>By: {user.name}</div>}
+            {entry.target_name && <div style={{ color: colors.textMuted }}>{entry.target_type}: {entry.target_name}</div>}
+            {entry.details && <div style={{ color: colors.textFaint, fontSize: 11 }}>{entry.details}</div>}
           </div>
-          {entry.target_name && <div style={{ color: colors.textMuted }}>{entry.target_type}: {entry.target_name}</div>}
-          {entry.details && <div style={{ color: colors.textFaint, fontSize: 11 }}>{entry.details}</div>}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
