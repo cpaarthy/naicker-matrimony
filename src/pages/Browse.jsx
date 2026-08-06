@@ -44,7 +44,6 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     return profiles.filter(p => {
       if (opposingGender && p.gender !== opposingGender) return false;
       if (blockedIds.has(p.id)) return false;
-      if (p.visible === false) return false; // Hide profiles with visible = false
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
