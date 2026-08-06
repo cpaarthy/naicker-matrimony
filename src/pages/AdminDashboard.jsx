@@ -175,14 +175,27 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   }
 
   async function handleExportCsv() {
-    const { data } = await fetchAllProfiles();
-    const rows = data.map(p => ({
-      name: p.name, age: p.age, gender: p.gender, city: p.city, district: p.district,
-      state: p.state, phone: p.phone, occupation: p.occupation, education: p.education,
-      caste: p.caste, sub_caste: p.sub_caste, status: p.status, created_at: p.created_at,
-    }));
-    exportToCsv(rows, "naicker-matrimony-profiles.csv");
-    showToast("CSV exported");
+    try {
+      console.log("Starting CSV export...");
+      const { data, error } = await fetchAllProfiles();
+      if (error) {
+        console.error("Error fetching profiles:", error);
+        showToast("Error fetching profiles: " + error);
+        return;
+      }
+      console.log("Fetched profiles:", data?.length);
+      const rows = data.map(p => ({
+        name: p.name, age: p.age, gender: p.gender, city: p.city, district: p.district,
+        state: p.state, phone: p.phone, occupation: p.occupation, education: p.education,
+        caste: p.caste, sub_caste: p.sub_caste, status: p.status, created_at: p.created_at,
+      }));
+      console.log("CSV rows:", rows.length);
+      exportToCsv(rows, "naicker-matrimony-profiles.csv");
+      showToast("CSV exported");
+    } catch (err) {
+      console.error("CSV export error:", err);
+      showToast("CSV export failed: " + err.message);
+    }
   }
 
   async function handleFullBackup() {
@@ -1200,14 +1213,22 @@ function ActivityLogTab({ colors }) {
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
 
   function handleExport() {
-    const rows = log.map(entry => ({
-      action: actionLabels[entry.action] || entry.action,
-      target_type: entry.target_type,
-      target_name: entry.target_name || "",
-      details: entry.details || "",
-      created_at: entry.created_at,
-    }));
-    exportToCsv(rows, "admin-activity-log.csv");
+    try {
+      console.log("Starting activity log export...");
+      const rows = log.map(entry => ({
+        action: actionLabels[entry.action] || entry.action,
+        target_type: entry.target_type,
+        target_name: entry.target_name || "",
+        details: entry.details || "",
+        created_at: entry.created_at,
+      }));
+      console.log("Activity log rows:", rows.length);
+      exportToCsv(rows, "admin-activity-log.csv");
+      showToast("Activity log exported");
+    } catch (err) {
+      console.error("Activity log export error:", err);
+      showToast("Activity log export failed: " + err.message);
+    }
   }
 
   return (
