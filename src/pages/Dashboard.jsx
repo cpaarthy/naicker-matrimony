@@ -55,14 +55,16 @@ function computeMatchAnalytics(myProfile, candidates) {
   const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
   const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
   const nearby = matching.filter(p =>
-    (myProfile.city && p.city && myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
-    (myProfile.district && p.district && myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
+    (myProfile.city && p.city && typeof myProfile.city === 'string' && typeof p.city === 'string' &&
+     myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
+    (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
+     myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
   ).length;
 
   // Matches by district — top 6 districts among the matching pool
   const districtCounts = {};
   matching.forEach(p => {
-    const d = (p.district || "Other").trim();
+    const d = p.district && typeof p.district === 'string' ? p.district.trim() : "Other";
     districtCounts[d] = (districtCounts[d] || 0) + 1;
   });
   const districtChart = Object.entries(districtCounts)
@@ -194,7 +196,9 @@ export default function Dashboard({ onNavigate, showToast }) {
   const analytics = useMemo(() => {
     if (!profile || profile.status !== "approved") return null;
     const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
-    return computeMatchAnalytics(profile, pool);
+    const result = computeMatchAnalytics(profile, pool);
+    console.log("Analytics computed:", result);
+    return result;
   }, [profile, candidateProfiles, blockedIds]);
 
   const profileViewsChart = useMemo(() => computeProfileViewsChart(profileViews), [profileViews]);
