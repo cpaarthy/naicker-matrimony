@@ -45,18 +45,38 @@ function computeMatchAnalytics(myProfile, candidates) {
       { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 }, { label: "41-60%", value: 0 },
       { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
     ];
-    matching.forEach(p => {
-      const score = calculateMatchScore(myProfile, p);
-      if (!score) return;
-      if (score.percentage >= 90) high++;
-      else if (score.percentage >= 50) medium++;
-      const pct = score.percentage;
-      if (pct <= 20) scoreBuckets[0].value++;
-      else if (pct <= 40) scoreBuckets[1].value++;
-      else if (pct <= 60) scoreBuckets[2].value++;
-      else if (pct <= 80) scoreBuckets[3].value++;
-      else scoreBuckets[4].value++;
+
+    console.log("Computing scores for", matching.length, "matching profiles");
+    console.log("Profile info:", {
+      myGender: myProfile.gender,
+      myAge: myProfile.age,
+      myCity: myProfile.city,
+      myDistrict: myProfile.district,
+      prefAgeMin: myProfile.pref_age_min,
+      prefAgeMax: myProfile.pref_age_max,
+      prefEducation: myProfile.pref_education,
+      prefOccupation: myProfile.pref_occupation,
     });
+
+    matching.forEach(p => {
+      try {
+        const score = calculateMatchScore(myProfile, p);
+        if (!score) return;
+        const pct = score.percentage;
+        if (pct >= 90) high++;
+        else if (pct >= 50) medium++;
+        if (pct <= 20) scoreBuckets[0].value++;
+        else if (pct <= 40) scoreBuckets[1].value++;
+        else if (pct <= 60) scoreBuckets[2].value++;
+        else if (pct <= 80) scoreBuckets[3].value++;
+        else scoreBuckets[4].value++;
+      } catch (err) {
+        console.error("Error calculating score for profile:", p.id, err);
+      }
+    });
+
+    console.log("Score buckets:", scoreBuckets);
+    console.log("Match summary:", { total: matching.length, high, medium });
 
     const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
     const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
@@ -305,6 +325,24 @@ export default function Dashboard({ onNavigate, showToast }) {
 
           {!analyticsLoading && analytics && (
             <>
+              <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Match Summary / பொருத்த சுருக்கம்</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, fontSize: 12 }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: colors.primary }}>{analytics.total}</div>
+                    <div style={{ color: colors.textFaint }}>Total Matches</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{analytics.high}</div>
+                    <div style={{ color: colors.textFaint }}>High (90%+)</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{analytics.medium}</div>
+                    <div style={{ color: colors.textFaint }}>Medium (50%+)</div>
+                  </div>
+                </div>
+              </div>
+
               {analytics.districtChart && analytics.districtChart.length > 0 && (
                 <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
                   <BarChart data={analytics.districtChart} colors={colors} barColor={colors.accent} />
@@ -325,7 +363,10 @@ export default function Dashboard({ onNavigate, showToast }) {
 
               {!analytics.districtChart?.length && !analytics.ageChart?.length && !analytics.scoreBuckets?.length && (
                 <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 20, textAlign: "center", fontSize: 13, color: colors.textFaint }}>
-                  No matching profiles found yet. / பொருத்தமான விவரங்கள் இல்லை
+                  <div style={{ marginBottom: 8 }}>No matching profiles found yet. / பொருத்தமான விவரங்கள் இல்லை</div>
+                  <div style={{ fontSize: 11.5, color: colors.textMuted }}>
+                    Total matches: {analytics.total} | High: {analytics.high} | Medium: {analytics.medium}
+                  </div>
                 </div>
               )}
             </>
