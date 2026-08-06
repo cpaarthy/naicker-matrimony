@@ -923,17 +923,138 @@ function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
 }
 
 function AnalyticsTab({ colors, showToast }) {
+  const [loading, setLoading] = useState(false);
+  const [currentReport, setCurrentReport] = useState("profile_completion");
+  const [reportData, setReportData] = useState(null);
+  const [error, setError] = useState(null);
+
+  const REPORTS = [
+    { key: "profile_completion", label: "Profile Completion", icon: User },
+    { key: "photo_stats", label: "Photo Statistics", icon: Camera },
+    { key: "district_analysis", label: "District Analysis", icon: MapPin },
+    { key: "age_distribution", label: "Age Distribution", icon: BarChart3 },
+    { key: "response_rate", label: "Response Rate", icon: Heart },
+    { key: "most_viewed", label: "Most Viewed Profiles", icon: Eye },
+    { key: "occupation_analysis", label: "Occupation Analysis", icon: Briefcase },
+    { key: "education_analysis", label: "Education Analysis", icon: BookOpen },
+  ];
+
+  useEffect(() => {
+    loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentReport]);
+
+  async function loadReport() {
+    setLoading(true);
+    setError(null);
+    setReportData(null);
+
+    try {
+      let result;
+      switch (currentReport) {
+        case "profile_completion":
+          result = await fetchProfileCompletionReport();
+          break;
+        case "photo_stats":
+          result = await fetchPhotoStatistics();
+          break;
+        case "district_analysis":
+          result = await fetchDistrictAnalysis();
+          break;
+        case "age_distribution":
+          result = await fetchAgeDistribution();
+          break;
+        case "response_rate":
+          result = await fetchResponseRateAnalysis();
+          break;
+        case "most_viewed":
+          result = await fetchMostViewedProfiles(20);
+          break;
+        case "occupation_analysis":
+          result = await fetchOccupationAnalysis();
+          break;
+        case "education_analysis":
+          result = await fetchEducationAnalysis();
+          break;
+        default:
+          result = { data: null, error: null };
+      }
+
+      console.log("Report result:", result);
+      setReportData(result.data);
+      if (result.error) {
+        setError(result.error);
+        showToast(`Error: ${result.error}`);
+      }
+    } catch (err) {
+      console.error("Error loading report:", err);
+      setError(err.message);
+      showToast("Error loading analytics data");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
+
+  if (error) {
+    return (
+      <div>
+        <div style={{ textAlign: "center", color: colors.rejectedText, padding: 40 }}>
+          Error: {error}
+        </div>
+        <button onClick={loadReport} style={{
+          display: "block", margin: "0 auto", background: colors.primary, color: colors.primaryText,
+          border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700
+        }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Analytics Tab</h3>
-      <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-        Analytics feature is currently under development.
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
+        {REPORTS.map(r => {
+          const Icon = r.icon;
+          const active = currentReport === r.key;
+          return (
+            <button key={r.key} onClick={() => { setCurrentReport(r.key); }} style={{
+              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 8,
+              fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
+              background: active ? colors.primary : colors.card,
+              color: active ? colors.primaryText : colors.textMuted,
+              border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
+            }}>
+              <Icon size={13} /> {r.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16 }}>
+        {currentReport === "profile_completion" && <ProfileCompletionReport data={reportData} colors={colors} />}
+        {currentReport === "photo_stats" && <PhotoStatisticsReport data={reportData} colors={colors} />}
+        {currentReport === "district_analysis" && <DistrictAnalysisReport data={reportData} colors={colors} />}
+        {currentReport === "age_distribution" && <AgeDistributionReport data={reportData} colors={colors} />}
+        {currentReport === "response_rate" && <ResponseRateReport data={reportData} colors={colors} />}
+        {currentReport === "most_viewed" && <MostViewedReport data={reportData} colors={colors} />}
+        {currentReport === "occupation_analysis" && <OccupationAnalysisReport data={reportData} colors={colors} />}
+        {currentReport === "education_analysis" && <EducationAnalysisReport data={reportData} colors={colors} />}
+        {!reportData && !loading && !error && (
+          <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+            No data available for this report
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 function ProfileCompletionReport({ data, colors }) {
+  console.log("ProfileCompletionReport data:", data);
+
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div>
@@ -945,10 +1066,24 @@ function ProfileCompletionReport({ data, colors }) {
     );
   }
 
-  const total = data.length;
-  const highCompletion = data.filter(d => d.total_percentage >= 80).length;
-  const mediumCompletion = data.filter(d => d.total_percentage >= 50 && d.total_percentage < 80).length;
-  const lowCompletion = data.filter(d => d.total_percentage < 50).length;
+  // Filter out invalid data
+  const validData = data.filter(d => d && typeof d === 'object' && d.total_percentage !== undefined);
+
+  if (validData.length === 0) {
+    return (
+      <div>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
+        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+          No valid profile data available
+        </div>
+      </div>
+    );
+  }
+
+  const total = validData.length;
+  const highCompletion = validData.filter(d => d.total_percentage >= 80).length;
+  const mediumCompletion = validData.filter(d => d.total_percentage >= 50 && d.total_percentage < 80).length;
+  const lowCompletion = validData.filter(d => d.total_percentage < 50).length;
 
   return (
     <div>
@@ -968,10 +1103,10 @@ function ProfileCompletionReport({ data, colors }) {
         </div>
       </div>
       <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 8 }}>Top 5 least complete profiles:</div>
-      {data.slice(0, 5).map(d => (
-        <div key={d.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${colors.cardBorder}`, fontSize: 12.5 }}>
-          <span>{d.name}</span>
-          <span style={{ fontWeight: 600 }}>{d.total_percentage}%</span>
+      {validData.slice(0, 5).map((d, index) => (
+        <div key={d.id || index} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${colors.cardBorder}`, fontSize: 12.5 }}>
+          <span>{d.name || 'Unknown'}</span>
+          <span style={{ fontWeight: 600 }}>{d.total_percentage || 0}%</span>
         </div>
       ))}
     </div>
