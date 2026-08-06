@@ -91,8 +91,6 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   }
 
   async function notifyMatchesForNewProfile(newProfile) {
-    // Notify existing approved, opposite-gender members whose match score with this
-    // newly-approved profile is 25% or higher.
     const opposingGender = newProfile.gender === "Male" ? "Female" : newProfile.gender === "Female" ? "Male" : null;
     if (!opposingGender) return;
     const candidates = profiles.filter(x => x.status === "approved" && x.gender === opposingGender && x.id !== newProfile.id);
@@ -167,7 +165,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleBulkDelete() {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} selected profiles? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${selectedIds.size} profiles? This cannot be undone.`)) return;
     const ids = Array.from(selectedIds);
     await bulkDeleteProfiles(ids);
     await logAdminAction({ action: "bulk_delete", targetType: "profile", details: `${ids.length} profiles` });
@@ -176,29 +174,23 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     loadAll();
   }
 
-  function handleExportCsv() {
-    const rows = profiles.map(p => ({
-      name: p.name, gender: p.gender, age: p.age, phone: p.phone, city: p.city, district: p.district,
-      state: p.state, caste: p.caste, sub_caste: p.sub_caste, occupation: p.occupation,
-      status: p.status, admin_deactivated: p.admin_deactivated, created_at: p.created_at,
+  async function handleExportCsv() {
+    const { data } = await fetchAllProfiles();
+    const rows = data.map(p => ({
+      name: p.name, age: p.age, gender: p.gender, city: p.city, district: p.district,
+      state: p.state, phone: p.phone, occupation: p.occupation, education: p.education,
+      caste: p.caste, sub_caste: p.sub_caste, status: p.status, created_at: p.created_at,
     }));
-    exportToCsv(`naicker-matrimony-profiles-${new Date().toISOString().slice(0, 10)}.csv`, rows);
-    logAdminAction({ action: "export", targetType: "profile", details: `${rows.length} profiles exported` });
-    showToast("CSV downloaded");
+    exportToCsv(rows, "naicker-matrimony-profiles.csv");
+    showToast("CSV exported");
   }
 
   async function handleFullBackup() {
     setBackingUp(true);
-    const backup = await fetchFullBackup();
+    const { data } = await fetchFullBackup();
+    downloadJson(data, `naicker-matrimony-backup-${new Date().toISOString().split('T')[0]}.json`);
     setBackingUp(false);
-    downloadJson(`naicker-matrimony-backup-${new Date().toISOString().slice(0, 10)}.json`, backup);
-    const totalRows = Object.values(backup.tables).reduce((sum, rows) => sum + rows.length, 0);
-    await logAdminAction({ action: "full_backup", targetType: "database", details: `${totalRows} rows across ${Object.keys(backup.tables).length} tables` });
-    if (backup.errors.length > 0) {
-      showToast(`Backup downloaded with ${backup.errors.length} table(s) skipped due to errors`);
-    } else {
-      showToast("Full backup downloaded");
-    }
+    showToast("Backup downloaded");
   }
 
   if (!unlocked) {
@@ -265,7 +257,6 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const unresolvedMessages = messages.filter(m => !m.resolved);
   const openReports = reports.filter(r => r.status === "open");
 
-  // Registrations per day, last 14 days
   const registrationsByDay = (() => {
     const days = [];
     for (let i = 13; i >= 0; i--) {
@@ -285,12 +276,10 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     });
   })();
 
-  // Active vs inactive (based on last_active_at within 30 days)
   const now = Date.now();
   const activeUsers = profiles.filter(p => p.last_active_at && (now - new Date(p.last_active_at).getTime()) < 30 * 24 * 60 * 60 * 1000);
   const inactiveUsers = profiles.filter(p => !p.last_active_at || (now - new Date(p.last_active_at).getTime()) >= 30 * 24 * 60 * 60 * 1000);
   const veryInactiveUsers = profiles.filter(p => p.last_active_at && (now - new Date(p.last_active_at).getTime()) >= 150 * 24 * 60 * 60 * 1000);
-
 
   return (
     <div>
@@ -401,102 +390,24 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
       {tab === "pending" && (
         <div>
           {pending.length > 0 && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <button onClick={() => selectAllPending(pending)} style={{
-                fontSize: 12, background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 7,
-                padding: "6px 10px", color: colors.textMuted, display: "flex", alignItems: "center", gap: 5,
-              }}>
-                <CheckSquare size={13} /> Select all
-              </button>
-              {selectedIds.size > 0 && (
-                <>
-                  <span style={{ fontSize: 12, color: colors.textFaint }}>{selectedIds.size} selected</span>
-                  <button onClick={handleBulkApprove} style={{
-                    fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-                  }}>Approve selected</button>
-                  <button onClick={handleBulkReject} style={{
-                    fontSize: 12, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-                  }}>Reject selected</button>
-                  <button onClick={handleBulkDelete} style={{
-                    fontSize: 12, background: "transparent", color: colors.rejectedText, border: `1px solid ${colors.rejectedText}`, borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-                  }}>Delete selected</button>
-                </>
-              )}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              <button onClick={selectAllPending} style={{
+                fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
+                borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>Select all</button>
+              <button onClick={handleBulkApprove} style={{
+                fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>Approve selected</button>
+              <button onClick={handleBulkReject} style={{
+                fontSize: 12, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>Reject selected</button>
+              <button onClick={handleBulkDelete} style={{
+                fontSize: 12, background: "transparent", color: colors.rejectedText, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
+              }}>Delete selected</button>
             </div>
           )}
-
-          {pending.length === 0 && (
-            <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No pending profiles.</div>
-          )}
+          {pending.length === 0 && <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No pending profiles.</div>}
           {pending.map(p => (
-            <div key={p.id} style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 10 }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <button onClick={() => toggleSelect(p.id)} style={{ background: "none", border: "none", padding: 2, marginTop: 2 }}>
-                  {selectedIds.has(p.id) ? <CheckSquare size={18} color={colors.primary} /> : <Square size={18} color={colors.textFaint} />}
-                </button>
-                <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
-                <div style={{ flex: 1 }}>
-                  <div className="serif" style={{ fontWeight: 700, fontSize: 16 }}>
-                    {p.name}, {p.age}
-                    {p.profile_for && p.profile_for !== "Self" && (
-                      <span style={{ fontSize: 11, fontWeight: 500, color: colors.textFaint, marginLeft: 6 }}>(for {p.profile_for})</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: colors.textMuted }}>{p.gender} · {p.occupation || "—"} · {p.city}</div>
-                  <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.religion} · {p.caste}{p.sub_caste ? ` (${p.sub_caste})` : ""} · {p.education}</div>
-                  <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 4 }}>
-                    <Phone size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{p.phone}
-                  </div>
-                  {p.about && <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 6 }}>{p.about}</div>}
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button onClick={() => handleStatus(p.id, "approved")} style={{
-                  flex: 1, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 8, padding: "9px", fontWeight: 700, fontSize: 13.5,
-                }}>Approve</button>
-                <button onClick={() => handleStatus(p.id, "rejected")} style={{
-                  flex: 1, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 8, padding: "9px", fontWeight: 700, fontSize: 13.5,
-                }}>Reject</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "all" && (
-        <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <input
-              value={allProfilesSearch}
-              onChange={e => setAllProfilesSearch(e.target.value)}
-              placeholder="Search by name, city, phone…"
-              style={{
-                flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-                fontSize: 13, background: colors.inputBg, color: colors.text,
-              }}
-            />
-            <select value={allProfilesStatusFilter} onChange={e => setAllProfilesStatusFilter(e.target.value)} style={{
-              padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 13, background: colors.inputBg, color: colors.text,
-            }}>
-              <option value="all">All status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-
-          {profiles
-            .filter(p => {
-              if (allProfilesStatusFilter !== "all" && p.status !== allProfilesStatusFilter) return false;
-              if (allProfilesSearch) {
-                const q = allProfilesSearch.toLowerCase();
-                const hay = `${p.name} ${p.city} ${p.phone} ${p.district} ${p.state}`.toLowerCase();
-                if (!hay.includes(q)) return false;
-              }
-              return true;
-            })
-            .map(p => (
             <div key={p.id} onClick={() => setDetailProfile(p)} style={{
               display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
               flexWrap: "wrap", cursor: "pointer",
@@ -506,28 +417,90 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
                 <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
                 <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
               </div>
-              <Badge tone={p.status === "approved" ? "approved" : p.status === "rejected" ? "rejected" : "pending"}>{p.status}</Badge>
-              {p.admin_deactivated && <Badge tone="rejected">inactive</Badge>}
-              <button onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
-                background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
+              <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "approved"); }} style={{
+                background: colors.approvedBg, border: "none", borderRadius: 7, width: 30, height: 30,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
-                <Power size={13} color={p.admin_deactivated ? colors.approvedText : colors.pendingText} />
+                <Check size={13} color={colors.approvedText} />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setEditingProfile(p); }} style={{
-                background: colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <Pencil size={13} color={colors.pendingText} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id, p.name); }} style={{
+              <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "rejected"); }} style={{
                 background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
-                <Trash2 size={13} color={colors.rejectedText} />
+                <X size={13} color={colors.rejectedText} />
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === "all" && (
+        <div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <input
+              placeholder="Search by name, city, phone..."
+              value={allProfilesSearch}
+              onChange={e => setAllProfilesSearch(e.target.value)}
+              style={{
+                flex: 1, padding: "8px 12px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
+                fontSize: 13, background: colors.inputBg, color: colors.text,
+              }}
+            />
+            <select
+              value={allProfilesStatusFilter}
+              onChange={e => setAllProfilesStatusFilter(e.target.value)}
+              style={{
+                padding: "8px 12px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
+                fontSize: 13, background: colors.inputBg, color: colors.text,
+              }}
+            >
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          {profiles
+            .filter(p => {
+              const searchLower = allProfilesSearch.toLowerCase();
+              return !allProfilesSearch ||
+                p.name?.toLowerCase().includes(searchLower) ||
+                p.city?.toLowerCase().includes(searchLower) ||
+                p.phone?.includes(searchLower);
+            })
+            .filter(p => allProfilesStatusFilter === "all" || p.status === allProfilesStatusFilter)
+            .map(p => (
+              <div key={p.id} onClick={() => setDetailProfile(p)} style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
+                flexWrap: "wrap", cursor: "pointer",
+              }}>
+                <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={40} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
+                  <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
+                </div>
+                <Badge tone={p.status === "approved" ? "approved" : p.status === "rejected" ? "rejected" : "pending"}>{p.status}</Badge>
+                {p.admin_deactivated && <Badge tone="rejected">inactive</Badge>}
+                <button onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
+                  background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Power size={13} color={p.admin_deactivated ? colors.approvedText : colors.pendingText} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setEditingProfile(p); }} style={{
+                  background: colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Pencil size={13} color={colors.pendingText} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id, p.name); }} style={{
+                  background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Trash2 size={13} color={colors.rejectedText} />
+                </button>
+              </div>
+            ))}
         </div>
       )}
 
@@ -547,9 +520,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
                   </div>
                   <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>{r.status}</Badge>
                 </div>
-                <div style={{ fontSize: 11.5, color: colors.textFaint }}>
-                  {new Date(r.created_at).toLocaleString()}
-                </div>
+                <div style={{ fontSize: 11, color: colors.textFaint }}>{new Date(r.created_at).toLocaleString()}</div>
               </div>
             );
           })}
@@ -584,9 +555,9 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
       {tab === "announce" && <AnnouncementManager colors={colors} showToast={showToast} />}
 
-      {tab === "porutham" && <PoruthamCheckManager profiles={profiles} colors={colors} showToast={showToast} />}
+      {tab === "porutham" && <PoruthamTab colors={colors} profiles={profiles} showToast={showToast} />}
 
-      {tab === "lists" && <MasterListsManager colors={colors} />}
+      {tab === "lists" && <MasterListsTab colors={colors} showToast={showToast} />}
 
       {tab === "log" && <ActivityLogTab colors={colors} />}
     </div>
@@ -594,14 +565,423 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 }
 
 function StatCard({ label, value, colors, tone, icon: Icon }) {
-  const toneColors = tone ? {
-    pending: colors.pendingText, approved: colors.approvedText, rejected: colors.rejectedText,
-  }[tone] : colors.primary;
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14 }}>
-      {Icon && <Icon size={16} color={toneColors} style={{ marginBottom: 4 }} />}
-      <div style={{ fontSize: 22, fontWeight: 800, color: toneColors, fontFamily: "'Playfair Display', Georgia, serif" }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: colors.textFaint, marginTop: 2 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        {Icon && <Icon size={16} color={tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text} />}
+        <div style={{ fontSize: 11, color: colors.textMuted }}>{label}</div>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text }}>{value}</div>
+    </div>
+  );
+}
+
+function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
+  async function handleStatusChange(id, status) {
+    await updateReportStatus(id, status);
+    await logAdminAction({ action: status === "reviewed" ? "review_report" : "dismiss_report", targetType: "report", targetId: id });
+    showToast(`Report marked as ${status}`);
+    onReload();
+  }
+
+  if (reports.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No reports yet.</div>;
+
+  return (
+    <div>
+      {reports.map(r => {
+        const reporter = profiles.find(p => p.id === r.reporter_id);
+        const reported = profiles.find(p => p.id === r.reported_id);
+        return (
+          <div key={r.id} style={{
+            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{r.reason}</div>
+              <Badge tone={r.status === "reviewed" ? "approved" : r.status === "dismissed" ? "rejected" : "pending"}>{r.status}</Badge>
+            </div>
+            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>
+              Reported by <b>{reporter?.name || "Unknown"}</b> against <b>{reported?.name || "Unknown"}</b>
+            </div>
+            {r.details && <div style={{ fontSize: 12.5, color: colors.text, marginBottom: 8 }}>{r.details}</div>}
+            <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>{new Date(r.created_at).toLocaleString()}</div>
+            {r.status === "open" && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => handleStatusChange(r.id, "reviewed")} style={{
+                  fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+                }}>Mark reviewed</button>
+                <button onClick={() => handleStatusChange(r.id, "dismissed")} style={{
+                  fontSize: 12, background: "transparent", color: colors.textMuted, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
+                }}>Dismiss</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnalyticsTab({ colors, showToast }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Analytics Tab</h3>
+      <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+        Analytics feature is currently under development.
+      </div>
+    </div>
+  );
+}
+
+function ActivityLogTab({ colors }) {
+  const [log, setLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchActivityLog().then(({ data }) => { setLog(data); setLoading(false); });
+  }, []);
+
+  const actionLabels = {
+    approved: "Approved", rejected: "Rejected", delete: "Deleted", edit: "Edited",
+    reply_message: "Replied to message", resolve_message: "Resolved message", reopen_message: "Reopened message",
+    reset_password: "Reset password", deactivate: "Deactivated account", activate: "Activated account",
+    bulk_approve: "Bulk approved", bulk_reject: "Bulk rejected", bulk_delete: "Bulk deleted", export: "Exported data",
+    full_backup: "Downloaded full backup",
+  };
+
+  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
+
+  function handleExport() {
+    const rows = log.map(entry => ({
+      action: actionLabels[entry.action] || entry.action,
+      target_type: entry.target_type,
+      target_name: entry.target_name || "",
+      details: entry.details || "",
+      created_at: entry.created_at,
+    }));
+    exportToCsv(rows, "admin-activity-log.csv");
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700 }}>Activity Log</h3>
+        <button onClick={handleExport} style={{
+          fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
+          borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+        }}>Export CSV</button>
+      </div>
+      {log.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No activity logged yet.</div>}
+      {log.map(entry => (
+        <div key={entry.id} style={{
+          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 10, marginBottom: 6,
+          fontSize: 12,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontWeight: 600 }}>{actionLabels[entry.action] || entry.action}</span>
+            <span style={{ color: colors.textFaint, fontSize: 11 }}>{new Date(entry.created_at).toLocaleString()}</span>
+          </div>
+          {entry.target_name && <div style={{ color: colors.textMuted }}>{entry.target_type}: {entry.target_name}</div>}
+          {entry.details && <div style={{ color: colors.textFaint, fontSize: 11 }}>{entry.details}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContactMessagesTab({ messages, colors, showToast, onReload }) {
+  async function handleReply(id, reply) {
+    const replyText = prompt("Enter your reply:");
+    if (!replyText) return;
+    await replyToContactMessage(id, replyText);
+    showToast("Reply sent");
+    onReload();
+  }
+
+  async function handleResolve(id) {
+    await resolveContactMessage(id, true);
+    showToast("Message resolved");
+    onReload();
+  }
+
+  return (
+    <div>
+      {messages.length === 0 && <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No messages yet.</div>}
+      {messages.map(m => (
+        <div key={m.id} style={{
+          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ fontWeight: 600, fontSize: 13.5 }}>{m.name}</div>
+            <Badge tone={m.resolved ? "approved" : "pending"}>{m.resolved ? "Resolved" : "Open"}</Badge>
+          </div>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>{m.email}</div>
+          <div style={{ fontSize: 12.5, color: colors.text, marginBottom: 8 }}>{m.message}</div>
+          {m.admin_reply && (
+            <div style={{ background: colors.approvedBg, padding: 8, borderRadius: 6, marginBottom: 8, fontSize: 12 }}>
+              <b>Admin reply:</b> {m.admin_reply}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>{new Date(m.created_at).toLocaleString()}</div>
+          {!m.resolved && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => handleReply(m.id)} style={{
+                fontSize: 12, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>Reply</button>
+              <button onClick={() => handleResolve(m.id)} style={{
+                fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+              }}>Mark resolved</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AnnouncementManager({ colors, showToast }) {
+  const [message, setMessage] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+
+  useEffect(() => {
+    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
+  }, []);
+
+  async function handleSubmit() {
+    if (!message.trim()) return;
+    setLoading(true);
+    const expires = expiresAt ? new Date(expiresAt).toISOString() : null;
+    await createAnnouncement({ message, expiresAt: expires });
+    showToast("Announcement created");
+    setMessage("");
+    setExpiresAt("");
+    setLoading(false);
+    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
+  }
+
+  async function toggleActive(id, active) {
+    await setAnnouncementActive(id, active);
+    showToast(`Announcement ${active ? "activated" : "deactivated"}`);
+    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm("Delete this announcement?")) return;
+    await deleteAnnouncement(id);
+    showToast("Announcement deleted");
+    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Create Announcement</h3>
+      <textarea
+        placeholder="Announcement message (shows as banner on all pages)"
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        style={{
+          width: "100%", padding: "10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+          fontSize: 13, background: colors.inputBg, color: colors.text, minHeight: 80, marginBottom: 8,
+        }}
+      />
+      <input
+        type="datetime-local"
+        value={expiresAt}
+        onChange={e => setExpiresAt(e.target.value)}
+        placeholder="Expiry date (optional)"
+        style={{
+          width: "100%", padding: "10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
+          fontSize: 13, background: colors.inputBg, color: colors.text, marginBottom: 8,
+        }}
+      />
+      <button onClick={handleSubmit} disabled={loading} style={{
+        background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+        padding: "10px 20px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1,
+      }}>
+        {loading ? "Creating…" : "Create Announcement"}
+      </button>
+
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, marginTop: 20 }}>Past Announcements</h3>
+      {announcements.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No announcements yet.</div>}
+      {announcements.map(a => (
+        <div key={a.id} style={{
+          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 12, marginBottom: 8,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+            <div style={{ flex: 1, fontSize: 13 }}>{a.message}</div>
+            <Badge tone={a.active ? "approved" : "pending"}>{a.active ? "Active" : "Inactive"}</Badge>
+          </div>
+          <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>
+            Created: {new Date(a.created_at).toLocaleString()}
+            {a.expires_at && ` • Expires: ${new Date(a.expires_at).toLocaleString()}`}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => toggleActive(a.id, !a.active)} style={{
+              fontSize: 11, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
+              borderRadius: 6, padding: "4px 8px",
+            }}>{a.active ? "Deactivate" : "Activate"}</button>
+            <button onClick={() => handleDelete(a.id)} style={{
+              fontSize: 11, background: colors.rejectedBg, color: colors.rejectedText, border: "none",
+              borderRadius: 6, padding: "4px 8px",
+            }}>Delete</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PoruthamTab({ colors, profiles, showToast }) {
+  const [profileAId, setProfileAId] = useState("");
+  const [profileBId, setProfileBId] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function checkPorutham() {
+    if (!profileAId || !profileBId) return;
+    setLoading(true);
+    const profileA = profiles.find(p => p.id === profileAId);
+    const profileB = profiles.find(p => p.id === profileBId);
+    if (!profileA || !profileB) {
+      showToast("Profile not found");
+      setLoading(false);
+      return;
+    }
+    const calculated = calculatePorutham(profileA, profileB);
+    setResult({ profileA, profileB, calculated });
+    setLoading(false);
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Porutham Check</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <select
+          value={profileAId}
+          onChange={e => setProfileAId(e.target.value)}
+          style={{ padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text }}
+        >
+          <option value="">Select first profile</option>
+          {profiles.filter(p => p.status === "approved").map(p => (
+            <option key={p.id} value={p.id}>{p.name} ({p.gender}, {p.age})</option>
+          ))}
+        </select>
+        <select
+          value={profileBId}
+          onChange={e => setProfileBId(e.target.value)}
+          style={{ padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text }}
+        >
+          <option value="">Select second profile</option>
+          {profiles.filter(p => p.status === "approved").map(p => (
+            <option key={p.id} value={p.id}>{p.name} ({p.gender}, {p.age})</option>
+          ))}
+        </select>
+      </div>
+      <button onClick={checkPorutham} disabled={loading} style={{
+        background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+        padding: "10px 20px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1, marginBottom: 16,
+      }}>
+        {loading ? "Checking…" : "Check Porutham"}
+      </button>
+      {result && (
+        <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16 }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+              {result.profileA.name} + {result.profileA.gender === "Male" ? "♂" : "♀"}
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>
+              {result.profileB.name} + {result.profileB.gender === "Male" ? "♂" : "♀"}
+            </div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+            Calculated Porutham: {result.calculated.verdict}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12 }}>
+            {result.calculated.matches.map((m, i) => (
+              <div key={i} style={{ padding: "4px 8px", borderRadius: 4, background: m.matched ? colors.approvedBg : colors.rejectedBg, color: m.matched ? colors.approvedText : colors.rejectedText }}>
+                {m.name}: {m.matched ? "Match" : "No match"}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MasterListsTab({ colors, showToast }) {
+  const [listType, setListType] = useState("sub_caste");
+  const [newValue, setNewValue] = useState("");
+  const [values, setValues] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadValues();
+  }, [listType]);
+
+  async function loadValues() {
+    setLoading(true);
+    const { data } = await fetchMasterList(listType);
+    setValues(data?.map(d => d.value) || []);
+    setLoading(false);
+  }
+
+  async function handleAdd() {
+    if (!newValue.trim()) return;
+    await addMasterListValue(listType, newValue);
+    showToast("Value added");
+    setNewValue("");
+    loadValues();
+  }
+
+  async function handleDelete(value) {
+    const item = values.find(v => v === value);
+    if (!item) return;
+    const id = values.indexOf(item);
+    await deleteMasterListValue(id);
+    showToast("Value deleted");
+    loadValues();
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Master Lists</h3>
+      <select
+        value={listType}
+        onChange={e => setListType(e.target.value)}
+        style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, marginBottom: 12 }}
+      >
+        <option value="sub_caste">Sub caste</option>
+        <option value="city">City</option>
+        <option value="district">District</option>
+        <option value="state">State</option>
+      </select>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input
+          placeholder="Add new value"
+          value={newValue}
+          onChange={e => setNewValue(e.target.value)}
+          style={{ flex: 1, padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text }}
+        />
+        <button onClick={handleAdd} style={{
+          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 7,
+          padding: "8px 16px", fontWeight: 700, fontSize: 13,
+        }}>Add</button>
+      </div>
+      {loading ? <div style={{ fontSize: 12, color: colors.textFaint }}>Loading…</div> : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {values.map(v => (
+            <div key={v} style={{
+              background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 20,
+              padding: "6px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 6,
+            }}>
+              {v}
+              <button onClick={() => handleDelete(v)} style={{ background: "none", border: "none", color: colors.rejectedText, cursor: "pointer", padding: 0 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -716,10 +1096,10 @@ function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBa
   );
 }
 
-function Section({ title, children, colors }) {
+function Section({ title, colors, children }) {
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: colors.primary, marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>{title}</div>
       {children}
     </div>
   );
@@ -727,1148 +1107,80 @@ function Section({ title, children, colors }) {
 
 function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
   const [form, setForm] = useState({ ...profile });
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function handleSave() {
-    setSaving(true);
-    const { error } = await upsertProfile({ ...form, age: Number(form.age) });
-    setSaving(false);
-    if (!error) onSaved();
+    setLoading(true);
+    await upsertProfile(form);
+    onSaved();
   }
 
-  const fields = [
-    ["profile_for", "Profile For"], ["name", "Full name"], ["age", "Age"], ["height", "Height"], ["religion", "Religion"],
-    ["caste", "Caste"], ["sub_caste", "Sub caste"], ["education", "Education"], ["occupation", "Occupation"],
-    ["income", "Income"], ["address", "Address"], ["district", "District"], ["city", "City"], ["state", "State"],
-    ["mother_tongue", "Mother tongue"], ["phone", "Phone"],
-    ["father_occupation", "Father's occupation"], ["mother_occupation", "Mother's occupation"],
-    ["siblings", "Siblings"], ["family_type", "Family type"],
-    ["star", "Star"], ["rasi", "Rasi"], ["birth_time", "Birth time"], ["birth_place", "Birth place"],
-    ["complexion", "Complexion"], ["body_type", "Body type"], ["blood_group", "Blood group"],
-    ["diet", "Diet"], ["smoking", "Smoking"], ["drinking", "Drinking"],
-    ["pref_age_min", "Preferred age (min)"], ["pref_age_max", "Preferred age (max)"],
-    ["pref_education", "Preferred education"], ["pref_occupation", "Preferred occupation"],
-  ];
+  const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }));
 
   return (
     <div>
-      <h2 className="serif" style={{ fontSize: 18, marginBottom: 14 }}>Edit: {profile.name}</h2>
-      {fields.map(([key, label]) => (
-        <label key={key} style={{ display: "block", marginBottom: 12 }}>
-          <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 4, fontWeight: 600 }}>{label}</span>
-          <input
-            value={form[key] || ""}
-            onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-            style={{
-              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 14, background: colors.inputBg, color: colors.text, boxSizing: "border-box",
-            }}
-          />
-        </label>
-      ))}
-      <label style={{ display: "block", marginBottom: 16 }}>
-        <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 4, fontWeight: 600 }}>About</span>
-        <textarea
-          value={form.about || ""}
-          onChange={e => setForm(f => ({ ...f, about: e.target.value }))}
-          rows={3}
-          style={{
-            width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-            fontSize: 14, background: colors.inputBg, color: colors.text, boxSizing: "border-box", resize: "vertical",
-          }}
-        />
-      </label>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onCancel} style={{
-          flex: 1, background: "transparent", border: `1px solid ${colors.inputBorder}`, borderRadius: 8,
-          padding: "11px", fontSize: 14, color: colors.text,
-        }}>Cancel</button>
-        <button onClick={handleSave} disabled={saving} style={{
+      <button onClick={onCancel} style={{
+        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
+        color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
+      }}>← Cancel</button>
+
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Edit Profile</h3>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <TextField label="Name" value={form.name} onChange={v => handleChange("name", v)} />
+        <TextField label="Age" type="number" value={form.age} onChange={v => handleChange("age", v)} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <TextField label="City" value={form.city} onChange={v => handleChange("city", v)} />
+        <TextField label="District" value={form.district} onChange={v => handleChange("district", v)} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <TextField label="State" value={form.state} onChange={v => handleChange("state", v)} />
+        <TextField label="Phone" value={form.phone} onChange={v => handleChange("phone", v)} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <TextField label="Education" value={form.education} onChange={v => handleChange("education", v)} />
+        <TextField label="Occupation" value={form.occupation} onChange={v => handleChange("occupation", v)} />
+      </div>
+
+      <TextField label="About" value={form.about} onChange={v => handleChange("about", v)} multiline style={{ minHeight: 80 }} />
+
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <button onClick={handleSave} disabled={loading} style={{
           flex: 1, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "11px", fontWeight: 700, fontSize: 14, opacity: saving ? 0.6 : 1,
-        }}>{saving ? "Saving…" : "Save changes"}</button>
-      </div>
-    </div>
-  );
-}
-
-function ContactMessagesTab({ messages, colors, showToast, onReload }) {
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [replyText, setReplyText] = useState("");
-
-  async function handleResolve(id, resolved) {
-    await resolveContactMessage(id, resolved);
-    await logAdminAction({ action: resolved ? "resolve_message" : "reopen_message", targetType: "contact_message", targetId: id });
-    showToast(resolved ? "Marked as resolved" : "Marked as unresolved");
-    onReload();
-  }
-
-  async function handleReply(id) {
-    if (!replyText.trim()) return;
-    await replyToContactMessage(id, replyText.trim());
-    await logAdminAction({ action: "reply_message", targetType: "contact_message", targetId: id });
-    showToast("Reply saved");
-    setReplyingTo(null);
-    setReplyText("");
-    onReload();
-  }
-
-  if (messages.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No messages yet.</div>;
-
-  return (
-    <div>
-      {messages.map(m => (
-        <div key={m.id} style={{
-          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
+          padding: "10px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1,
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Badge tone={m.resolved ? "approved" : "pending"}>{m.resolved ? "resolved" : "open"}</Badge>
-              <div style={{ fontSize: 11, color: colors.textFaint }}>{new Date(m.created_at).toLocaleDateString()}</div>
-            </div>
-          </div>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 6 }}>{m.email}</div>
-          <div style={{ fontSize: 13, color: colors.text, lineHeight: 1.5, marginBottom: 8 }}>{m.message}</div>
-
-          {m.admin_reply && (
-            <div style={{ background: colors.pendingBg, borderRadius: 8, padding: "8px 10px", fontSize: 12.5, color: colors.pendingText, marginBottom: 8 }}>
-              <b>Your reply:</b> {m.admin_reply}
-            </div>
-          )}
-
-          {replyingTo === m.id ? (
-            <div>
-              <textarea
-                value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-                rows={2}
-                placeholder="Type your reply..."
-                style={{
-                  width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-                  fontSize: 13, background: colors.inputBg, color: colors.text, marginBottom: 6, boxSizing: "border-box", resize: "vertical",
-                }}
-              />
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => handleReply(m.id)} style={{
-                  fontSize: 12, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 7, padding: "6px 12px", fontWeight: 700,
-                }}>Send reply</button>
-                <button onClick={() => { setReplyingTo(null); setReplyText(""); }} style={{
-                  fontSize: 12, background: "transparent", border: `1px solid ${colors.inputBorder}`, borderRadius: 7, padding: "6px 12px", color: colors.text,
-                }}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => setReplyingTo(m.id)} style={{
-                fontSize: 12, background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
-                color: colors.textMuted, display: "flex", alignItems: "center", gap: 4,
-              }}><Reply size={12} /> Reply</button>
-              <button onClick={() => handleResolve(m.id, !m.resolved)} style={{
-                fontSize: 12, background: m.resolved ? colors.pendingBg : colors.approvedBg,
-                border: "none", borderRadius: 7, padding: "6px 10px",
-                color: m.resolved ? colors.pendingText : colors.approvedText, display: "flex", alignItems: "center", gap: 4,
-              }}><Check size={12} /> {m.resolved ? "Reopen" : "Mark resolved"}</button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
-  async function handleStatusChange(id, status) {
-    await updateReportStatus(id, status);
-    await logAdminAction({ action: status === "reviewed" ? "review_report" : "dismiss_report", targetType: "report", targetId: id });
-    showToast(`Report marked as ${status}`);
-    onReload();
-  }
-
-  if (reports.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No reports yet.</div>;
-
-  return (
-    <div>
-      {reports.map(r => {
-        const reporter = profiles.find(p => p.id === r.reporter_id);
-        const reported = profiles.find(p => p.id === r.reported_id);
-        return (
-          <div key={r.id} style={{
-            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{r.reason}</div>
-              <Badge tone={r.status === "reviewed" ? "approved" : r.status === "dismissed" ? "rejected" : "pending"}>{r.status}</Badge>
-            </div>
-            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>
-              Reported by <b>{reporter?.name || "Unknown"}</b> against <b>{reported?.name || "Unknown"}</b>
-            </div>
-            {r.details && <div style={{ fontSize: 12.5, color: colors.text, marginBottom: 8 }}>{r.details}</div>}
-            <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>{new Date(r.created_at).toLocaleString()}</div>
-            {r.status === "open" && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => handleStatusChange(r.id, "reviewed")} style={{
-                  fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-                }}>Mark reviewed</button>
-                <button onClick={() => handleStatusChange(r.id, "dismissed")} style={{
-                  fontSize: 12, background: "transparent", color: colors.textMuted, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
-                }}>Dismiss</button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AnalyticsTab({ colors, showToast }) {
-  const [loading, setLoading] = useState(false);
-  const [currentReport, setCurrentReport] = useState("profile_completion");
-  const [reportData, setReportData] = useState(null);
-  const [error, setError] = useState(null);
-
-  const REPORTS = [
-    { key: "profile_completion", label: "Profile Completion", icon: User },
-    { key: "photo_stats", label: "Photo Statistics", icon: Camera },
-    { key: "district_analysis", label: "District Analysis", icon: MapPin },
-    { key: "age_distribution", label: "Age Distribution", icon: BarChart3 },
-    { key: "response_rate", label: "Response Rate", icon: Heart },
-    { key: "most_viewed", label: "Most Viewed Profiles", icon: Eye },
-    { key: "occupation_analysis", label: "Occupation Analysis", icon: Briefcase },
-    { key: "education_analysis", label: "Education Analysis", icon: BookOpen },
-  ];
-
-  useEffect(() => {
-    loadReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentReport]);
-
-  async function loadReport() {
-    setLoading(true);
-    setError(null);
-    setReportData(null);
-
-    try {
-      let result;
-      switch (currentReport) {
-        case "profile_completion":
-          result = await fetchProfileCompletionReport();
-          break;
-        case "photo_stats":
-          result = await fetchPhotoStatistics();
-          break;
-        case "district_analysis":
-          result = await fetchDistrictAnalysis();
-          break;
-        case "age_distribution":
-          result = await fetchAgeDistribution();
-          break;
-        case "response_rate":
-          result = await fetchResponseRateAnalysis();
-          break;
-        case "most_viewed":
-          result = await fetchMostViewedProfiles(20);
-          break;
-        case "occupation_analysis":
-          result = await fetchOccupationAnalysis();
-          break;
-        case "education_analysis":
-          result = await fetchEducationAnalysis();
-          break;
-        default:
-          result = { data: null, error: null };
-      }
-
-      console.log("Report result:", result);
-      setReportData(result.data);
-      if (result.error) {
-        setError(result.error);
-        showToast(`Error: ${result.error}`);
-      }
-    } catch (err) {
-      console.error("Error loading report:", err);
-      setError(err.message);
-      showToast("Error loading analytics data");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
-
-  if (error) {
-    return (
-      <div>
-        <div style={{ textAlign: "center", color: colors.rejectedText, padding: 40 }}>
-          Error: {error}
-        </div>
-        <button onClick={loadReport} style={{
-          display: "block", margin: "0 auto", background: colors.primary, color: colors.primaryText,
-          border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700
-        }}>
-          Retry
+          {loading ? "Saving…" : "Save changes"}
         </button>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
-        {REPORTS.map(r => {
-          const Icon = r.icon;
-          const active = currentReport === r.key;
-          return (
-            <button key={r.key} onClick={() => { setCurrentReport(r.key); }} style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 8,
-              fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
-              background: active ? colors.primary : colors.card,
-              color: active ? colors.primaryText : colors.textMuted,
-              border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
-            }}>
-              <Icon size={13} /> {r.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16 }}>
-        {currentReport === "profile_completion" && <ProfileCompletionReport data={reportData} colors={colors} />}
-        {currentReport === "photo_stats" && <PhotoStatisticsReport data={reportData} colors={colors} />}
-        {currentReport === "district_analysis" && <DistrictAnalysisReport data={reportData} colors={colors} />}
-        {currentReport === "age_distribution" && <AgeDistributionReport data={reportData} colors={colors} />}
-        {currentReport === "response_rate" && <ResponseRateReport data={reportData} colors={colors} />}
-        {currentReport === "most_viewed" && <MostViewedReport data={reportData} colors={colors} />}
-        {currentReport === "occupation_analysis" && <OccupationAnalysisReport data={reportData} colors={colors} />}
-        {currentReport === "education_analysis" && <EducationAnalysisReport data={reportData} colors={colors} />}
-        {!reportData && !loading && !error && (
-          <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-            No data available for this report
-          </div>
-        )}
+        <button onClick={onCancel} style={{
+          flex: 1, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
+          borderRadius: 8, padding: "10px", fontWeight: 700, fontSize: 13,
+        }}>Cancel</button>
       </div>
     </div>
   );
 }
 
-function ProfileCompletionReport({ data, colors }) {
-  console.log("ProfileCompletionReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No profile data available
-        </div>
-      </div>
-    );
-  }
-
-  // Filter out invalid data
-  const validData = data.filter(d => d && typeof d === 'object' && d.total_percentage !== undefined);
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid profile data available
-        </div>
-      </div>
-    );
-  }
-
-  const total = validData.length;
-  const highCompletion = validData.filter(d => d.total_percentage >= 80).length;
-  const mediumCompletion = validData.filter(d => d.total_percentage >= 50 && d.total_percentage < 80).length;
-  const lowCompletion = validData.filter(d => d.total_percentage < 50).length;
-
+function TextField({ label, value, onChange, type = "text", multiline = false, style = {} }) {
   return (
     <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.approvedBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.approvedText }}>{highCompletion}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>High (80%+)</div>
-        </div>
-        <div style={{ background: colors.pendingBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.pendingText }}>{mediumCompletion}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Medium (50-79%)</div>
-        </div>
-        <div style={{ background: colors.rejectedBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.rejectedText }}>{lowCompletion}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Low (&lt;50%)</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 8 }}>Top 5 least complete profiles:</div>
-      {validData.slice(0, 5).map((d, index) => (
-        <div key={d.id || index} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${colors.cardBorder}`, fontSize: 12.5 }}>
-          <span>{d.name || 'Unknown'}</span>
-          <span style={{ fontWeight: 600 }}>{d.total_percentage || 0}%</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function PhotoStatisticsReport({ data, colors }) {
-  if (!data || data.total === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Photo Statistics</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No photo data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Photo Statistics</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.text }}>{data.with_photo || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>With Photo ({data.with_photo_percentage || 0}%)</div>
-        </div>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.text }}>{data.without_photo || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Without Photo</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>By Gender:</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Male: </span>
-          {data.by_gender?.male_with_photo || 0} with / {data.by_gender?.male_without_photo || 0} without
-        </div>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Female: </span>
-          {data.by_gender?.female_with_photo || 0} with / {data.by_gender?.female_without_photo || 0} without
-        </div>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>By Status:</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Approved: </span>
-          {data.by_status?.approved_with_photo || 0} with / {data.by_status?.approved_without_photo || 0} without
-        </div>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Pending: </span>
-          {data.by_status?.pending_with_photo || 0} with / {data.by_status?.pending_without_photo || 0} without
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DistrictAnalysisReport({ data, colors }) {
-  if (!data || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No district data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
-      <div>
-        {data.slice(0, 10).map(d => (
-          <div key={d.district} style={{
-            background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{d.district}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
-              <div><span style={{ color: colors.pendingText }}>{d.pending}</span> pending</div>
-              <div>Male: {d.male} / Female: {d.female}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AgeDistributionReport({ data, colors }) {
-  if (!data || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No age data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
-      {data.map(d => (
-        <div key={d.group} style={{ marginBottom: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>{d.group}</span>
-            <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
-          </div>
-          <div style={{
-            height: 8, background: colors.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 4
-          }}>
-            <div style={{
-              height: "100%", background: colors.primary, width: `${Math.min(d.total * 2, 100)}%`
-            }} />
-          </div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>
-            Male: {d.male} | Female: {d.female} | Approved: {d.approved}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ResponseRateReport({ data, colors }) {
-  if (!data || data.total_requests === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Response Rate Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No request data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Response Rate Analysis</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Total Requests</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: colors.text }}>{data.total_requests}</div>
-        </div>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Acceptance Rate</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: colors.approvedText }}>{data.acceptance_rate}%</div>
-        </div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.approvedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{data.accepted}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Accepted</div>
-        </div>
-        <div style={{ background: colors.rejectedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.rejectedText }}>{data.declined}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Declined</div>
-        </div>
-        <div style={{ background: colors.pendingBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{data.pending}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Pending</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 12, color: colors.textMuted }}>
-        Average response time: ~{data.average_response_days} days
-      </div>
-    </div>
-  );
-}
-
-function MostViewedReport({ data, colors }) {
-  if (!data || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No view data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
-      <div>
-        {data.map((d, index) => (
-          <div key={d.profile_id} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{
-              width: 24, height: 24, borderRadius: "50%", background: colors.primary, color: colors.primaryText,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700
-            }}>
-              {index + 1}
-            </div>
-            {d.profile && (
-              <>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{d.profile.name}</div>
-                  <div style={{ fontSize: 11, color: colors.textMuted }}>{d.profile.city} · {d.profile.age} yrs</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{d.total_views}</div>
-                  <div style={{ fontSize: 10, color: colors.textMuted }}>{d.unique_viewers} unique</div>
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function OccupationAnalysisReport({ data, colors }) {
-  if (!data || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No occupation data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
-      <div>
-        {data.slice(0, 15).map(d => (
-          <div key={d.occupation} style={{
-            background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{d.occupation}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
-              <div>Male: {d.male} / Female: {d.female}</div>
-              <div>Success: {d.success_rate}%</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EducationAnalysisReport({ data, colors }) {
-  if (!data || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No education data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
-      <div>
-        {data.slice(0, 15).map(d => (
-          <div key={d.education} style={{
-            background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{d.education}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total} profiles</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved}</span> approved</div>
-              <div>Male: {d.male} / Female: {d.female}</div>
-              <div>Approval: {d.approval_rate}%</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ActivityLogTab({ colors }) {
-  const [log, setLog] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchActivityLog().then(({ data }) => { setLog(data); setLoading(false); });
-  }, []);
-
-  const actionLabels = {
-    approved: "Approved", rejected: "Rejected", delete: "Deleted", edit: "Edited",
-    reply_message: "Replied to message", resolve_message: "Resolved message", reopen_message: "Reopened message",
-    reset_password: "Reset password", deactivate: "Deactivated account", activate: "Activated account",
-    bulk_approve: "Bulk approved", bulk_reject: "Bulk rejected", bulk_delete: "Bulk deleted", export: "Exported data",
-    full_backup: "Downloaded full backup",
-  };
-
-  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
-
-  function handleExport() {
-    const rows = log.map(entry => ({
-      action: actionLabels[entry.action] || entry.action,
-      target_type: entry.target_type,
-      target_name: entry.target_name || "",
-      details: entry.details || "",
-      timestamp: new Date(entry.created_at).toLocaleString(),
-    }));
-    exportToCsv(`naicker-matrimony-activity-log-${new Date().toISOString().slice(0, 10)}.csv`, rows);
-  }
-
-  if (log.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No activity yet.</div>;
-
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <p style={{ fontSize: 12, color: colors.textFaint, margin: 0 }}>Showing the most recent 200 admin actions.</p>
-        <button onClick={handleExport} style={{
-          display: "flex", alignItems: "center", gap: 6, background: colors.primary, color: colors.primaryText,
-          border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 700, fontSize: 12, flexShrink: 0,
-        }}>
-          <Download size={13} /> Export CSV
-        </button>
-      </div>
-      {log.map(entry => (
-        <div key={entry.id} style={{
-          padding: "9px 0", borderBottom: `1px solid ${colors.cardBorder}`, display: "flex", justifyContent: "space-between", gap: 8,
-        }}>
-          <div style={{ fontSize: 12.5, color: colors.text }}>
-            <b>{actionLabels[entry.action] || entry.action}</b>
-            {entry.target_name && <span style={{ color: colors.textMuted }}> — {entry.target_name}</span>}
-            {entry.details && <div style={{ fontSize: 11.5, color: colors.textFaint }}>{entry.details}</div>}
-          </div>
-          <div style={{ fontSize: 11, color: colors.textFaint, whiteSpace: "nowrap" }}>
-            {new Date(entry.created_at).toLocaleString()}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function PoruthamCheckManager({ profiles, colors, showToast }) {
-  const [profileAId, setProfileAId] = useState("");
-  const [profileBId, setProfileBId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const approvedProfiles = profiles.filter(p => p.status === "approved");
-
-  const load = async () => {
-    setLoading(true);
-    const { data } = await fetchPoruthamReviews();
-    setReviews(data);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const profileA = approvedProfiles.find(p => p.id === profileAId);
-  const profileB = approvedProfiles.find(p => p.id === profileBId);
-
-  let calcResult = null;
-  let horoscopeMissing = false;
-  if (profileA && profileB) {
-    if (!isHoroscopeDataAvailable(profileA) || !isHoroscopeDataAvailable(profileB)) {
-      horoscopeMissing = true;
-    } else {
-      calcResult = calculatePorutham(profileA, profileB);
-    }
-  }
-
-  const existingReview = profileA && profileB
-    ? reviews.find(r => {
-        const pair = [profileAId, profileBId].sort();
-        return r.profile_a_id === pair[0] && r.profile_b_id === pair[1];
-      })
-    : null;
-
-  async function handleSaveVerdict(manualVerdict) {
-    if (!profileA || !profileB || !calcResult) return;
-    setSaving(true);
-    const { error } = await savePoruthamReview({
-      profileAId, profileBId,
-      calculatedMatchedCount: calcResult.matchedCount,
-      calculatedVerdict: calcResult.verdict,
-      manualVerdict, notes,
-    });
-    setSaving(false);
-    if (error) { showToast("Could not save review"); return; }
-    await logAdminAction({
-      action: manualVerdict === "approved" ? "porutham_approved" : "porutham_rejected",
-      targetType: "porutham_review", details: `${profileA.name} × ${profileB.name}`,
-    });
-    // Let both members know an astrologer has reviewed their horoscope match.
-    await createNotification({ userId: profileA.id, type: "new_match", relatedProfileId: profileB.id, message: `Astrologer review: your Porutham with ${profileB.name} — ${manualVerdict}.` });
-    await createNotification({ userId: profileB.id, type: "new_match", relatedProfileId: profileA.id, message: `Astrologer review: your Porutham with ${profileA.name} — ${manualVerdict}.` });
-    showToast(`Marked as ${manualVerdict} by astrologer`);
-    setNotes("");
-    load();
-  }
-
-  async function handleDeleteReview(id) {
-    await deletePoruthamReview(id);
-    showToast("Review removed");
-    load();
-  }
-
-  return (
-    <div>
-      <p style={{ fontSize: 12.5, color: colors.textFaint, marginBottom: 14 }}>
-        Select two approved profiles to see the calculated Porutham, then record an
-        astrologer's manual verdict. / இரு விவரங்களைத் தேர்ந்தெடுத்து பொருத்தத்தை பார்க்கவும்.
-      </p>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-        <select value={profileAId} onChange={e => setProfileAId(e.target.value)} style={{
-          padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-          fontSize: 13, background: colors.inputBg, color: colors.text,
-        }}>
-          <option value="">Select profile A…</option>
-          {approvedProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gender})</option>)}
-        </select>
-        <select value={profileBId} onChange={e => setProfileBId(e.target.value)} style={{
-          padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-          fontSize: 13, background: colors.inputBg, color: colors.text,
-        }}>
-          <option value="">Select profile B…</option>
-          {approvedProfiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gender})</option>)}
-        </select>
-      </div>
-
-      {profileA && profileB && profileAId === profileBId && (
-        <div style={{ fontSize: 13, color: colors.rejectedText, textAlign: "center", padding: 20 }}>
-          Please select two different profiles.
-        </div>
-      )}
-
-      {profileA && profileB && profileAId !== profileBId && horoscopeMissing && (
-        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20, background: colors.card, borderRadius: 12, border: `1px solid ${colors.cardBorder}` }}>
-          One or both profiles are missing Star/Rasi details.
-        </div>
-      )}
-
-      {calcResult && profileAId !== profileBId && (
-        <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
-          <div style={{ textAlign: "center", marginBottom: 12 }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: colors.primary, fontFamily: "'Playfair Display', Georgia, serif" }}>
-              {calcResult.matchedCount} / {calcResult.totalCount}
-            </div>
-            <div style={{ fontSize: 12.5, color: colors.textFaint }}>{calcResult.verdict}</div>
-            {calcResult.hasSeriousDosham && (
-              <div style={{ fontSize: 11.5, color: colors.rejectedText, marginTop: 4, fontWeight: 700 }}>⚠ Rajju Dosham present</div>
-            )}
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            {calcResult.poruthams.map((p, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
-                <span style={{ color: colors.textMuted }}>{p.label}</span>
-                <span style={{ color: p.matched ? colors.approvedText : colors.rejectedText, fontWeight: 700 }}>{p.matched ? "✓" : "✗"}</span>
-              </div>
-            ))}
-          </div>
-
-          {existingReview && (
-            <div style={{ background: colors.pendingBg, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: colors.pendingText, marginBottom: 10 }}>
-              Previously reviewed: <b>{existingReview.manual_verdict}</b>
-              {existingReview.notes && <div style={{ marginTop: 3 }}>{existingReview.notes}</div>}
-            </div>
-          )}
-
-          <label style={{ display: "block", marginBottom: 10 }}>
-            <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Astrologer notes (optional)</span>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={2}
-              style={{
-                width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-                fontSize: 13, background: colors.inputBg, color: colors.text, resize: "vertical", boxSizing: "border-box",
-              }}
-            />
-          </label>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => handleSaveVerdict("approved")} disabled={saving} style={{
-              flex: 1, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 8,
-              padding: "10px", fontWeight: 700, fontSize: 13.5, opacity: saving ? 0.6 : 1,
-            }}>Approved by astrologer</button>
-            <button onClick={() => handleSaveVerdict("rejected")} disabled={saving} style={{
-              flex: 1, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 8,
-              padding: "10px", fontWeight: 700, fontSize: 13.5, opacity: saving ? 0.6 : 1,
-            }}>Rejected</button>
-          </div>
-        </div>
-      )}
-
-      <h3 style={{ fontSize: 14, color: colors.textMuted, margin: "20px 0 8px" }}>Past reviews</h3>
-      {loading ? (
-        <div style={{ textAlign: "center", color: colors.textFaint, padding: 20 }}>Loading…</div>
-      ) : reviews.length === 0 ? (
-        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20 }}>No reviews yet.</div>
-      ) : (
-        reviews.map(r => {
-          const pa = profiles.find(p => p.id === r.profile_a_id);
-          const pb = profiles.find(p => p.id === r.profile_b_id);
-          return (
-            <div key={r.id} style={{
-              background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 12, marginBottom: 8,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{pa?.name || "Unknown"} × {pb?.name || "Unknown"}</div>
-                <Badge tone={r.manual_verdict === "approved" ? "approved" : "rejected"}>{r.manual_verdict}</Badge>
-              </div>
-              <div style={{ fontSize: 11.5, color: colors.textFaint, marginBottom: 6 }}>
-                System: {r.calculated_matched_count}/10 ({r.calculated_verdict})
-              </div>
-              {r.notes && <div style={{ fontSize: 12, color: colors.text, marginBottom: 8 }}>{r.notes}</div>}
-              <button onClick={() => handleDeleteReview(r.id)} style={{
-                fontSize: 11.5, background: colors.rejectedBg, color: colors.rejectedText,
-                border: "none", borderRadius: 6, padding: "5px 9px", fontWeight: 700,
-              }}>Delete</button>
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
-
-function AnnouncementManager({ colors, showToast }) {
-  const [announcements, setAnnouncements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    const { data } = await fetchAllAnnouncements();
-    setAnnouncements(data);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  async function handleCreate() {
-    if (!message.trim()) { showToast("Enter an announcement message"); return; }
-    setSaving(true);
-    const { error } = await createAnnouncement({
-      message: message.trim(),
-      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-    });
-    setSaving(false);
-    if (error) { showToast("Could not create announcement"); return; }
-    await logAdminAction({ action: "create_announcement", targetType: "announcement", details: message.trim() });
-    setMessage("");
-    setExpiresAt("");
-    showToast("Announcement posted");
-    load();
-  }
-
-  async function handleToggleActive(a) {
-    await setAnnouncementActive(a.id, !a.active);
-    await logAdminAction({ action: a.active ? "deactivate_announcement" : "activate_announcement", targetType: "announcement", targetId: a.id });
-    load();
-  }
-
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this announcement?")) return;
-    await deleteAnnouncement(id);
-    await logAdminAction({ action: "delete_announcement", targetType: "announcement", targetId: id });
-    showToast("Announcement deleted");
-    load();
-  }
-
-  function isExpired(a) {
-    return a.expires_at && new Date(a.expires_at) < new Date();
-  }
-
-  return (
-    <div>
-      <p style={{ fontSize: 12.5, color: colors.textFaint, marginBottom: 14 }}>
-        Post a banner that appears at the top of every page for all visitors. / அனைத்து பயனர்களுக்கும் தலைப்பில் தோன்றும் அறிவிப்பு.
-      </p>
-
-      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
-        <label style={{ display: "block", marginBottom: 12 }}>
-          <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Message</span>
-          <textarea
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            rows={2}
-            placeholder="e.g. Site maintenance on Sunday 10 PM - 11 PM"
-            style={{
-              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 14, background: colors.inputBg, color: colors.text, resize: "vertical", boxSizing: "border-box",
-            }}
-          />
-        </label>
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>Expires on (optional)</span>
-          <input
-            type="datetime-local"
-            value={expiresAt}
-            onChange={e => setExpiresAt(e.target.value)}
-            style={{
-              width: "100%", padding: "9px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 14, background: colors.inputBg, color: colors.text, boxSizing: "border-box",
-            }}
-          />
-        </label>
-        <button onClick={handleCreate} disabled={saving} style={{
-          width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "10px", fontWeight: 700, fontSize: 14, opacity: saving ? 0.6 : 1,
-        }}>{saving ? "Posting…" : "Post announcement"}</button>
-      </div>
-
-      <h3 style={{ fontSize: 14, color: colors.textMuted, marginBottom: 8 }}>All announcements</h3>
-      {loading ? (
-        <div style={{ textAlign: "center", color: colors.textFaint, padding: 20 }}>Loading…</div>
-      ) : announcements.length === 0 ? (
-        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20 }}>No announcements yet.</div>
-      ) : (
-        announcements.map(a => (
-          <div key={a.id} style={{
-            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 12, marginBottom: 8,
-          }}>
-            <div style={{ fontSize: 13, color: colors.text, marginBottom: 6 }}>{a.message}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-              <Badge tone={a.active && !isExpired(a) ? "approved" : "rejected"}>
-                {isExpired(a) ? "expired" : a.active ? "active" : "inactive"}
-              </Badge>
-              {a.expires_at && (
-                <span style={{ fontSize: 11, color: colors.textFaint }}>
-                  Expires: {new Date(a.expires_at).toLocaleString()}
-                </span>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => handleToggleActive(a)} style={{
-                fontSize: 12, background: a.active ? colors.pendingBg : colors.approvedBg,
-                color: a.active ? colors.pendingText : colors.approvedText,
-                border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>{a.active ? "Deactivate" : "Activate"}</button>
-              <button onClick={() => handleDelete(a.id)} style={{
-                fontSize: 12, background: colors.rejectedBg, color: colors.rejectedText,
-                border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>Delete</button>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-function MasterListsManager({ colors }) {
-  const LIST_TYPES = [
-    { key: "sub_caste", label: "Sub Caste / உட்பிரிவு" },
-    { key: "city", label: "City / ஊர்" },
-    { key: "district", label: "District / மாவட்டம்" },
-    { key: "state", label: "State / மாநிலம்" },
-    { key: "star", label: "Star / நட்சத்திரம்" },
-    { key: "rasi", label: "Rasi / ராசி" },
-  ];
-  const [activeList, setActiveList] = useState("sub_caste");
-  const [items, setItems] = useState([]);
-  const [newValue, setNewValue] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const load = async () => {
-    setLoading(true);
-    const { data } = await fetchMasterList(activeList);
-    setItems(data);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [activeList]);
-
-  async function handleAdd() {
-    if (!newValue.trim()) return;
-    const { error } = await addMasterListValue(activeList, newValue.trim());
-    if (!error) { setNewValue(""); load(); }
-  }
-
-  async function handleDelete(id) {
-    await deleteMasterListValue(id);
-    load();
-  }
-
-  return (
-    <div>
-      <p style={{ fontSize: 12.5, color: colors.textFaint, marginBottom: 14 }}>
-        Manage dropdown options shown to members when they fill their profile. / உறுப்பினர்கள் பதிவு செய்யும்போது தோன்றும் விருப்பங்களை இங்கே நிர்வகிக்கலாம்.
-      </p>
-
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto" }}>
-        {LIST_TYPES.map(lt => (
-          <button key={lt.key} onClick={() => setActiveList(lt.key)} style={{
-            padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
-            background: activeList === lt.key ? colors.primary : colors.card,
-            color: activeList === lt.key ? colors.primaryText : colors.textMuted,
-            border: `1px solid ${activeList === lt.key ? colors.primary : colors.cardBorder}`,
-          }}>{lt.label}</button>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <input
-          value={newValue}
-          onChange={e => setNewValue(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleAdd()}
-          placeholder="Add new value..."
-          style={{
-            flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-            fontSize: 14, background: colors.inputBg, color: colors.text,
-          }}
+      <div style={{ fontSize: 11.5, color: colors.textMuted, marginBottom: 4 }}>{label}</div>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, ...style }}
         />
-        <button onClick={handleAdd} style={{
-          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          width: 40, display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Plus size={18} />
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: "center", color: colors.textFaint, padding: 20 }}>Loading…</div>
-      ) : items.length === 0 ? (
-        <div style={{ fontSize: 13, color: colors.textFaint, textAlign: "center", padding: 20 }}>No values yet. Add one above.</div>
       ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {items.map(item => (
-            <div key={item.id} style={{
-              display: "flex", alignItems: "center", gap: 6, background: colors.card,
-              border: `1px solid ${colors.cardBorder}`, borderRadius: 20, padding: "6px 8px 6px 12px", fontSize: 13,
-            }}>
-              {item.value}
-              <button onClick={() => handleDelete(item.id)} style={{
-                background: colors.rejectedBg, border: "none", borderRadius: "50%", width: 18, height: 18,
-                display: "flex", alignItems: "center", justifyContent: "center", color: colors.rejectedText,
-              }}>
-                <X size={11} />
-              </button>
-            </div>
-          ))}
-        </div>
+        <input
+          type={type}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, ...style }}
+        />
       )}
     </div>
   );
