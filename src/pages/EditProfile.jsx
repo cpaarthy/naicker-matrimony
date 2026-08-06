@@ -48,17 +48,34 @@ export default function EditProfile({ onNavigate, showToast }) {
   const [occupationOptions, setOccupationOptions] = useState([]);
 
   useEffect(() => {
-    fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));
-    fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
-    fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
-    fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
-    fetchMasterList("star").then(({ data }) => setStarOptions(data.map(d => d.value)));
-    fetchMasterList("rasi").then(({ data }) => setRasiOptions(data.map(d => d.value)));
-    fetchMasterList("mother_tongue").then(({ data }) => setMotherTongueOptions(data.map(d => d.value)));
-    fetchMasterList("religion").then(({ data }) => setReligionOptions(data.map(d => d.value)));
-    fetchMasterList("education").then(({ data }) => setEducationOptions(data.map(d => d.value)));
-    fetchMasterList("occupation").then(({ data }) => setOccupationOptions(data.map(d => d.value)));
+    loadMasterLists();
   }, []);
+
+  async function loadMasterLists() {
+    const results = await Promise.all([
+      fetchMasterList("sub_caste"),
+      fetchMasterList("city"),
+      fetchMasterList("district"),
+      fetchMasterList("state"),
+      fetchMasterList("star"),
+      fetchMasterList("rasi"),
+      fetchMasterList("mother_tongue"),
+      fetchMasterList("religion"),
+      fetchMasterList("education"),
+      fetchMasterList("occupation"),
+    ]);
+
+    setSubCasteOptions(results[0].data?.map(d => d.value) || []);
+    setCityOptions(results[1].data?.map(d => d.value) || []);
+    setDistrictOptions(results[2].data?.map(d => d.value) || []);
+    setStateOptions(results[3].data?.map(d => d.value) || []);
+    setStarOptions(results[4].data?.map(d => d.value) || []);
+    setRasiOptions(results[5].data?.map(d => d.value) || []);
+    setMotherTongueOptions(results[6].data?.map(d => d.value) || []);
+    setReligionOptions(results[7].data?.map(d => d.value) || []);
+    setEducationOptions(results[8].data?.map(d => d.value) || []);
+    setOccupationOptions(results[9].data?.map(d => d.value) || []);
+  }
 
   useEffect(() => {
     if (profile) {
