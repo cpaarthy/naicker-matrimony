@@ -52,11 +52,18 @@ export async function fetchAllRequests() {
 
 export async function sendInterestRequest(fromId, toId) {
   const { error } = await supabase.from("requests").insert({ from_id: fromId, to_id: toId, status: "pending" });
+  if (!error) {
+    await logUserActivity({ userId: fromId, action: "sent_interest", targetType: "profile", targetId: toId, details: "Sent interest request" });
+  }
   return { error };
 }
 
 export async function respondToRequest(reqId, accept) {
+  const { data: req } = await supabase.from("requests").select("*").eq("id", reqId).single();
   const { error } = await supabase.from("requests").update({ status: accept ? "accepted" : "declined" }).eq("id", reqId);
+  if (!error && req) {
+    await logUserActivity({ userId: req.to_id, action: accept ? "accepted_interest" : "declined_interest", targetType: "profile", targetId: req.from_id, details: `${accept ? "Accepted" : "Declined"} interest request` });
+  }
   return { error };
 }
 
@@ -68,9 +75,15 @@ export async function fetchFavourites(userId) {
 export async function toggleFavourite(userId, profileId, isFav) {
   if (isFav) {
     const { error } = await supabase.from("favourites").delete().eq("user_id", userId).eq("profile_id", profileId);
+    if (!error) {
+      await logUserActivity({ userId, action: "removed_favourite", targetType: "profile", targetId: profileId, details: "Removed from favourites" });
+    }
     return { error };
   } else {
     const { error } = await supabase.from("favourites").insert({ user_id: userId, profile_id: profileId });
+    if (!error) {
+      await logUserActivity({ userId, action: "added_favourite", targetType: "profile", targetId: profileId, details: "Added to favourites" });
+    }
     return { error };
   }
 }
@@ -155,6 +168,15 @@ export async function replyToContactMessage(id, adminReply) {
 // ============ ADMIN ACTIVITY LOG ============
 export async function logAdminAction({ action, targetType, targetId, targetName, details }) {
   const { error } = await supabase.from("activity_log").insert({
+    action, target_type: targetType, target_id: targetId ? String(targetId) : null,
+    target_name: targetName || null, details: details || null,
+  });
+  return { error };
+}
+
+export async function logUserActivity({ userId, action, targetType, targetId, targetName, details }) {
+  const { error } = await supabase.from("activity_log").insert({
+    user_id: userId,
     action, target_type: targetType, target_id: targetId ? String(targetId) : null,
     target_name: targetName || null, details: details || null,
   });
@@ -257,6 +279,9 @@ export async function submitProfileReport({ reporterId, reportedId, reason, deta
   const { error } = await supabase.from("profile_reports").insert({
     reporter_id: reporterId, reported_id: reportedId, reason, details: details || null,
   });
+  if (!error) {
+    await logUserActivity({ userId: reporterId, action: "reported_profile", targetType: "profile", targetId: reportedId, details: `Reported profile: ${reason}` });
+  }
   return { error };
 }
 
@@ -278,6 +303,9 @@ export async function recordProfileView(viewerId, viewedId) {
   const { error } = await supabase
     .from("recently_viewed")
     .upsert({ viewer_id: viewerId, viewed_id: viewedId, viewed_at: new Date().toISOString() }, { onConflict: "viewer_id,viewed_id" });
+  if (!error) {
+    await logUserActivity({ userId: viewerId, action: "viewed_profile", targetType: "profile", targetId: viewedId, details: "Viewed profile" });
+  }
   return { error };
 }
 
