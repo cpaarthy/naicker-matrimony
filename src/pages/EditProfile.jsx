@@ -8,7 +8,7 @@ import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/quer
 const emptyForm = {
   profile_for: "Self",
   name: "", gender: "Male", age: "", height: "", religion: "", caste: "",
-  sub_caste: "", education: "", occupation: "", income: "", address: "", district: "",
+  sub_caste: "", education: "", occupation: "", income: "", address: "", village: "", district: "",
   city: "", state: "Tamil Nadu", mother_tongue: "", about: "", phone: "", photo_url: "",
   father_occupation: "", mother_occupation: "", siblings: "", family_type: "Nuclear",
   star: "", rasi: "", birth_time: "", birth_place: "",
@@ -53,6 +53,7 @@ export default function EditProfile({ onNavigate, showToast }) {
   const [complexionOptions, setComplexionOptions] = useState([]);
   const [bodyTypeOptions, setBodyTypeOptions] = useState([]);
   const [bloodGroupOptions, setBloodGroupOptions] = useState([]);
+  const [villageOptions, setVillageOptions] = useState([]);
 
   useEffect(() => {
     loadMasterLists();
@@ -77,6 +78,7 @@ export default function EditProfile({ onNavigate, showToast }) {
       fetchMasterList("complexion"),
       fetchMasterList("body_type"),
       fetchMasterList("blood_group"),
+      fetchMasterList("village"),
     ]);
 
     setSubCasteOptions(results[0].data?.map(d => d.value) || []);
@@ -96,6 +98,7 @@ export default function EditProfile({ onNavigate, showToast }) {
     setComplexionOptions(results[14].data?.map(d => d.value) || []);
     setBodyTypeOptions(results[15].data?.map(d => d.value) || []);
     setBloodGroupOptions(results[16].data?.map(d => d.value) || []);
+    setVillageOptions(results[17].data?.map(d => d.value) || []);
   }
 
   useEffect(() => {
@@ -106,7 +109,7 @@ export default function EditProfile({ onNavigate, showToast }) {
         height: profile.height || "", religion: profile.religion || "", caste: profile.caste || "",
         sub_caste: profile.sub_caste || "",
         education: profile.education || "", occupation: profile.occupation || "", income: profile.income || "",
-        address: profile.address || "", district: profile.district || "",
+        address: profile.address || "", village: profile.village || "", district: profile.district || "",
         city: profile.city || "", state: profile.state || "Tamil Nadu", mother_tongue: profile.mother_tongue || "",
         about: profile.about || "", phone: profile.phone || "", photo_url: profile.photo_url || "",
         father_occupation: profile.father_occupation || "", mother_occupation: profile.mother_occupation || "",
@@ -229,6 +232,7 @@ export default function EditProfile({ onNavigate, showToast }) {
         <div style={{ gridColumn: "1 / -1" }}>
           <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" required />
         </div>
+        <MasterListSelect label="Village / கிராமம்" value={form.village} onChange={v => setForm(f => ({ ...f, village: v }))} options={villageOptions} />
         <MasterListSelect label="District / மாவட்டம்" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} options={districtOptions} required />
         <MasterListSelect label="City / ஊர்" value={form.city} onChange={v => setForm(f => ({ ...f, city: v }))} options={cityOptions} required />
         <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} required />
