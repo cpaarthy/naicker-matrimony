@@ -572,7 +572,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
       {tab === "lists" && <MasterListsTab colors={colors} showToast={showToast} />}
 
-      {tab === "log" && <ActivityLogTab colors={colors} />}
+      {tab === "log" && <ActivityLogTab colors={colors} showToast={showToast} />}
     </div>
   );
 }
@@ -1194,12 +1194,13 @@ function EducationAnalysisReport({ data, colors }) {
   );
 }
 
-function ActivityLogTab({ colors }) {
+function ActivityLogTab({ colors, showToast }) {
   const [log, setLog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filteredLog, setFilteredLog] = useState([]);
   const [selectedUser, setSelectedUser] = useState("all");
   const [userOptions, setUserOptions] = useState([]);
+  const [activityType, setActivityType] = useState("admin"); // "admin" or "user"
 
   useEffect(() => {
     loadActivityLog();
@@ -1220,12 +1221,22 @@ function ActivityLogTab({ colors }) {
   }
 
   useEffect(() => {
-    if (selectedUser === "all") {
-      setFilteredLog(log);
+    if (activityType === "admin") {
+      const adminOnlyLog = log.filter(entry => !entry.user_id);
+      if (selectedUser === "all") {
+        setFilteredLog(adminOnlyLog);
+      } else {
+        setFilteredLog(adminOnlyLog.filter(entry => entry.target_id === selectedUser));
+      }
     } else {
-      setFilteredLog(log.filter(entry => entry.user_id === selectedUser || entry.target_id === selectedUser));
+      const userOnlyLog = log.filter(entry => entry.user_id);
+      if (selectedUser === "all") {
+        setFilteredLog(userOnlyLog);
+      } else {
+        setFilteredLog(userOnlyLog.filter(entry => entry.user_id === selectedUser));
+      }
     }
-  }, [log, selectedUser]);
+  }, [log, selectedUser, activityType]);
 
   const actionLabels = {
     approved: "Approved", rejected: "Rejected", delete: "Deleted", edit: "Edited",
@@ -1251,7 +1262,7 @@ function ActivityLogTab({ colors }) {
         created_at: entry.created_at,
       }));
       console.log("Activity log rows:", rows.length);
-      exportToCsv("admin-activity-log.csv", rows);
+      exportToCsv(activityType + "-activity-log.csv", rows);
       showToast("Activity log exported");
     } catch (err) {
       console.error("Activity log export error:", err);
@@ -1264,6 +1275,17 @@ function ActivityLogTab({ colors }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700 }}>Activity Log</h3>
         <div style={{ display: "flex", gap: 6 }}>
+          <select
+            value={activityType}
+            onChange={e => setActivityType(e.target.value)}
+            style={{
+              padding: "6px 10px", borderRadius: 6, border: `1px solid ${colors.inputBorder}`,
+              fontSize: 12, background: colors.inputBg, color: colors.text,
+            }}
+          >
+            <option value="admin">Admin Activity</option>
+            <option value="user">User Activity</option>
+          </select>
           <select
             value={selectedUser}
             onChange={e => setSelectedUser(e.target.value)}
