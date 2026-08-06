@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Lock, Trash2, AlertTriangle } from "lucide-react";
+import { Lock, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { TextField, PrimaryButton } from "../components/ui";
-import { changeOwnPassword, deleteOwnAccount } from "../data/queries";
+import { changeOwnPassword, deleteOwnAccount, toggleProfileVisibility } from "../data/queries";
 
 export default function AccountSettings({ onNavigate, showToast }) {
   const { colors } = useTheme();
-  const { logout } = useAuth();
+  const { logout, profile } = useAuth();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -17,6 +17,22 @@ export default function AccountSettings({ onNavigate, showToast }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  const [profileVisible, setProfileVisible] = useState(profile?.visible !== false);
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
+
+  async function handleToggleVisibility() {
+    setTogglingVisibility(true);
+    const newVisibility = !profileVisible;
+    const { error } = await toggleProfileVisibility(profile.id, newVisibility);
+    setTogglingVisibility(false);
+    if (error) {
+      showToast("Could not update visibility: " + error);
+      return;
+    }
+    setProfileVisible(newVisibility);
+    showToast(newVisibility ? "Profile is now visible to others" : "Profile is now hidden from others");
+  }
 
   async function handleChangePassword() {
     setError("");
@@ -63,6 +79,33 @@ export default function AccountSettings({ onNavigate, showToast }) {
         <PrimaryButton onClick={handleChangePassword} disabled={saving}>
           {saving ? "Saving…" : "Change password / மாற்றவும்"}
         </PrimaryButton>
+      </div>
+
+      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          {profileVisible ? <Eye size={16} color={colors.primary} /> : <EyeOff size={16} color={colors.textMuted} />}
+          <div className="serif" style={{ fontWeight: 700, fontSize: 15 }}>Profile Visibility / சுயவிவர தெரிவு</div>
+        </div>
+
+        <p style={{ fontSize: 12.5, color: colors.textMuted, marginBottom: 12 }}>
+          {profileVisible
+            ? "Your profile is currently visible to other users. / உங்கள் சுயவிவரம் தற்போது மற்ற பயனர்களுக்கு தெரியும்."
+            : "Your profile is currently hidden from other users. / உங்கள் சுயவிவரம் தற்போது மற்ற பயனர்களுக்கு தெரியாது."
+          }
+        </p>
+
+        <button
+          onClick={handleToggleVisibility}
+          disabled={togglingVisibility}
+          style={{
+            background: profileVisible ? colors.pendingBg : colors.approvedBg,
+            color: profileVisible ? colors.pendingText : colors.approvedText,
+            border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 700, fontSize: 13.5,
+            display: "flex", alignItems: "center", gap: 6, opacity: togglingVisibility ? 0.6 : 1,
+          }}
+        >
+          {togglingVisibility ? "Updating…" : profileVisible ? <><EyeOff size={14} /> Hide profile / மறைக்க</> : <><Eye size={14} /> Show profile / காட்டு</>}
+        </button>
       </div>
 
       <div style={{ background: colors.rejectedBg, border: `1px solid ${colors.rejectedText}`, borderRadius: 14, padding: 16 }}>
