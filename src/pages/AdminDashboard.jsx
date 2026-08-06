@@ -923,9 +923,10 @@ function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
 }
 
 function AnalyticsTab({ colors, showToast }) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [currentReport, setCurrentReport] = useState("profile_completion");
   const [reportData, setReportData] = useState(null);
+  const [error, setError] = useState(null);
 
   const REPORTS = [
     { key: "profile_completion", label: "Profile Completion", icon: User },
@@ -945,8 +946,11 @@ function AnalyticsTab({ colors, showToast }) {
 
   async function loadReport() {
     setLoading(true);
-    let result;
+    setError(null);
+    setReportData(null);
+
     try {
+      let result;
       switch (currentReport) {
         case "profile_completion":
           result = await fetchProfileCompletionReport();
@@ -973,15 +977,17 @@ function AnalyticsTab({ colors, showToast }) {
           result = await fetchEducationAnalysis();
           break;
         default:
-          result = { data: [], error: null };
+          result = { data: null, error: null };
       }
+
       setReportData(result.data);
       if (result.error) {
+        setError(result.error);
         showToast(`Error: ${result.error}`);
       }
-    } catch (error) {
-      console.error("Error loading report:", error);
-      setReportData(null);
+    } catch (err) {
+      console.error("Error loading report:", err);
+      setError(err.message);
       showToast("Error loading analytics data");
     } finally {
       setLoading(false);
@@ -990,12 +996,18 @@ function AnalyticsTab({ colors, showToast }) {
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
 
-  if (!reportData) {
+  if (error) {
     return (
       <div>
-        <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>
-          No data available. Please try again or check your database connection.
+        <div style={{ textAlign: "center", color: colors.rejectedText, padding: 40 }}>
+          Error: {error}
         </div>
+        <button onClick={loadReport} style={{
+          display: "block", margin: "0 auto", background: colors.primary, color: colors.primaryText,
+          border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700
+        }}>
+          Retry
+        </button>
       </div>
     );
   }
@@ -1029,7 +1041,7 @@ function AnalyticsTab({ colors, showToast }) {
         {currentReport === "most_viewed" && <MostViewedReport data={reportData} colors={colors} />}
         {currentReport === "occupation_analysis" && <OccupationAnalysisReport data={reportData} colors={colors} />}
         {currentReport === "education_analysis" && <EducationAnalysisReport data={reportData} colors={colors} />}
-        {!reportData && !loading && (
+        {!reportData && !loading && !error && (
           <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
             No data available for this report
           </div>
