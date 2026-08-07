@@ -635,10 +635,10 @@ function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
 }
 
 function AnalyticsTab({ colors, showToast }) {
-  const [loading, setLoading] = useState(false);
-  const [currentReport, setCurrentReport] = useState("profile_completion");
-  const [reportData, setReportData] = useState(null);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [currentReport, setCurrentReport] = React.useState("profile_completion");
+  const [reportData, setReportData] = React.useState(null);
+  const [error, setError] = React.useState(null);
 
   const REPORTS = [
     { key: "profile_completion", label: "Profile Completion", icon: User },
@@ -651,7 +651,7 @@ function AnalyticsTab({ colors, showToast }) {
     { key: "education_analysis", label: "Education Analysis", icon: BookOpen },
   ];
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentReport]);
@@ -1195,14 +1195,14 @@ function EducationAnalysisReport({ data, colors }) {
 }
 
 function ActivityLogTab({ colors, showToast }) {
-  const [log, setLog] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filteredLog, setFilteredLog] = useState([]);
-  const [selectedUser, setSelectedUser] = useState("all");
-  const [userOptions, setUserOptions] = useState([]);
-  const [activityType, setActivityType] = useState("admin"); // "admin" or "user"
+  const [log, setLog] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [filteredLog, setFilteredLog] = React.useState([]);
+  const [selectedUser, setSelectedUser] = React.useState("all");
+  const [userOptions, setUserOptions] = React.useState([]);
+  const [activityType, setActivityType] = React.useState("admin"); // "admin" or "user"
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadActivityLog();
     loadUsers();
   }, []);
@@ -1378,12 +1378,12 @@ function ContactMessagesTab({ messages, colors, showToast, onReload }) {
 }
 
 function AnnouncementManager({ colors, showToast }) {
-  const [message, setMessage] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [announcements, setAnnouncements] = useState([]);
+  const [message, setMessage] = React.useState("");
+  const [expiresAt, setExpiresAt] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [announcements, setAnnouncements] = React.useState([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
   }, []);
 
@@ -1472,10 +1472,10 @@ function AnnouncementManager({ colors, showToast }) {
 }
 
 function PoruthamTab({ colors, profiles, showToast }) {
-  const [profileAId, setProfileAId] = useState("");
-  const [profileBId, setProfileBId] = useState("");
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [profileAId, setProfileAId] = React.useState("");
+  const [profileBId, setProfileBId] = React.useState("");
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
 
   async function checkPorutham() {
     if (!profileAId || !profileBId) return;
@@ -1550,12 +1550,12 @@ function PoruthamTab({ colors, profiles, showToast }) {
 }
 
 function MasterListsTab({ colors, showToast }) {
-  const [listType, setListType] = useState("sub_caste");
-  const [newValue, setNewValue] = useState("");
-  const [values, setValues] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [listType, setListType] = React.useState("sub_caste");
+  const [newValue, setNewValue] = React.useState("");
+  const [values, setValues] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadValues();
   }, [listType]);
 
