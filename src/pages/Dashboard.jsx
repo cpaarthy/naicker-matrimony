@@ -28,10 +28,10 @@ function computeMatchAnalytics(myProfile, candidates) {
     const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
     const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
 
-    console.log("Pool after gender filter:", pool.length, "Total candidates:", candidates.length);
+    console.log("Gender filter:", { myGender: myProfile.gender, opposingGender, poolSize: pool.length, totalCandidates: candidates.length });
 
     const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
-    console.log("Has preferences:", hasPrefs, "Prefs:", { pref_age_min: myProfile.pref_age_min, pref_age_max: myProfile.pref_age_max, pref_education: myProfile.pref_education, pref_occupation: myProfile.pref_occupation });
+    console.log("Has preferences:", hasPrefs, myProfile.pref_age_min, myProfile.pref_age_max, myProfile.pref_education, myProfile.pref_occupation);
 
     const matchesPreference = (p) => {
       if (!hasPrefs) return true;
@@ -43,7 +43,7 @@ function computeMatchAnalytics(myProfile, candidates) {
     };
 
     const matching = pool.filter(matchesPreference);
-    console.log("Matching after preference filter:", matching.length);
+    console.log("After preference filter:", matching.length);
 
     let high = 0, medium = 0;
     const scoreBuckets = [
@@ -51,22 +51,9 @@ function computeMatchAnalytics(myProfile, candidates) {
       { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
     ];
 
-    console.log("Computing scores for", matching.length, "matching profiles");
-    console.log("Profile info:", {
-      myGender: myProfile.gender,
-      myAge: myProfile.age,
-      myCity: myProfile.city,
-      myDistrict: myProfile.district,
-      prefAgeMin: myProfile.pref_age_min,
-      prefAgeMax: myProfile.pref_age_max,
-      prefEducation: myProfile.pref_education,
-      prefOccupation: myProfile.pref_occupation,
-    });
-
     matching.forEach(p => {
       try {
         const score = calculateMatchScore(myProfile, p);
-        console.log("Score for profile", p.id, ":", score);
         if (!score) return;
         const pct = score.percentage;
         if (pct >= 90) high++;
@@ -81,6 +68,8 @@ function computeMatchAnalytics(myProfile, candidates) {
       }
     });
 
+    console.log("Score calculation:", { high, medium, scoreBuckets });
+
     const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
     const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
     const nearby = matching.filter(p =>
@@ -90,16 +79,7 @@ function computeMatchAnalytics(myProfile, candidates) {
        myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
     ).length;
 
-    console.log("Score buckets:", scoreBuckets);
-    console.log("Match summary:", { total: matching.length, high, medium, newMembers, recentlyActive, nearby });
-    console.log("Detailed counts:", {
-      totalMatching: matching.length,
-      highCompatibility: high,
-      mediumCompatibility: medium,
-      newMembersCount: newMembers,
-      recentlyActiveCount: recentlyActive,
-      nearbyCount: nearby,
-    });
+    console.log("Final metrics:", { total: matching.length, high, medium, newMembers, recentlyActive, nearby });
 
     // Matches by district — top 6 districts among the matching pool
     const districtCounts = {};
@@ -229,8 +209,7 @@ export default function Dashboard({ onNavigate, showToast }) {
     if (profile && profile.status === "approved") {
       setAnalyticsLoading(true);
       fetchApprovedProfiles().then(({ data }) => {
-        console.log("Fetched candidate profiles:", data?.length);
-        console.log("User profile:", profile);
+        console.log("Fetched profiles:", data?.length);
         setCandidateProfiles(data || []);
         setAnalyticsLoading(false);
       });
@@ -242,11 +221,11 @@ export default function Dashboard({ onNavigate, showToast }) {
   const analytics = useMemo(() => {
     if (!profile || profile.status !== "approved") return null;
     const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
-    console.log("Candidate pool after filtering blocked:", pool.length);
-    console.log("Total candidates:", candidateProfiles.length);
+    console.log("Profile:", profile);
+    console.log("Candidate pool:", pool.length);
     console.log("Blocked IDs:", blockedIds.size);
     const result = computeMatchAnalytics(profile, pool);
-    console.log("Analytics computed:", result);
+    console.log("Analytics result:", result);
     return result;
   }, [profile, candidateProfiles, blockedIds]);
 
@@ -343,12 +322,12 @@ export default function Dashboard({ onNavigate, showToast }) {
             <div style={{ textAlign: "center", color: colors.textFaint, padding: 20, fontSize: 12.5 }}>Loading…</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse", { filter: "all" })} />
-              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse", { filter: "high" })} />
-              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse", { filter: "medium" })} />
-              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse", { filter: "new" })} />
-              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse", { filter: "active" })} />
-              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse", { filter: "nearby" })} />
+              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse")} />
+              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse")} />
+              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse")} />
             </div>
           )}
         </div>
@@ -460,7 +439,6 @@ function ChartCard({ title, subtitle, colors, children }) {
 
 function StatCard({ icon: Icon, label, value, colors, tone, onClick }) {
   const valueColor = tone === "approved" ? colors.approvedText : tone === "pending" ? colors.pendingText : colors.primary;
-  console.log("StatCard:", { label, value, tone });
   return (
     <button onClick={onClick} style={{
       background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14,
