@@ -209,9 +209,9 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
           marginBottom: 10, fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <span>Filter: {filterLabels[dashboardFilterType] || dashboardFilterType}</span>
-          <button onClick={() => { setDashboardFilterType(null); onNavigate("browse"); }} style={{
+          <button onClick={() => setDashboardFilterType(null)} style={{
             background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "4px 8px",
-            fontSize: 11, fontWeight: 700, cursor: pointer,
+            fontSize: 11, fontWeight: 700,
           }}>Clear</button>
         </div>
       )}
