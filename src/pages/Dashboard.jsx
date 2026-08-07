@@ -75,9 +75,6 @@ function computeMatchAnalytics(myProfile, candidates) {
       }
     });
 
-    console.log("Score buckets:", scoreBuckets);
-    console.log("Match summary:", { total: matching.length, high, medium });
-
     const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
     const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
     const nearby = matching.filter(p =>
@@ -86,6 +83,17 @@ function computeMatchAnalytics(myProfile, candidates) {
       (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
        myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
     ).length;
+
+    console.log("Score buckets:", scoreBuckets);
+    console.log("Match summary:", { total: matching.length, high, medium, newMembers, recentlyActive, nearby });
+    console.log("Detailed counts:", {
+      totalMatching: matching.length,
+      highCompatibility: high,
+      mediumCompatibility: medium,
+      newMembersCount: newMembers,
+      recentlyActiveCount: recentlyActive,
+      nearbyCount: nearby,
+    });
 
     // Matches by district — top 6 districts among the matching pool
     const districtCounts = {};
