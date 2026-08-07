@@ -378,29 +378,44 @@ export default function Dashboard({ onNavigate, showToast }) {
                 </div>
               </div>
 
-              {analytics.districtChart && analytics.districtChart.length > 0 && (
-                <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
+              <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
+                {analytics.districtChart && analytics.districtChart.length > 0 ? (
                   <BarChart data={analytics.districtChart} colors={colors} barColor={colors.accent} />
-                </ChartCard>
-              )}
+                ) : (
+                  <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+                    No district data available
+                  </div>
+                )}
+              </ChartCard>
 
-              {analytics.ageChart && analytics.ageChart.length > 0 && (
-                <ChartCard title="👥 Age-wise Matching Profiles / வயது வாரியாக பொருத்தங்கள்" colors={colors}>
+              <ChartCard title="👥 Age-wise Matching Profiles / வயது வாரியாக பொருத்தங்கள்" colors={colors}>
+                {analytics.ageChart && analytics.ageChart.length > 0 ? (
                   <BarChart data={analytics.ageChart} colors={colors} />
-                </ChartCard>
-              )}
+                ) : (
+                  <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+                    No age data available
+                  </div>
+                )}
+              </ChartCard>
 
-              {analytics.scoreBuckets && analytics.scoreBuckets.length > 0 && (
-                <ChartCard title="⭐ Compatibility Score Distribution / பொருத்த மதிப்பெண் பரவல்" colors={colors}>
+              <ChartCard title="⭐ Compatibility Score Distribution / பொருத்த மதிப்பெண் பரவல்" colors={colors}>
+                {analytics.scoreBuckets && analytics.scoreBuckets.length > 0 ? (
                   <BarChart data={analytics.scoreBuckets} colors={colors} barColor={colors.approvedText} />
-                </ChartCard>
-              )}
+                ) : (
+                  <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+                    No score data available
+                  </div>
+                )}
+              </ChartCard>
 
               {!analytics.districtChart?.length && !analytics.ageChart?.length && !analytics.scoreBuckets?.length && (
                 <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 20, textAlign: "center", fontSize: 13, color: colors.textFaint }}>
                   <div style={{ marginBottom: 8 }}>No matching profiles found yet. / பொருத்தமான விவரங்கள் இல்லை</div>
                   <div style={{ fontSize: 11.5, color: colors.textMuted }}>
                     Total matches: {analytics.total} | High: {analytics.high} | Medium: {analytics.medium}
+                  </div>
+                  <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 4 }}>
+                    District chart: {analytics.districtChart?.length || 0} | Age chart: {analytics.ageChart?.length || 0} | Score buckets: {analytics.scoreBuckets?.length || 0}
                   </div>
                 </div>
               )}
