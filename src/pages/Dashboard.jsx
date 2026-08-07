@@ -61,6 +61,7 @@ function computeMatchAnalytics(myProfile, candidates) {
     matching.forEach(p => {
       try {
         const score = calculateMatchScore(myProfile, p);
+        console.log("Score for profile", p.id, ":", score);
         if (!score) return;
         const pct = score.percentage;
         if (pct >= 90) high++;
@@ -454,6 +455,7 @@ function ChartCard({ title, subtitle, colors, children }) {
 
 function StatCard({ icon: Icon, label, value, colors, tone, onClick }) {
   const valueColor = tone === "approved" ? colors.approvedText : tone === "pending" ? colors.pendingText : colors.primary;
+  console.log("StatCard:", { label, value, tone });
   return (
     <button onClick={onClick} style={{
       background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14,
