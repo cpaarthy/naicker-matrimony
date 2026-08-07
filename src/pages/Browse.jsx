@@ -6,7 +6,7 @@ import { Avatar, PrimaryButton } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
-export default function Browse({ onNavigate, setSelectedProfileId }) {
+export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilter }) {
   const { colors } = useTheme();
   const { session, profile } = useAuth();
   const [profiles, setProfiles] = useState([]);
@@ -20,6 +20,11 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
   const [districtFilter, setDistrictFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [blockedIds, setBlockedIds] = useState(new Set());
+  const [dashboardFilterType, setDashboardFilterType] = useState(dashboardFilter?.filter || null);
+
+  useEffect(() => {
+    setDashboardFilterType(dashboardFilter?.filter || null);
+  }, [dashboardFilter]);
 
   const [subCasteOptions, setSubCasteOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
@@ -44,6 +49,29 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
     return profiles.filter(p => {
       if (opposingGender && p.gender !== opposingGender) return false;
       if (blockedIds.has(p.id)) return false;
+
+      // Dashboard filter logic
+      if (dashboardFilterType && profile) {
+        const score = calculateMatchScore(profile, p);
+        const scorePct = score?.percentage || 0;
+
+        if (dashboardFilterType === "high" && scorePct < 90) return false;
+        if (dashboardFilterType === "medium" && (scorePct < 50 || scorePct >= 90)) return false;
+        if (dashboardFilterType === "new") {
+          const daysAgo = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysAgo > 30) return false;
+        }
+        if (dashboardFilterType === "active") {
+          const daysAgo = (Date.now() - new Date(p.last_active_at).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysAgo > 7) return false;
+        }
+        if (dashboardFilterType === "nearby") {
+          const isNearby = (profile.city && p.city && profile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
+                          (profile.district && p.district && profile.district.trim().toLowerCase() === p.district.trim().toLowerCase());
+          if (!isNearby) return false;
+        }
+      }
+
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
@@ -57,7 +85,7 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
       if (stateFilter && p.state !== stateFilter) return false;
       return true;
     });
-  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter]);
+  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, dashboardFilterType, profile]);
 
   const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter);
 
@@ -109,6 +137,14 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
       </div>
     );
   }
+
+  const filterLabels = {
+    high: "High Compatibility (90%+)",
+    medium: "Medium Compatibility (50%+)",
+    new: "New Members (Last 30 days)",
+    active: "Recently Active (Last 7 days)",
+    nearby: "Nearby Matches",
+  };
 
   if (session && !profile) {
     return (
@@ -166,6 +202,19 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
   return (
     <div>
       <h2 className="serif" style={{ fontSize: 19, marginBottom: 12 }}>Browse profiles / விவரங்களை பார்க்க</h2>
+
+      {dashboardFilterType && (
+        <div style={{
+          background: colors.primary, color: colors.primaryText, borderRadius: 8, padding: "8px 12px",
+          marginBottom: 10, fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <span>Filter: {filterLabels[dashboardFilterType] || dashboardFilterType}</span>
+          <button onClick={() => { setDashboardFilterType(null); onNavigate("browse"); }} style={{
+            background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "4px 8px",
+            fontSize: 11, fontWeight: 700, cursor: pointer,
+          }}>Clear</button>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <div style={{
