@@ -1220,7 +1220,7 @@ function ActivityLogTab({ colors, showToast }) {
     setUserOptions(users);
   }
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (activityType === "admin") {
       const adminOnlyLog = log.filter(entry => !entry.user_id);
       if (selectedUser === "all") {
@@ -1758,8 +1758,8 @@ function Section({ title, colors, children }) {
 }
 
 function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
-  const [form, setForm] = useState({ ...profile });
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = React.useState({ ...profile });
+  const [loading, setLoading] = React.useState(false);
 
   async function handleSave() {
     setLoading(true);
