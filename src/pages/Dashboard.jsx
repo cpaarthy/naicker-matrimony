@@ -28,7 +28,11 @@ function computeMatchAnalytics(myProfile, candidates) {
     const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
     const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
 
+    console.log("Pool after gender filter:", pool.length, "Total candidates:", candidates.length);
+
     const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
+    console.log("Has preferences:", hasPrefs, "Prefs:", { pref_age_min: myProfile.pref_age_min, pref_age_max: myProfile.pref_age_max, pref_education: myProfile.pref_education, pref_occupation: myProfile.pref_occupation });
+
     const matchesPreference = (p) => {
       if (!hasPrefs) return true;
       if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
@@ -39,6 +43,7 @@ function computeMatchAnalytics(myProfile, candidates) {
     };
 
     const matching = pool.filter(matchesPreference);
+    console.log("Matching after preference filter:", matching.length);
 
     let high = 0, medium = 0;
     const scoreBuckets = [
