@@ -27,8 +27,6 @@ export function AuthProvider({ children }) {
 
   const userId = session?.user?.id || null;
 
-  const isAdmin = session?.user?.email?.toLowerCase().includes("admin") || profile?.is_admin === true;
-
   const loadProfile = useCallback(async () => {
     if (!userId) { setProfile(null); setProfileLoading(false); return; }
     setProfileLoading(true);
@@ -97,7 +95,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
-    session, authChecked, userId, isAdmin,
+    session, authChecked, userId,
     profile, profileLoading, reloadProfile: loadProfile,
     sendEmailOtp, verifyEmailOtp, loginWithEmailPassword,
     signUpWithPhone, loginWithPhone,
