@@ -40,6 +40,7 @@ function AppShell() {
     const params = new URLSearchParams(window.location.search);
     return params.get("profile") || null;
   });
+  const [dashboardFilter, setDashboardFilter] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2600); };
 
@@ -57,9 +58,14 @@ function AppShell() {
     setPendingSharedProfile(null);
   }, [authChecked, session, pendingSharedProfile]);
 
-  function navigate(target) {
+  function navigate(target, params = null) {
     setHistory(prev => [...prev, page]);
     setPage(target);
+    if (params && target === "browse") {
+      setDashboardFilter(params);
+    } else {
+      setDashboardFilter(null);
+    }
     window.scrollTo(0, 0);
   }
 
@@ -97,7 +103,7 @@ function AppShell() {
       {page === "home" && <Home onNavigate={navigate} />}
       {page === "register" && <Register onNavigate={navigate} showToast={showToast} />}
       {page === "login" && <Login onNavigate={navigate} showToast={showToast} />}
-      {page === "browse" && <Browse onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />}
+      {page === "browse" && <Browse onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} dashboardFilter={dashboardFilter} />}
       {page === "profileDetails" && (
         <ProfileDetails profileId={selectedProfileId} onNavigate={navigate} showToast={showToast} />
       )}
