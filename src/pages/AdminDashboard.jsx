@@ -79,6 +79,8 @@ function computeMatchAnalytics(myProfile, candidates) {
        myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
     ).length;
 
+    console.log("Final metrics:", { total: matching.length, high, medium, newMembers, recentlyActive, nearby });
+
     // Matches by district — top 6 districts among the matching pool
     const districtCounts = {};
     matching.forEach(p => {
