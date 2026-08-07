@@ -343,12 +343,12 @@ export default function Dashboard({ onNavigate, showToast }) {
             <div style={{ textAlign: "center", color: colors.textFaint, padding: 20, fontSize: 12.5 }}>Loading…</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse")} />
-              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse")} />
-              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse")} />
-              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse")} />
-              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse")} />
-              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse")} />
+              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse", { filter: "all" })} />
+              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse", { filter: "high" })} />
+              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse", { filter: "medium" })} />
+              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse", { filter: "new" })} />
+              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse", { filter: "active" })} />
+              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse", { filter: "nearby" })} />
             </div>
           )}
         </div>
