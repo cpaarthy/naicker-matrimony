@@ -1,1839 +1,459 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
-  ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
-  Database as DatabaseIcon, Camera, MapPin, Eye, Briefcase, BookOpen,
-} from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin, BarChart3 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
-import {
-  fetchAllProfiles, updateProfileStatus, deleteProfile,
-  fetchAllRequests, fetchContactMessages, upsertProfile,
-  fetchMasterList, addMasterListValue, deleteMasterListValue,
-  bulkUpdateProfileStatus, bulkDeleteProfiles, setProfileDeactivated,
-  resolveContactMessage, replyToContactMessage, logAdminAction, fetchActivityLog,
-  fetchProfileReports, updateReportStatus,
-  fetchAllAnnouncements, createAnnouncement, setAnnouncementActive, deleteAnnouncement,
-  createNotification,
-  fetchPoruthamReviews, savePoruthamReview, deletePoruthamReview,
-  fetchFullBackup,
-  fetchProfileCompletionReport, fetchPhotoStatistics, fetchDistrictAnalysis,
-  fetchAgeDistribution, fetchResponseRateAnalysis, fetchMostViewedProfiles,
-  fetchOccupationAnalysis, fetchEducationAnalysis,
-} from "../data/queries";
-import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
-import { BarChart, DonutChart } from "../components/AdminCharts";
-import { exportToCsv } from "../utils/exportCsv";
-import { downloadJson } from "../utils/downloadJson";
+import { LineChart, BarChart, DonutChart } from "../components/AdminCharts";
+import Login from "./Login";
+import ShareProfileModal from "../components/ShareProfileModal";
+import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles, fetchProfileViewsReceived } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
-const ADMIN_PIN = "Naik@1998!";
+const RECENT_DAYS = 30;
+const ACTIVE_DAYS = 7;
+const MONTH_LABELS_TA = ["ஜன", "பிப்", "மார்", "ஏப்", "மே", "ஜூன்", "ஜூலை", "ஆக", "செப்", "அக்", "நவ", "டிச"];
 
-const TABS = [
-  { key: "stats", label: "Overview", icon: BarChart3 },
-  { key: "pending", label: "Pending", icon: ShieldCheck },
-  { key: "all", label: "All Profiles", icon: Users },
-  { key: "requests", label: "Requests", icon: Heart },
-  { key: "contact", label: "Messages", icon: Mail },
-  { key: "reports", label: "Reports", icon: Flag },
-  { key: "analytics", label: "Analytics", icon: BarChart3 },
-  { key: "announce", label: "Announcement", icon: Megaphone },
-  { key: "porutham", label: "Porutham Check", icon: Star },
-  { key: "lists", label: "Lists", icon: ListChecks },
-  { key: "log", label: "Activity Log", icon: History },
+function daysAgo(dateStr) {
+  if (!dateStr) return Infinity;
+  return (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function computeMatchAnalytics(myProfile, candidates) {
+  try {
+    if (!myProfile || !candidates) {
+      console.warn("computeMatchAnalytics: missing data", { myProfile, candidates });
+      return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
+    }
+
+    const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
+    const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
+
+    const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
+    const matchesPreference = (p) => {
+      if (!hasPrefs) return true;
+      if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
+      if (myProfile.pref_age_max && p.age > myProfile.pref_age_max) return false;
+      if (myProfile.pref_education && typeof p.education === 'string' && !p.education.toLowerCase().includes(myProfile.pref_education.toLowerCase())) return false;
+      if (myProfile.pref_occupation && typeof p.occupation === 'string' && !p.occupation.toLowerCase().includes(myProfile.pref_occupation.toLowerCase())) return false;
+      return true;
+    };
+
+    const matching = pool.filter(matchesPreference);
+
+    let high = 0, medium = 0;
+    const scoreBuckets = [
+      { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 }, { label: "41-60%", value: 0 },
+      { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
+    ];
+
+    matching.forEach(p => {
+      try {
+        const score = calculateMatchScore(myProfile, p);
+        if (!score) return;
+        const pct = score.percentage;
+        if (pct >= 90) high++;
+        else if (pct >= 50) medium++;
+        if (pct <= 20) scoreBuckets[0].value++;
+        else if (pct <= 40) scoreBuckets[1].value++;
+        else if (pct <= 60) scoreBuckets[2].value++;
+        else if (pct <= 80) scoreBuckets[3].value++;
+        else scoreBuckets[4].value++;
+      } catch (err) {
+        console.error("Error calculating score for profile:", p.id, err);
+      }
+    });
+
+    const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
+    const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
+    const nearby = matching.filter(p =>
+      (myProfile.city && p.city && typeof myProfile.city === 'string' && typeof p.city === 'string' &&
+       myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
+      (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
+       myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
+    ).length;
+
+    // Matches by district — top 6 districts among the matching pool
+    const districtCounts = {};
+    matching.forEach(p => {
+      const d = p.district && typeof p.district === 'string' ? p.district.trim() : "Other";
+      districtCounts[d] = (districtCounts[d] || 0) + 1;
+    });
+    const districtChart = Object.entries(districtCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([label, value]) => ({ label: label.length > 8 ? label.slice(0, 7) + "…" : label, value }));
+
+    // Age-wise histogram — 5-year buckets
+    const ageBuckets = {};
+    matching.forEach(p => {
+      if (!p.age) return;
+      const bucketStart = Math.floor(p.age / 5) * 5;
+      const key = `${bucketStart}-${bucketStart + 4}`;
+      ageBuckets[key] = (ageBuckets[key] || 0) + 1;
+    });
+    const ageChart = Object.entries(ageBuckets)
+      .sort((a, b) => Number(a[0].split("-")[0]) - Number(b[0].split("-")[0]))
+      .map(([label, value]) => ({ label, value }));
+
+    return {
+      total: matching.length,
+      high, medium, newMembers, recentlyActive, nearby,
+      districtChart, ageChart, scoreBuckets,
+    };
+  } catch (err) {
+    console.error("computeMatchAnalytics error:", err);
+    return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
+  }
+}
+
+function computeProfileViewsChart(viewRows) {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTH_LABELS_TA[d.getMonth()], value: 0 });
+  }
+  const monthMap = Object.fromEntries(months.map(m => [m.key, m]));
+  viewRows.forEach(row => {
+    const d = new Date(row.viewed_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (monthMap[key]) monthMap[key].value++;
+  });
+  return months.map(({ label, value }) => ({ label, value }));
+}
+
+function computeInterestStatusChart(requests, userId, colors) {
+  const sent = requests.filter(r => r.from_id === userId);
+  const accepted = sent.filter(r => r.status === "accepted").length;
+  const pending = sent.filter(r => r.status === "pending").length;
+  const declined = sent.filter(r => r.status === "declined").length;
+  return [
+    { label: "Accepted / ஏற்கப்பட்டது", value: accepted, color: colors.approvedText },
+    { label: "Pending / நிலுவையில்", value: pending, color: colors.pendingText },
+    { label: "Declined / நிராகரிக்கப்பட்டது", value: declined, color: colors.rejectedText },
+  ];
+}
+
+const COMPLETION_SECTIONS = [
+  { key: "Basic", label: "Basic / அடிப்படை", fields: ["name", "gender", "age", "height", "religion", "caste", "sub_caste", "phone", "photo_url", "about"] },
+  { key: "Education", label: "Education & Career / கல்வி", fields: ["education", "occupation", "income"] },
+  { key: "Location", label: "Location / இருப்பிடம்", fields: ["address", "district", "city", "state", "mother_tongue"] },
+  { key: "Family", label: "Family / குடும்பம்", fields: ["father_occupation", "mother_occupation", "siblings", "family_type"] },
+  { key: "Horoscope", label: "Horoscope / ஜாதகம்", fields: ["star", "rasi", "birth_time", "birth_place"] },
+  { key: "Physical", label: "Physical / உடல் அமைப்பு", fields: ["complexion", "body_type", "blood_group", "diet", "smoking", "drinking"] },
+  { key: "Preference", label: "Preferences / விருப்பங்கள்", fields: ["pref_age_min", "pref_age_max", "pref_education", "pref_occupation"] },
 ];
 
-export default function AdminDashboard({ onNavigate, setSelectedProfileId, showToast }) {
+function computeSectionCompletion(profile) {
+  if (!profile) return [];
+  return COMPLETION_SECTIONS.map(section => {
+    const filled = section.fields.filter(f => profile[f] !== null && profile[f] !== undefined && profile[f] !== "").length;
+    const pct = Math.round((filled / section.fields.length) * 100);
+    return { label: section.label, value: pct };
+  });
+}
+
+const COMPLETENESS_FIELDS = [
+  "name", "gender", "age", "height", "religion", "caste", "sub_caste", "education",
+  "occupation", "income", "address", "district", "city", "state", "mother_tongue",
+  "phone", "photo_url", "about",
+  "father_occupation", "mother_occupation", "siblings", "family_type",
+  "star", "rasi", "birth_time", "birth_place",
+  "complexion", "body_type", "blood_group",
+  "diet", "smoking", "drinking",
+  "pref_age_min", "pref_age_max", "pref_education", "pref_occupation",
+];
+
+function calculateCompleteness(profile) {
+  if (!profile) return 0;
+  const filled = COMPLETENESS_FIELDS.filter(f => profile[f] !== null && profile[f] !== undefined && profile[f] !== "").length;
+  return Math.round((filled / COMPLETENESS_FIELDS.length) * 100);
+}
+
+export default function Dashboard({ onNavigate, showToast }) {
   const { colors } = useTheme();
-  const [unlocked, setUnlocked] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [tab, setTab] = useState("stats");
-
-  const [profiles, setProfiles] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editingProfile, setEditingProfile] = useState(null);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [allProfilesSearch, setAllProfilesSearch] = useState("");
-  const [allProfilesStatusFilter, setAllProfilesStatusFilter] = useState("all");
-  const [detailProfile, setDetailProfile] = useState(null);
-  const [backingUp, setBackingUp] = useState(false);
-
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    const [{ data: profs }, { data: reqs }, { data: msgs }, { data: reps }] = await Promise.all([
-      fetchAllProfiles(), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(),
-    ]);
-    setProfiles(profs);
-    setRequests(reqs);
-    setMessages(msgs);
-    setReports(reps);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { if (unlocked) loadAll(); }, [unlocked, loadAll]);
-
-  async function handleStatus(id, status) {
-    const p = profiles.find(x => x.id === id);
-    const wasAlreadyApproved = p?.status === "approved";
-    await updateProfileStatus(id, status);
-    await logAdminAction({ action: status, targetType: "profile", targetId: id, targetName: p?.name });
-
-    if (status === "approved" && p && !wasAlreadyApproved) {
-      await notifyMatchesForNewProfile(p);
-    }
-
-    showToast(`Profile ${status}`);
-    loadAll();
-  }
-
-  async function notifyMatchesForNewProfile(newProfile) {
-    const opposingGender = newProfile.gender === "Male" ? "Female" : newProfile.gender === "Female" ? "Male" : null;
-    if (!opposingGender) return;
-    const candidates = profiles.filter(x => x.status === "approved" && x.gender === opposingGender && x.id !== newProfile.id);
-    for (const candidate of candidates) {
-      const result = calculateMatchScore(candidate, newProfile);
-      if (result && result.percentage >= 25) {
-        await createNotification({
-          userId: candidate.id,
-          type: "new_match",
-          relatedProfileId: newProfile.id,
-          message: `New match found! ${newProfile.name} is a ${result.percentage}% match for you.`,
-        });
-      }
-    }
-  }
-
-  async function handleDelete(id, name) {
-    if (!window.confirm(`Delete profile "${name}"? This cannot be undone.`)) return;
-    const { error } = await deleteProfile(id);
-    if (error) { showToast("Could not delete profile"); return; }
-    await logAdminAction({ action: "delete", targetType: "profile", targetId: id, targetName: name });
-    showToast("Profile deleted");
-    loadAll();
-  }
-
-  async function handleToggleActive(p) {
-    const newVal = !p.admin_deactivated;
-    const { error } = await setProfileDeactivated(p.id, newVal);
-    if (error) { showToast("Could not update account"); return; }
-    await logAdminAction({
-      action: newVal ? "deactivate" : "activate", targetType: "profile", targetId: p.id, targetName: p.name,
-    });
-    showToast(newVal ? "Account deactivated" : "Account activated");
-    loadAll();
-  }
-
-  function toggleSelect(id) {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function selectAllPending(pendingList) {
-    setSelectedIds(new Set(pendingList.map(p => p.id)));
-  }
-
-  async function handleBulkApprove() {
-    if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
-    const newlyApproved = profiles.filter(p => ids.includes(p.id) && p.status !== "approved");
-    await bulkUpdateProfileStatus(ids, "approved");
-    await logAdminAction({ action: "bulk_approve", targetType: "profile", details: `${ids.length} profiles` });
-    for (const p of newlyApproved) {
-      await notifyMatchesForNewProfile(p);
-    }
-    showToast(`${ids.length} profiles approved`);
-    setSelectedIds(new Set());
-    loadAll();
-  }
-
-  async function handleBulkReject() {
-    if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
-    await bulkUpdateProfileStatus(ids, "rejected");
-    await logAdminAction({ action: "bulk_reject", targetType: "profile", details: `${ids.length} profiles` });
-    showToast(`${ids.length} profiles rejected`);
-    setSelectedIds(new Set());
-    loadAll();
-  }
-
-  async function handleBulkDelete() {
-    if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} profiles? This cannot be undone.`)) return;
-    const ids = Array.from(selectedIds);
-    await bulkDeleteProfiles(ids);
-    await logAdminAction({ action: "bulk_delete", targetType: "profile", details: `${ids.length} profiles` });
-    showToast(`${ids.length} profiles deleted`);
-    setSelectedIds(new Set());
-    loadAll();
-  }
-
-  async function handleExportCsv() {
-    try {
-      console.log("Starting CSV export...");
-      const { data, error } = await fetchAllProfiles();
-      if (error) {
-        console.error("Error fetching profiles:", error);
-        showToast("Error fetching profiles: " + error);
-        return;
-      }
-      console.log("Fetched profiles:", data?.length);
-      const rows = data.map(p => ({
-        name: p.name, age: p.age, gender: p.gender, city: p.city, district: p.district,
-        state: p.state, phone: p.phone, occupation: p.occupation, education: p.education,
-        caste: p.caste, sub_caste: p.sub_caste, status: p.status, created_at: p.created_at,
-      }));
-      console.log("CSV rows:", rows.length);
-      exportToCsv("naicker-matrimony-profiles.csv", rows);
-      showToast("CSV exported");
-    } catch (err) {
-      console.error("CSV export error:", err);
-      showToast("CSV export failed: " + err.message);
-    }
-  }
-
-  async function handleFullBackup() {
-    setBackingUp(true);
-    const { data } = await fetchFullBackup();
-    downloadJson(data, `naicker-matrimony-backup-${new Date().toISOString().split('T')[0]}.json`);
-    setBackingUp(false);
-    showToast("Backup downloaded");
-  }
-
-  if (!unlocked) {
-    return (
-      <div style={{ textAlign: "center", padding: "30px 16px" }}>
-        <ShieldCheck size={30} color={colors.primary} style={{ marginBottom: 10 }} />
-        <h2 className="serif" style={{ fontSize: 18, marginBottom: 12 }}>Admin Login</h2>
-        <input
-          type="password"
-          value={pin}
-          onChange={e => { setPin(e.target.value); setPinError(""); }}
-          placeholder="Enter admin password"
-          style={{
-            width: "100%", maxWidth: 260, padding: "11px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-            fontSize: 15, background: colors.inputBg, color: colors.text, marginBottom: 10, textAlign: "center",
-          }}
-        />
-        {pinError && <div style={{ color: colors.rejectedText, fontSize: 12.5, marginBottom: 10 }}>{pinError}</div>}
-        <button onClick={() => { if (pin === ADMIN_PIN) setUnlocked(true); else setPinError("Incorrect password"); }} style={{
-          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "10px 24px", fontWeight: 700, fontSize: 14,
-        }}>Enter</button>
-      </div>
-    );
-  }
-
-  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
-
-  if (editingProfile) {
-    return (
-      <AdminEditProfile
-        profile={editingProfile}
-        colors={colors}
-        onCancel={() => setEditingProfile(null)}
-        onSaved={() => {
-          logAdminAction({ action: "edit", targetType: "profile", targetId: editingProfile.id, targetName: editingProfile.name });
-          setEditingProfile(null); loadAll(); showToast("Profile updated");
-        }}
-      />
-    );
-  }
-
-  if (detailProfile) {
-    return (
-      <AdminProfileDetail
-        profile={detailProfile}
-        profiles={profiles}
-        requests={requests}
-        reports={reports}
-        colors={colors}
-        onBack={() => setDetailProfile(null)}
-        onEdit={(p) => { setDetailProfile(null); setEditingProfile(p); }}
-      />
-    );
-  }
-
-  const pending = profiles.filter(p => p.status === "pending");
-  const approved = profiles.filter(p => p.status === "approved");
-  const rejected = profiles.filter(p => p.status === "rejected");
-  const male = profiles.filter(p => p.gender === "Male");
-  const female = profiles.filter(p => p.gender === "Female");
-  const acceptedReqs = requests.filter(r => r.status === "accepted");
-  const pendingReqs = requests.filter(r => r.status === "pending");
-  const unresolvedMessages = messages.filter(m => !m.resolved);
-  const openReports = reports.filter(r => r.status === "open");
-
-  const registrationsByDay = (() => {
-    const days = [];
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      days.push(d);
-    }
-    return days.map(day => {
-      const next = new Date(day);
-      next.setDate(next.getDate() + 1);
-      const count = profiles.filter(p => {
-        const created = new Date(p.created_at);
-        return created >= day && created < next;
-      }).length;
-      return { label: `${day.getDate()}/${day.getMonth() + 1}`, value: count };
-    });
-  })();
-
-  const now = Date.now();
-  const activeUsers = profiles.filter(p => p.last_active_at && (now - new Date(p.last_active_at).getTime()) < 30 * 24 * 60 * 60 * 1000);
-  const inactiveUsers = profiles.filter(p => !p.last_active_at || (now - new Date(p.last_active_at).getTime()) >= 30 * 24 * 60 * 60 * 1000);
-  const veryInactiveUsers = profiles.filter(p => p.last_active_at && (now - new Date(p.last_active_at).getTime()) >= 150 * 24 * 60 * 60 * 1000);
-
-  return (
-    <div>
-      <h2 className="serif" style={{ fontSize: 19, marginBottom: 14 }}>Admin Dashboard</h2>
-
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
-        {TABS.map(t => {
-          const Icon = t.icon;
-          const active = tab === t.key;
-          return (
-            <button key={t.key} onClick={() => { setTab(t.key); setSelectedIds(new Set()); }} style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 8,
-              fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
-              background: active ? colors.primary : colors.card,
-              color: active ? colors.primaryText : colors.textMuted,
-              border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
-            }}>
-              <Icon size={13} /> {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === "stats" && (
-        <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-            <button onClick={handleExportCsv} style={{
-              display: "flex", alignItems: "center", gap: 6, background: colors.primary, color: colors.primaryText,
-              border: "none", borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13,
-            }}>
-              <Download size={14} /> Export all profiles (CSV)
-            </button>
-            <button onClick={handleFullBackup} disabled={backingUp} style={{
-              display: "flex", alignItems: "center", gap: 6, background: colors.card, color: colors.text,
-              border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13,
-              opacity: backingUp ? 0.6 : 1,
-            }}>
-              <DatabaseIcon size={14} /> {backingUp ? "Backing up…" : "Backup full database (JSON)"}
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <StatCard label="Total profiles" value={profiles.length} colors={colors} />
-            <StatCard label="Pending review" value={pending.length} colors={colors} tone="pending" />
-            <StatCard label="Approved" value={approved.length} colors={colors} tone="approved" />
-            <StatCard label="Rejected" value={rejected.length} colors={colors} tone="rejected" />
-            <StatCard label="Male profiles" value={male.length} colors={colors} icon={User} />
-            <StatCard label="Female profiles" value={female.length} colors={colors} icon={UserRound} />
-            <StatCard label="Interest requests" value={requests.length} colors={colors} />
-            <StatCard label="Matches (accepted)" value={acceptedReqs.length} colors={colors} tone="approved" />
-            <StatCard label="Pending requests" value={pendingReqs.length} colors={colors} tone="pending" />
-            <StatCard label="Unresolved messages" value={unresolvedMessages.length} colors={colors} tone="pending" />
-            <StatCard label="Open reports" value={openReports.length} colors={colors} tone="pending" />
-          </div>
-
-          <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>
-              Registrations — last 14 days
-            </div>
-            <BarChart data={registrationsByDay} colors={colors} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-            <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>Gender ratio</div>
-              <DonutChart
-                colors={colors}
-                size={110}
-                segments={[
-                  { label: "Male", value: male.length, color: "#1f4d3d" },
-                  { label: "Female", value: female.length, color: "#7a1f3d" },
-                ]}
-              />
-            </div>
-            <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>Status split</div>
-              <DonutChart
-                colors={colors}
-                size={110}
-                segments={[
-                  { label: "Approved", value: approved.length, color: colors.approvedText },
-                  { label: "Pending", value: pending.length, color: colors.pendingText },
-                  { label: "Rejected", value: rejected.length, color: colors.rejectedText },
-                ]}
-              />
-            </div>
-          </div>
-
-          <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>User engagement</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: colors.approvedText, fontFamily: "'Playfair Display', Georgia, serif" }}>{activeUsers.length}</div>
-                <div style={{ fontSize: 10.5, color: colors.textFaint }}>Active (30 days)</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: colors.pendingText, fontFamily: "'Playfair Display', Georgia, serif" }}>{inactiveUsers.length}</div>
-                <div style={{ fontSize: 10.5, color: colors.textFaint }}>Inactive (30+ days)</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: colors.rejectedText, fontFamily: "'Playfair Display', Georgia, serif" }}>{veryInactiveUsers.length}</div>
-                <div style={{ fontSize: 10.5, color: colors.textFaint }}>Inactive (150+ days)</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "pending" && (
-        <div>
-          {pending.length > 0 && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-              <button onClick={selectAllPending} style={{
-                fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
-                borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>Select all</button>
-              <button onClick={handleBulkApprove} style={{
-                fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>Approve selected</button>
-              <button onClick={handleBulkReject} style={{
-                fontSize: 12, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>Reject selected</button>
-              <button onClick={handleBulkDelete} style={{
-                fontSize: 12, background: "transparent", color: colors.rejectedText, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
-              }}>Delete selected</button>
-            </div>
-          )}
-          {pending.length === 0 && <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No pending profiles.</div>}
-          {pending.map(p => (
-            <div key={p.id} onClick={() => setDetailProfile(p)} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
-              flexWrap: "wrap", cursor: "pointer",
-            }}>
-              <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={40} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
-                <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "approved"); }} style={{
-                background: colors.approvedBg, border: "none", borderRadius: 7, width: 30, height: 30,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <Check size={13} color={colors.approvedText} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "rejected"); }} style={{
-                background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <X size={13} color={colors.rejectedText} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "all" && (
-        <div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <input
-              placeholder="Search by name, city, phone..."
-              value={allProfilesSearch}
-              onChange={e => setAllProfilesSearch(e.target.value)}
-              style={{
-                flex: 1, padding: "8px 12px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
-                fontSize: 13, background: colors.inputBg, color: colors.text,
-              }}
-            />
-            <select
-              value={allProfilesStatusFilter}
-              onChange={e => setAllProfilesStatusFilter(e.target.value)}
-              style={{
-                padding: "8px 12px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
-                fontSize: 13, background: colors.inputBg, color: colors.text,
-              }}
-            >
-              <option value="all">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-          {profiles
-            .filter(p => {
-              const searchLower = allProfilesSearch.toLowerCase();
-              return !allProfilesSearch ||
-                p.name?.toLowerCase().includes(searchLower) ||
-                p.city?.toLowerCase().includes(searchLower) ||
-                p.phone?.includes(searchLower);
-            })
-            .filter(p => allProfilesStatusFilter === "all" || p.status === allProfilesStatusFilter)
-            .map(p => (
-              <div key={p.id} onClick={() => setDetailProfile(p)} style={{
-                display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
-                flexWrap: "wrap", cursor: "pointer",
-              }}>
-                <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={40} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
-                  <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
-                </div>
-                <Badge tone={p.status === "approved" ? "approved" : p.status === "rejected" ? "rejected" : "pending"}>{p.status}</Badge>
-                {p.admin_deactivated && <Badge tone="rejected">inactive</Badge>}
-                <button onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
-                  background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>
-                  <Power size={13} color={p.admin_deactivated ? colors.approvedText : colors.pendingText} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setEditingProfile(p); }} style={{
-                  background: colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>
-                  <Pencil size={13} color={colors.pendingText} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id, p.name); }} style={{
-                  background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>
-                  <Trash2 size={13} color={colors.rejectedText} />
-                </button>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {tab === "requests" && (
-        <div>
-          {requests.length === 0 && <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No requests yet.</div>}
-          {requests.map(r => {
-            const fromP = profiles.find(p => p.id === r.from_id);
-            const toP = profiles.find(p => p.id === r.to_id);
-            return (
-              <div key={r.id} style={{
-                background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 12, marginBottom: 8,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                    {fromP?.name || "Unknown"} → {toP?.name || "Unknown"}
-                  </div>
-                  <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>{r.status}</Badge>
-                </div>
-                <div style={{ fontSize: 11, color: colors.textFaint }}>{new Date(r.created_at).toLocaleString()}</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {tab === "contact" && (
-        <ContactMessagesTab
-          messages={messages}
-          colors={colors}
-          showToast={showToast}
-          onReload={loadAll}
-        />
-      )}
-
-      {tab === "reports" && (
-        <ReportsTab
-          reports={reports}
-          profiles={profiles}
-          colors={colors}
-          showToast={showToast}
-          onReload={loadAll}
-        />
-      )}
-
-      {tab === "analytics" && (
-        <AnalyticsTab
-          colors={colors}
-          showToast={showToast}
-        />
-      )}
-
-      {tab === "announce" && <AnnouncementManager colors={colors} showToast={showToast} />}
-
-      {tab === "porutham" && <PoruthamTab colors={colors} profiles={profiles} showToast={showToast} />}
-
-      {tab === "lists" && <MasterListsTab colors={colors} showToast={showToast} />}
-
-      {tab === "log" && <ActivityLogTab colors={colors} showToast={showToast} />}
-    </div>
-  );
-}
-
-function StatCard({ label, value, colors, tone, icon: Icon }) {
-  return (
-    <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        {Icon && <Icon size={16} color={tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text} />}
-        <div style={{ fontSize: 11, color: colors.textMuted }}>{label}</div>
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text }}>{value}</div>
-    </div>
-  );
-}
-
-function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
-  async function handleStatusChange(id, status) {
-    await updateReportStatus(id, status);
-    await logAdminAction({ action: status === "reviewed" ? "review_report" : "dismiss_report", targetType: "report", targetId: id });
-    showToast(`Report marked as ${status}`);
-    onReload();
-  }
-
-  if (reports.length === 0) return <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No reports yet.</div>;
-
-  return (
-    <div>
-      {reports.map(r => {
-        const reporter = profiles.find(p => p.id === r.reporter_id);
-        const reported = profiles.find(p => p.id === r.reported_id);
-        return (
-          <div key={r.id} style={{
-            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{r.reason}</div>
-              <Badge tone={r.status === "reviewed" ? "approved" : r.status === "dismissed" ? "rejected" : "pending"}>{r.status}</Badge>
-            </div>
-            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>
-              Reported by <b>{reporter?.name || "Unknown"}</b> against <b>{reported?.name || "Unknown"}</b>
-            </div>
-            {r.details && <div style={{ fontSize: 12.5, color: colors.text, marginBottom: 8 }}>{r.details}</div>}
-            <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>{new Date(r.created_at).toLocaleString()}</div>
-            {r.status === "open" && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => handleStatusChange(r.id, "reviewed")} style={{
-                  fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-                }}>Mark reviewed</button>
-                <button onClick={() => handleStatusChange(r.id, "dismissed")} style={{
-                  fontSize: 12, background: "transparent", color: colors.textMuted, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
-                }}>Dismiss</button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AnalyticsTab({ colors, showToast }) {
-  const [loading, setLoading] = useState(false);
-  const [currentReport, setCurrentReport] = useState("profile_completion");
-  const [reportData, setReportData] = useState(null);
-  const [error, setError] = useState(null);
-
-  const REPORTS = [
-    { key: "profile_completion", label: "Profile Completion", icon: User },
-    { key: "photo_stats", label: "Photo Statistics", icon: Camera },
-    { key: "district_analysis", label: "District Analysis", icon: MapPin },
-    { key: "age_distribution", label: "Age Distribution", icon: BarChart3 },
-    { key: "response_rate", label: "Response Rate", icon: Heart },
-    { key: "most_viewed", label: "Most Viewed Profiles", icon: Eye },
-    { key: "occupation_analysis", label: "Occupation Analysis", icon: Briefcase },
-    { key: "education_analysis", label: "Education Analysis", icon: BookOpen },
-  ];
+  const { session, profile, profileLoading, userId } = useAuth();
+  const [pendingIncoming, setPendingIncoming] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [candidateProfiles, setCandidateProfiles] = useState([]);
+  const [blockedIds, setBlockedIds] = useState(new Set());
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [myRequests, setMyRequests] = useState([]);
+  const [profileViews, setProfileViews] = useState([]);
 
   useEffect(() => {
-    loadReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentReport]);
-
-  async function loadReport() {
-    setLoading(true);
-    setError(null);
-    setReportData(null);
-
-    try {
-      let result;
-      switch (currentReport) {
-        case "profile_completion":
-          result = await fetchProfileCompletionReport();
-          break;
-        case "photo_stats":
-          result = await fetchPhotoStatistics();
-          break;
-        case "district_analysis":
-          result = await fetchDistrictAnalysis();
-          break;
-        case "age_distribution":
-          result = await fetchAgeDistribution();
-          break;
-        case "response_rate":
-          result = await fetchResponseRateAnalysis();
-          break;
-        case "most_viewed":
-          result = await fetchMostViewedProfiles(20);
-          break;
-        case "occupation_analysis":
-          result = await fetchOccupationAnalysis();
-          break;
-        case "education_analysis":
-          result = await fetchEducationAnalysis();
-          break;
-        default:
-          result = { data: null, error: null };
-      }
-
-      console.log("Report result:", result);
-      setReportData(result.data);
-      if (result.error) {
-        setError(result.error);
-        showToast(`Error: ${result.error}`);
-      }
-    } catch (err) {
-      console.error("Error loading report:", err);
-      setError(err.message);
-      showToast("Error loading analytics data");
-    } finally {
-      setLoading(false);
+    if (userId) {
+      fetchRequestsFor(userId).then(({ data }) => {
+        setMyRequests(data);
+        setPendingIncoming(data.filter(r => r.to_id === userId && r.status === "pending").length);
+      });
+      fetchNotifications(userId).then(({ data }) => {
+        setUnreadNotifications(data.filter(n => !n.read).length);
+      });
+      fetchBlockedProfiles(userId).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
+      fetchProfileViewsReceived(userId).then(({ data }) => setProfileViews(data));
     }
-  }
-
-  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading analytics…</div>;
-
-  if (error) {
-    return (
-      <div>
-        <div style={{ textAlign: "center", color: colors.rejectedText, padding: 40 }}>
-          Error: {error}
-        </div>
-        <button onClick={loadReport} style={{
-          display: "block", margin: "0 auto", background: colors.primary, color: colors.primaryText,
-          border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700
-        }}>
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
-        {REPORTS.map(r => {
-          const Icon = r.icon;
-          const active = currentReport === r.key;
-          return (
-            <button key={r.key} onClick={() => { setCurrentReport(r.key); }} style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 8,
-              fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
-              background: active ? colors.primary : colors.card,
-              color: active ? colors.primaryText : colors.textMuted,
-              border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
-            }}>
-              <Icon size={13} /> {r.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16 }}>
-        {currentReport === "profile_completion" && <ProfileCompletionReport data={reportData} colors={colors} />}
-        {currentReport === "photo_stats" && <PhotoStatisticsReport data={reportData} colors={colors} />}
-        {currentReport === "district_analysis" && <DistrictAnalysisReport data={reportData} colors={colors} />}
-        {currentReport === "age_distribution" && <AgeDistributionReport data={reportData} colors={colors} />}
-        {currentReport === "response_rate" && <ResponseRateReport data={reportData} colors={colors} />}
-        {currentReport === "most_viewed" && <MostViewedReport data={reportData} colors={colors} />}
-        {currentReport === "occupation_analysis" && <OccupationAnalysisReport data={reportData} colors={colors} />}
-        {currentReport === "education_analysis" && <EducationAnalysisReport data={reportData} colors={colors} />}
-        {!reportData && !loading && !error && (
-          <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-            No data available for this report
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProfileCompletionReport({ data, colors }) {
-  console.log("ProfileCompletionReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No profile data available
-        </div>
-      </div>
-    );
-  }
-
-  const validData = data.filter(d => d && typeof d === 'object' && d.total_percentage !== undefined && typeof d.total_percentage === 'number');
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid profile data available
-        </div>
-      </div>
-    );
-  }
-
-  const total = validData.length;
-  const highCompletion = validData.filter(d => d.total_percentage >= 80).length;
-  const mediumCompletion = validData.filter(d => d.total_percentage >= 50 && d.total_percentage < 80).length;
-  const lowCompletion = validData.filter(d => d.total_percentage < 50).length;
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Profile Completion Report</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.approvedBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.approvedText }}>{highCompletion}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>High (80%+)</div>
-        </div>
-        <div style={{ background: colors.pendingBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.pendingText }}>{mediumCompletion}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Medium (50-79%)</div>
-        </div>
-        <div style={{ background: colors.rejectedBg, padding: 12, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.rejectedText }}>{lowCompletion}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Low (&lt;50%)</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 8 }}>Top 5 least complete profiles:</div>
-      {validData.slice(0, 5).map((d, index) => (
-        <div key={d.id || index} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${colors.cardBorder}`, fontSize: 12.5 }}>
-          <span>{String(d.name || 'Unknown')}</span>
-          <span style={{ fontWeight: 600 }}>{d.total_percentage}%</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function PhotoStatisticsReport({ data, colors }) {
-  console.log("PhotoStatisticsReport data:", data);
-
-  if (!data || data.total === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Photo Statistics</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No photo data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Photo Statistics</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.text }}>{data.with_photo || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>With Photo ({data.with_photo_percentage || 0}%)</div>
-        </div>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: colors.text }}>{data.without_photo || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Without Photo</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>By Gender:</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Male: </span>
-          {data.by_gender?.male_with_photo || 0} with / {data.by_gender?.male_without_photo || 0} without
-        </div>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Female: </span>
-          {data.by_gender?.female_with_photo || 0} with / {data.by_gender?.female_without_photo || 0} without
-        </div>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>By Status:</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Approved: </span>
-          {data.by_status?.approved_with_photo || 0} with / {data.by_status?.approved_without_photo || 0} without
-        </div>
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: colors.textMuted }}>Pending: </span>
-          {data.by_status?.pending_with_photo || 0} with / {data.by_status?.pending_without_photo || 0} without
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DistrictAnalysisReport({ data, colors }) {
-  console.log("DistrictAnalysisReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No district data available
-        </div>
-      </div>
-    );
-  }
-
-  const validData = data.filter(d => d && typeof d === 'object' && d.district);
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid district data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>District-wise Analysis</h3>
-      <div>
-        {validData.slice(0, 10).map((d, index) => (
-          <div key={d.district || index} style={{
-            background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.district)}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved || 0}</span> approved</div>
-              <div><span style={{ color: colors.pendingText }}>{d.pending || 0}</span> pending</div>
-              <div>Male: {d.male || 0} / Female: {d.female || 0}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AgeDistributionReport({ data, colors }) {
-  console.log("AgeDistributionReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No age data available
-        </div>
-      </div>
-    );
-  }
-
-  const validData = data.filter(d => d && typeof d === 'object' && d.group);
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid age data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Age Distribution</h3>
-      {validData.map((d, index) => (
-        <div key={d.group || index} style={{ marginBottom: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.group)}</span>
-            <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
-          </div>
-          <div style={{
-            height: 8, background: colors.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 4
-          }}>
-            <div style={{
-              height: "100%", background: colors.primary, width: `${Math.min((d.total || 0) * 2, 100)}%`
-            }} />
-          </div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>
-            Male: {d.male || 0} | Female: {d.female || 0} | Approved: {d.approved || 0}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ResponseRateReport({ data, colors }) {
-  console.log("ResponseRateReport data:", data);
-
-  if (!data || typeof data !== 'object' || data.total_requests === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Response Rate Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No request data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Response Rate Analysis</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Total Requests</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: colors.text }}>{data.total_requests || 0}</div>
-        </div>
-        <div style={{ background: colors.card, padding: 12, borderRadius: 8, border: `1px solid ${colors.cardBorder}` }}>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Acceptance Rate</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: colors.approvedText }}>{data.acceptance_rate || 0}%</div>
-        </div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: colors.approvedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{data.accepted || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Accepted</div>
-        </div>
-        <div style={{ background: colors.rejectedBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.rejectedText }}>{data.declined || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Declined</div>
-        </div>
-        <div style={{ background: colors.pendingBg, padding: 10, borderRadius: 8, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{data.pending || 0}</div>
-          <div style={{ fontSize: 11, color: colors.textMuted }}>Pending</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 12, color: colors.textMuted }}>
-        Average response time: ~{data.average_response_days || 0} days
-      </div>
-    </div>
-  );
-}
-
-function MostViewedReport({ data, colors }) {
-  console.log("MostViewedReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No view data available
-        </div>
-      </div>
-    );
-  }
-
-  const validData = data.filter(d => d && typeof d === 'object' && d.profile_id);
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid view data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Most Viewed Profiles (Top 20)</h3>
-      <div>
-        {validData.map((d, index) => (
-          <div key={d.profile_id || index} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{
-              width: 24, height: 24, borderRadius: "50%", background: colors.primary, color: colors.primaryText,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700
-            }}>
-              {index + 1}
-            </div>
-            {d.profile && typeof d.profile === 'object' ? (
-              <>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{String(d.profile.name || 'Unknown')}</div>
-                  <div style={{ fontSize: 11, color: colors.textMuted }}>{String(d.profile.city || 'Unknown')} · {d.profile.age || 0} yrs</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{d.total_views || 0}</div>
-                  <div style={{ fontSize: 10, color: colors.textMuted }}>{d.unique_viewers || 0} unique</div>
-                </div>
-              </>
-            ) : (
-              <div style={{ flex: 1, fontSize: 12, color: colors.textMaint }}>
-                Profile data not available
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function OccupationAnalysisReport({ data, colors }) {
-  console.log("OccupationAnalysisReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No occupation data available
-        </div>
-      </div>
-    );
-  }
-
-  const validData = data.filter(d => d && typeof d === 'object' && d.occupation);
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid occupation data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Occupation Analysis</h3>
-      <div>
-        {validData.slice(0, 15).map((d, index) => (
-          <div key={d.occupation || index} style={{
-            background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.occupation)}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved || 0}</span> approved</div>
-              <div>Male: {d.male || 0} / Female: {d.female || 0}</div>
-              <div>Success: {d.success_rate || 0}%</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EducationAnalysisReport({ data, colors }) {
-  console.log("EducationAnalysisReport data:", data);
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No education data available
-        </div>
-      </div>
-    );
-  }
-
-  const validData = data.filter(d => d && typeof d === 'object' && d.education);
-
-  if (validData.length === 0) {
-    return (
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
-        <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
-          No valid education data available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Education Analysis</h3>
-      <div>
-        {validData.slice(0, 15).map((d, index) => (
-          <div key={d.education || index} style={{
-            background: colors.card, padding: 12, borderRadius: 8, marginBottom: 8, border: `1px solid ${colors.cardBorder}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{String(d.education)}</span>
-              <span style={{ fontSize: 12, color: colors.textMuted }}>{d.total || 0} profiles</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 11 }}>
-              <div><span style={{ color: colors.approvedText }}>{d.approved || 0}</span> approved</div>
-              <div>Male: {d.male || 0} / Female: {d.female || 0}</div>
-              <div>Approval: {d.approval_rate || 0}%</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ActivityLogTab({ colors, showToast }) {
-  const [log, setLog] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filteredLog, setFilteredLog] = useState([]);
-  const [selectedUser, setSelectedUser] = useState("all");
-  const [userOptions, setUserOptions] = useState([]);
-  const [activityType, setActivityType] = useState("admin"); // "admin" or "user"
+  }, [userId]);
 
   useEffect(() => {
-    loadActivityLog();
-    loadUsers();
-  }, []);
-
-  async function loadActivityLog() {
-    setLoading(true);
-    const { data } = await fetchActivityLog();
-    setLog(data || []);
-    setLoading(false);
-  }
-
-  async function loadUsers() {
-    const { data } = await fetchAllProfiles();
-    const users = data?.map(p => ({ id: p.id, name: p.name })) || [];
-    setUserOptions(users);
-  }
-
-  useEffect(() => {
-    if (activityType === "admin") {
-      const adminOnlyLog = log.filter(entry => !entry.user_id);
-      if (selectedUser === "all") {
-        setFilteredLog(adminOnlyLog);
-      } else {
-        setFilteredLog(adminOnlyLog.filter(entry => entry.target_id === selectedUser));
-      }
+    if (profile && profile.status === "approved") {
+      setAnalyticsLoading(true);
+      fetchApprovedProfiles().then(({ data }) => {
+        setCandidateProfiles(data || []);
+        setAnalyticsLoading(false);
+      });
     } else {
-      const userOnlyLog = log.filter(entry => entry.user_id);
-      if (selectedUser === "all") {
-        setFilteredLog(userOnlyLog);
-      } else {
-        setFilteredLog(userOnlyLog.filter(entry => entry.user_id === selectedUser));
-      }
+      setAnalyticsLoading(false);
     }
-  }, [log, selectedUser, activityType]);
+  }, [profile]);
 
-  const actionLabels = {
-    approved: "Approved", rejected: "Rejected", delete: "Deleted", edit: "Edited",
-    reply_message: "Replied to message", resolve_message: "Resolved message", reopen_message: "Reopened message",
-    reset_password: "Reset password", deactivate: "Deactivated account", activate: "Activated account",
-    bulk_approve: "Bulk approved", bulk_reject: "Bulk rejected", bulk_delete: "Bulk deleted", export: "Exported data",
-    full_backup: "Downloaded full backup",
-    sent_interest: "Sent interest", accepted_interest: "Accepted interest", declined_interest: "Declined interest",
-    added_favourite: "Added to favourites", removed_favourite: "Removed from favourites",
-    reported_profile: "Reported profile", viewed_profile: "Viewed profile",
-  };
+  const analytics = useMemo(() => {
+    if (!profile || profile.status !== "approved") return null;
+    const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
+    const result = computeMatchAnalytics(profile, pool);
+    return result;
+  }, [profile, candidateProfiles, blockedIds]);
 
-  if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 30 }}>Loading…</div>;
+  const profileViewsChart = useMemo(() => computeProfileViewsChart(profileViews), [profileViews]);
+  const interestStatusChart = useMemo(() => computeInterestStatusChart(myRequests, userId, colors), [myRequests, userId, colors]);
+  const completionChart = useMemo(() => computeSectionCompletion(profile), [profile]);
 
-  function handleExport() {
-    try {
-      console.log("Starting activity log export...");
-      const rows = filteredLog.map(entry => ({
-        action: actionLabels[entry.action] || entry.action,
-        target_type: entry.target_type,
-        target_name: entry.target_name || "",
-        details: entry.details || "",
-        created_at: entry.created_at,
-      }));
-      console.log("Activity log rows:", rows.length);
-      exportToCsv(activityType + "-activity-log.csv", rows);
-      showToast("Activity log exported");
-    } catch (err) {
-      console.error("Activity log export error:", err);
-      showToast("Activity log export failed: " + err.message);
-    }
+  if (!session) {
+    return <Login onNavigate={onNavigate} showToast={showToast} />;
   }
+
+  if (profileLoading) {
+    return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
+  }
+
+  const completeness = calculateCompleteness(profile);
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700 }}>Activity Log</h3>
-        <div style={{ display: "flex", gap: 6 }}>
-          <select
-            value={activityType}
-            onChange={e => setActivityType(e.target.value)}
-            style={{
-              padding: "6px 10px", borderRadius: 6, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 12, background: colors.inputBg, color: colors.text,
-            }}
-          >
-            <option value="admin">Admin Activity</option>
-            <option value="user">User Activity</option>
-          </select>
-          <select
-            value={selectedUser}
-            onChange={e => setSelectedUser(e.target.value)}
-            style={{
-              padding: "6px 10px", borderRadius: 6, border: `1px solid ${colors.inputBorder}`,
-              fontSize: 12, background: colors.inputBg, color: colors.text,
-            }}
-          >
-            <option value="all">All Users</option>
-            {userOptions.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <button onClick={handleExport} style={{
-            fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
-            borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-          }}>Export CSV</button>
+      <h2 className="serif" style={{ fontSize: 19, marginBottom: 14 }}>Dashboard / டாஷ்போர்டு</h2>
+
+      {!profile && (
+        <div style={{ textAlign: "center", padding: "30px 16px", background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}`, marginBottom: 16 }}>
+          <div style={{ color: colors.text, fontWeight: 600, marginBottom: 6 }}>No profile yet / விவரம் இல்லை</div>
+          <div style={{ fontSize: 13, color: colors.textFaint, marginBottom: 14 }}>Complete your profile to start receiving interest requests. / விவரத்தை பூர்த்தி செய்யவும்.</div>
+          <button onClick={() => onNavigate("editProfile")} style={{
+            background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+            padding: "10px 18px", fontWeight: 700, fontSize: 14,
+          }}>Complete profile / விவரத்தை பூர்த்தி செய்யவும்</button>
         </div>
-      </div>
-      {filteredLog.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No activity logged yet.</div>}
-      {filteredLog.map(entry => {
-        const user = userOptions.find(u => u.id === entry.user_id);
-        return (
-          <div key={entry.id} style={{
-            background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 10, marginBottom: 6,
-            fontSize: 12,
-          }}>
+      )}
+
+      {profile && (
+        <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
+          <div onClick={() => onNavigate("editProfile")} style={{ display: "flex", gap: 12, alignItems: "center", cursor: "pointer", marginBottom: 12 }}>
+            <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} />
+            <div style={{ flex: 1 }}>
+              <div className="serif" style={{ fontWeight: 700, fontSize: 16 }}>{profile.name}</div>
+              <div style={{ fontSize: 12.5, color: colors.textFaint }}>{profile.city} · {profile.age} yrs</div>
+            </div>
+            <Badge tone={profile.status === "approved" ? "approved" : profile.status === "rejected" ? "rejected" : "pending"}>
+              {profile.status}
+            </Badge>
+          </div>
+
+          <div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontWeight: 600 }}>{actionLabels[entry.action] || entry.action}</span>
-              <span style={{ color: colors.textFaint, fontSize: 11 }}>{new Date(entry.created_at).toLocaleString()}</span>
+              <span style={{ fontSize: 11.5, color: colors.textFaint }}>Profile completeness / விவர முழுமை</span>
+              <span style={{ fontSize: 11.5, color: colors.primary, fontWeight: 700 }}>{completeness}%</span>
             </div>
-            {user && <div style={{ color: colors.textMuted, fontSize: 11.5 }}>By: {user.name}</div>}
-            {entry.target_name && <div style={{ color: colors.textMuted }}>{entry.target_type}: {entry.target_name}</div>}
-            {entry.details && <div style={{ color: colors.textFaint, fontSize: 11 }}>{entry.details}</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ContactMessagesTab({ messages, colors, showToast, onReload }) {
-  async function handleReply(id, reply) {
-    const replyText = prompt("Enter your reply:");
-    if (!replyText) return;
-    await replyToContactMessage(id, replyText);
-    showToast("Reply sent");
-    onReload();
-  }
-
-  async function handleResolve(id) {
-    await resolveContactMessage(id, true);
-    showToast("Message resolved");
-    onReload();
-  }
-
-  return (
-    <div>
-      {messages.length === 0 && <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No messages yet.</div>}
-      {messages.map(m => (
-        <div key={m.id} style={{
-          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 8,
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontWeight: 600, fontSize: 13.5 }}>{m.name}</div>
-            <Badge tone={m.resolved ? "approved" : "pending"}>{m.resolved ? "Resolved" : "Open"}</Badge>
-          </div>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>{m.email}</div>
-          <div style={{ fontSize: 12.5, color: colors.text, marginBottom: 8 }}>{m.message}</div>
-          {m.admin_reply && (
-            <div style={{ background: colors.approvedBg, padding: 8, borderRadius: 6, marginBottom: 8, fontSize: 12 }}>
-              <b>Admin reply:</b> {m.admin_reply}
+            <div style={{ height: 6, borderRadius: 999, background: colors.pendingBg, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", width: `${completeness}%`, borderRadius: 999,
+                background: completeness === 100 ? colors.approvedText : colors.accent,
+                transition: "width 0.3s ease",
+              }} />
             </div>
-          )}
-          <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>{new Date(m.created_at).toLocaleString()}</div>
-          {!m.resolved && (
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => handleReply(m.id)} style={{
-                fontSize: 12, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>Reply</button>
-              <button onClick={() => handleResolve(m.id)} style={{
-                fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
-              }}>Mark resolved</button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AnnouncementManager({ colors, showToast }) {
-  const [message, setMessage] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [announcements, setAnnouncements] = useState([]);
-
-  useEffect(() => {
-    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
-  }, []);
-
-  async function handleSubmit() {
-    if (!message.trim()) return;
-    setLoading(true);
-    const expires = expiresAt ? new Date(expiresAt).toISOString() : null;
-    await createAnnouncement({ message, expiresAt: expires });
-    showToast("Announcement created");
-    setMessage("");
-    setExpiresAt("");
-    setLoading(false);
-    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
-  }
-
-  async function toggleActive(id, active) {
-    await setAnnouncementActive(id, active);
-    showToast(`Announcement ${active ? "activated" : "deactivated"}`);
-    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
-  }
-
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this announcement?")) return;
-    await deleteAnnouncement(id);
-    showToast("Announcement deleted");
-    fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Create Announcement</h3>
-      <textarea
-        placeholder="Announcement message (shows as banner on all pages)"
-        value={message}
-        onChange={e => setMessage(e.target.value)}
-        style={{
-          width: "100%", padding: "10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-          fontSize: 13, background: colors.inputBg, color: colors.text, minHeight: 80, marginBottom: 8,
-        }}
-      />
-      <input
-        type="datetime-local"
-        value={expiresAt}
-        onChange={e => setExpiresAt(e.target.value)}
-        placeholder="Expiry date (optional)"
-        style={{
-          width: "100%", padding: "10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-          fontSize: 13, background: colors.inputBg, color: colors.text, marginBottom: 8,
-        }}
-      />
-      <button onClick={handleSubmit} disabled={loading} style={{
-        background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-        padding: "10px 20px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1,
-      }}>
-        {loading ? "Creating…" : "Create Announcement"}
-      </button>
-
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, marginTop: 20 }}>Past Announcements</h3>
-      {announcements.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>No announcements yet.</div>}
-      {announcements.map(a => (
-        <div key={a.id} style={{
-          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: 12, marginBottom: 8,
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-            <div style={{ flex: 1, fontSize: 13 }}>{a.message}</div>
-            <Badge tone={a.active ? "approved" : "pending"}>{a.active ? "Active" : "Inactive"}</Badge>
+            {completeness < 100 && (
+              <button onClick={() => onNavigate("editProfile")} style={{
+                background: "none", border: "none", color: colors.primary, fontSize: 11.5, fontWeight: 700,
+                padding: 0, marginTop: 6,
+              }}>Complete more details →</button>
+            )}
           </div>
-          <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 8 }}>
-            Created: {new Date(a.created_at).toLocaleString()}
-            {a.expires_at && ` • Expires: ${new Date(a.expires_at).toLocaleString()}`}
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => toggleActive(a.id, !a.active)} style={{
-              fontSize: 11, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
-              borderRadius: 6, padding: "4px 8px",
-            }}>{a.active ? "Deactivate" : "Activate"}</button>
-            <button onClick={() => handleDelete(a.id)} style={{
-              fontSize: 11, background: colors.rejectedBg, color: colors.rejectedText, border: "none",
-              borderRadius: 6, padding: "4px 8px",
-            }}>Delete</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
-function PoruthamTab({ colors, profiles, showToast }) {
-  const [profileAId, setProfileAId] = useState("");
-  const [profileBId, setProfileBId] = useState("");
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  async function checkPorutham() {
-    if (!profileAId || !profileBId) return;
-    setLoading(true);
-    const profileA = profiles.find(p => p.id === profileAId);
-    const profileB = profiles.find(p => p.id === profileBId);
-    if (!profileA || !profileB) {
-      showToast("Profile not found");
-      setLoading(false);
-      return;
-    }
-    const calculated = calculatePorutham(profileA, profileB);
-    setResult({ profileA, profileB, calculated });
-    setLoading(false);
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Porutham Check</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-        <select
-          value={profileAId}
-          onChange={e => setProfileAId(e.target.value)}
-          style={{ padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text }}
-        >
-          <option value="">Select first profile</option>
-          {profiles.filter(p => p.status === "approved").map(p => (
-            <option key={p.id} value={p.id}>{p.name} ({p.gender}, {p.age})</option>
-          ))}
-        </select>
-        <select
-          value={profileBId}
-          onChange={e => setProfileBId(e.target.value)}
-          style={{ padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text }}
-        >
-          <option value="">Select second profile</option>
-          {profiles.filter(p => p.status === "approved").map(p => (
-            <option key={p.id} value={p.id}>{p.name} ({p.gender}, {p.age})</option>
-          ))}
-        </select>
-      </div>
-      <button onClick={checkPorutham} disabled={loading} style={{
-        background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-        padding: "10px 20px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1, marginBottom: 16,
-      }}>
-        {loading ? "Checking…" : "Check Porutham"}
-      </button>
-      {result && (
-        <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16 }}>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
-              {result.profileA.name} + {result.profileA.gender === "Male" ? "♂" : "♀"}
-            </div>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>
-              {result.profileB.name} + {result.profileB.gender === "Male" ? "♂" : "♀"}
-            </div>
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-            Calculated Porutham: {result.calculated.verdict}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12 }}>
-            {result.calculated.matches.map((m, i) => (
-              <div key={i} style={{ padding: "4px 8px", borderRadius: 4, background: m.matched ? colors.approvedBg : colors.rejectedBg, color: m.matched ? colors.approvedText : colors.rejectedText }}>
-                {m.name}: {m.matched ? "Match" : "No match"}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MasterListsTab({ colors, showToast }) {
-  const [listType, setListType] = useState("sub_caste");
-  const [newValue, setNewValue] = useState("");
-  const [values, setValues] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadValues();
-  }, [listType]);
-
-  async function loadValues() {
-    setLoading(true);
-    const { data } = await fetchMasterList(listType);
-    setValues(data || []);
-    setLoading(false);
-  }
-
-  async function handleAdd() {
-    if (!newValue.trim()) return;
-    await addMasterListValue(listType, newValue);
-    showToast("Value added");
-    setNewValue("");
-    loadValues();
-  }
-
-  async function handleDelete(id) {
-    const { error } = await deleteMasterListValue(id);
-    if (error) {
-      showToast("Could not delete value: " + error);
-      return;
-    }
-    showToast("Value deleted");
-    loadValues();
-  }
-
-  return (
-    <div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Master Lists</h3>
-      <select
-        value={listType}
-        onChange={e => setListType(e.target.value)}
-        style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, marginBottom: 12 }}
-      >
-        <option value="sub_caste">Sub caste</option>
-        <option value="city">City</option>
-        <option value="district">District</option>
-        <option value="state">State</option>
-        <option value="mother_tongue">Mother tongue</option>
-        <option value="religion">Religion</option>
-        <option value="education">Education</option>
-        <option value="occupation">Occupation</option>
-        <option value="caste">Caste</option>
-        <option value="father_occupation">Father occupation</option>
-        <option value="mother_occupation">Mother occupation</option>
-        <option value="siblings">Siblings</option>
-        <option value="complexion">Complexion</option>
-        <option value="body_type">Body type</option>
-        <option value="blood_group">Blood group</option>
-        <option value="village">Village</option>
-      </select>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          placeholder="Add new value"
-          value={newValue}
-          onChange={e => setNewValue(e.target.value)}
-          style={{ flex: 1, padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text }}
-        />
-        <button onClick={handleAdd} style={{
-          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 7,
-          padding: "8px 16px", fontWeight: 700, fontSize: 13,
-        }}>Add</button>
-      </div>
-      {loading ? <div style={{ fontSize: 12, color: colors.textFaint }}>Loading…</div> : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {values.map(v => (
-            <div key={v.id} style={{
-              background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 20,
-              padding: "6px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 6,
+          {profile.status === "approved" && (
+            <button onClick={() => setShowShareModal(true)} style={{
+              width: "100%", marginTop: 12, background: colors.pendingBg, color: colors.pendingText,
+              border: "none", borderRadius: 8, padding: "9px", fontWeight: 700, fontSize: 12.5,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             }}>
-              {v.value}
-              <button onClick={() => handleDelete(v.id)} style={{ background: "none", border: "none", color: colors.rejectedText, cursor: "pointer", padding: 0 }}>×</button>
-            </div>
-          ))}
+              <Share2 size={13} /> Share my profile / சுயவிவரத்தை பகிரவும்
+            </button>
+          )}
         </div>
       )}
-    </div>
-  );
-}
 
-function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBack, onEdit }) {
-  const incoming = requests.filter(r => r.to_id === profile.id);
-  const outgoing = requests.filter(r => r.from_id === profile.id);
-  const reportsAgainst = reports.filter(r => r.reported_id === profile.id);
-  const reportsBy = reports.filter(r => r.reporter_id === profile.id);
-
-  const FIELDS = [
-    ["Age", profile.age], ["Gender", profile.gender], ["Height", profile.height],
-    ["Religion", profile.religion], ["Caste", profile.caste], ["Sub caste", profile.sub_caste],
-    ["Education", profile.education], ["Occupation", profile.occupation], ["Income", profile.income],
-    ["Address", profile.address], ["District", profile.district], ["City", profile.city], ["State", profile.state],
-    ["Mother tongue", profile.mother_tongue], ["Phone", profile.phone],
-    ["Father's occupation", profile.father_occupation], ["Mother's occupation", profile.mother_occupation],
-    ["Siblings", profile.siblings], ["Family type", profile.family_type],
-    ["Star", profile.star], ["Rasi", profile.rasi], ["Birth time", profile.birth_time], ["Birth place", profile.birth_place],
-    ["Complexion", profile.complexion], ["Body type", profile.body_type], ["Blood group", profile.blood_group],
-    ["Diet", profile.diet], ["Smoking", profile.smoking], ["Drinking", profile.drinking],
-  ].filter(([, v]) => v);
-
-  return (
-    <div>
-      <button onClick={onBack} style={{
-        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
-        color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
-      }}>← Back to All Profiles</button>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} size={56} />
-        <div style={{ flex: 1 }}>
-          <div className="serif" style={{ fontWeight: 700, fontSize: 18 }}>{profile.name}</div>
-          <div style={{ fontSize: 12.5, color: colors.textFaint }}>{profile.city} · {profile.age} yrs</div>
-        </div>
-        <Badge tone={profile.status === "approved" ? "approved" : profile.status === "rejected" ? "rejected" : "pending"}>{profile.status}</Badge>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <DashCard icon={Heart} title="Interest Requests / ஆர்வ கோரிக்கைகள்" badge={pendingIncoming > 0 ? pendingIncoming : null} onClick={() => onNavigate("requests")} colors={colors} />
+        <DashCard icon={Bell} title="Notifications / அறிவிப்புகள்" badge={unreadNotifications > 0 ? unreadNotifications : null} onClick={() => onNavigate("notifications")} colors={colors} />
+        <DashCard icon={ShieldCheck} title="Favourites / பிடித்தவை" onClick={() => onNavigate("favourites")} colors={colors} />
+        <DashCard icon={Clock} title="Recently Viewed / சமீபத்தியவை" onClick={() => onNavigate("recentlyViewed")} colors={colors} />
+        <DashCard icon={Mail} title="Contact Us / தொடர்பு கொள்ள" onClick={() => onNavigate("contact")} colors={colors} />
+        <DashCard icon={Settings} title="Account Settings / அமைப்புகள்" onClick={() => onNavigate("accountSettings")} colors={colors} />
+        <DashCard icon={HelpCircle} title="FAQ / கேள்விகள்" onClick={() => onNavigate("faq")} colors={colors} />
       </div>
 
-      {profile.admin_deactivated && (
-        <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 8, padding: "8px 12px", fontSize: 12.5, marginBottom: 14, fontWeight: 700 }}>
-          Account deactivated by admin
+      {profile && profile.status === "approved" && (
+        <div style={{ marginBottom: 16 }}>
+          <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary }}>
+            Match Analytics / பொருத்த புள்ளிவிவரம்
+          </h3>
+          {analyticsLoading ? (
+            <div style={{ textAlign: "center", color: colors.textFaint, padding: 20, fontSize: 12.5 }}>Loading…</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <StatCard icon={Users} label="Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்" value={analytics.total} colors={colors} onClick={() => onNavigate("browse", { filter: "all" })} />
+              <StatCard icon={Sparkles} label="High Compatibility (90%+) / அதிக பொருத்தம்" value={analytics.high} colors={colors} tone="approved" onClick={() => onNavigate("browse", { filter: "high" })} />
+              <StatCard icon={TrendingUp} label="Medium Compatibility / நடுத்தர பொருத்தம்" value={analytics.medium} colors={colors} tone="pending" onClick={() => onNavigate("browse", { filter: "medium" })} />
+              <StatCard icon={UserPlus} label="New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்" value={analytics.newMembers} colors={colors} onClick={() => onNavigate("browse", { filter: "new" })} />
+              <StatCard icon={Activity} label="Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்" value={analytics.recentlyActive} colors={colors} onClick={() => onNavigate("browse", { filter: "active" })} />
+              <StatCard icon={MapPin} label="Nearby Matches / அருகிலுள்ள பொருத்தங்கள்" value={analytics.nearby} colors={colors} onClick={() => onNavigate("browse", { filter: "nearby" })} />
+            </div>
+          )}
         </div>
       )}
 
-      <button onClick={() => onEdit(profile)} style={{
-        width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-        padding: "10px", fontWeight: 700, fontSize: 13.5, marginBottom: 16,
-      }}>Edit this profile</button>
+      {profile && profile.status === "approved" && (
+        <div style={{ marginBottom: 8 }}>
+          <h3 className="serif" style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 10, color: colors.primary, display: "flex", alignItems: "center", gap: 6 }}>
+            <BarChart3 size={16} /> Your Insights / உங்கள் புள்ளிவிவரங்கள்
+          </h3>
 
-      <Section title="Profile Details" colors={colors}>
-        {FIELDS.map(([label, value]) => (
-          <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5, borderBottom: `1px solid ${colors.cardBorder}` }}>
-            <span style={{ color: colors.textFaint }}>{label}</span>
-            <span style={{ color: colors.text, fontWeight: 600, textAlign: "right" }}>{value}</span>
-          </div>
-        ))}
-        {profile.about && (
-          <div style={{ marginTop: 10, fontSize: 12.5, color: colors.text }}>
-            <b>About:</b> {profile.about}
-          </div>
-        )}
-      </Section>
+          <ChartCard title="📈 Monthly Profile Views / மாதாந்திர பார்வைகள்" subtitle="Last 6 months / கடந்த 6 மாதங்கள்" colors={colors}>
+            <LineChart data={profileViewsChart} colors={colors} />
+          </ChartCard>
 
-      <Section title={`Interest requests received (${incoming.length})`} colors={colors}>
-        {incoming.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint }}>None</div>}
-        {incoming.map(r => {
-          const p = profiles.find(x => x.id === r.from_id);
-          return (
-            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
-              <span style={{ color: colors.text }}>{p?.name || "Unknown"}</span>
-              <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>{r.status}</Badge>
-            </div>
-          );
-        })}
-      </Section>
+          <ChartCard title="🥧 Interest Status / ஆர்வ கோரிக்கை நிலை" subtitle="Requests you sent / நீங்கள் அனுப்பியவை" colors={colors}>
+            <DonutChart segments={interestStatusChart} colors={colors} />
+          </ChartCard>
 
-      <Section title={`Interest requests sent (${outgoing.length})`} colors={colors}>
-        {outgoing.length === 0 && <div style={{ fontSize: 12, color: colors.textFaint }}>None</div>}
-        {outgoing.map(r => {
-          const p = profiles.find(x => x.id === r.to_id);
-          return (
-            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
-              <span style={{ color: colors.text }}>{p?.name || "Unknown"}</span>
-              <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>{r.status}</Badge>
-            </div>
-          );
-        })}
-      </Section>
+          <ChartCard title="📊 Profile Completion by Section / பிரிவு வாரியாக முழுமை" colors={colors}>
+            <BarChart data={completionChart} colors={colors} />
+          </ChartCard>
 
-      {(reportsAgainst.length > 0 || reportsBy.length > 0) && (
-        <Section title="Reports" colors={colors}>
-          {reportsAgainst.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11.5, color: colors.textFaint, fontWeight: 700, marginBottom: 4 }}>Reported by others ({reportsAgainst.length})</div>
-              {reportsAgainst.map(r => (
-                <div key={r.id} style={{ fontSize: 12, color: colors.text, padding: "3px 0" }}>{r.reason} — {r.status}</div>
-              ))}
-            </div>
+          {!analyticsLoading && analytics && (
+            <>
+              <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Match Summary / பொருத்த சுருக்கம்</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, fontSize: 12 }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: colors.primary }}>{analytics.total}</div>
+                    <div style={{ color: colors.textFaint }}>Total Matches</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: colors.approvedText }}>{analytics.high}</div>
+                    <div style={{ color: colors.textFaint }}>High (90%+)</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: colors.pendingText }}>{analytics.medium}</div>
+                    <div style={{ color: colors.textFaint }}>Medium (50%+)</div>
+                  </div>
+                </div>
+              </div>
+
+              <ChartCard title="📍 Matches by District / மாவட்டம் வாரியாக பொருத்தங்கள்" colors={colors}>
+                {analytics.districtChart && analytics.districtChart.length > 0 ? (
+                  <BarChart data={analytics.districtChart} colors={colors} barColor={colors.accent} />
+                ) : (
+                  <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+                    No district data available
+                  </div>
+                )}
+              </ChartCard>
+
+              <ChartCard title="👥 Age-wise Matching Profiles / வயது வாரியாக பொருத்தங்கள்" colors={colors}>
+                {analytics.ageChart && analytics.ageChart.length > 0 ? (
+                  <BarChart data={analytics.ageChart} colors={colors} />
+                ) : (
+                  <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+                    No age data available
+                  </div>
+                )}
+              </ChartCard>
+
+              <ChartCard title="⭐ Compatibility Score Distribution / பொருத்த மதிப்பெண் பரவல்" colors={colors}>
+                {analytics.scoreBuckets && analytics.scoreBuckets.length > 0 ? (
+                  <BarChart data={analytics.scoreBuckets} colors={colors} barColor={colors.approvedText} />
+                ) : (
+                  <div style={{ fontSize: 12, color: colors.textFaint, textAlign: "center", padding: 20 }}>
+                    No score data available
+                  </div>
+                )}
+              </ChartCard>
+
+              {!analytics.districtChart?.length && !analytics.ageChart?.length && !analytics.scoreBuckets?.length && (
+                <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 20, textAlign: "center", fontSize: 13, color: colors.textFaint }}>
+                  <div style={{ marginBottom: 8 }}>No matching profiles found yet. / பொருத்தமான விவரங்கள் இல்லை</div>
+                  <div style={{ fontSize: 11.5, color: colors.textMuted }}>
+                    Total matches: {analytics.total} | High: {analytics.high} | Medium: {analytics.medium}
+                  </div>
+                  <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 4 }}>
+                    District chart: {analytics.districtChart?.length || 0} | Age chart: {analytics.ageChart?.length || 0} | Score buckets: {analytics.scoreBuckets?.length || 0}
+                  </div>
+                </div>
+              )}
+            </>
           )}
-          {reportsBy.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11.5, color: colors.textFaint, fontWeight: 700, marginBottom: 4 }}>Reports filed by this user ({reportsBy.length})</div>
-              {reportsBy.map(r => (
-                <div key={r.id} style={{ fontSize: 12, color: colors.text, padding: "3px 0" }}>{r.reason} — {r.status}</div>
-              ))}
-            </div>
-          )}
-        </Section>
+        </div>
+      )}
+
+      {showShareModal && profile && (
+        <ShareProfileModal profileId={profile.id} onClose={() => setShowShareModal(false)} />
       )}
     </div>
   );
 }
 
-function Section({ title, colors, children }) {
+function ChartCard({ title, subtitle, colors, children }) {
   return (
-    <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>{title}</div>
+    <div style={{
+      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14,
+      padding: 14, marginBottom: 12,
+    }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: colors.text, marginBottom: subtitle ? 2 : 10 }}>{title}</div>
+      {subtitle && <div style={{ fontSize: 11, color: colors.textFaint, marginBottom: 10 }}>{subtitle}</div>}
       {children}
     </div>
   );
 }
 
-function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
-  const [form, setForm] = useState({ ...profile });
-  const [loading, setLoading] = useState(false);
-
-  async function handleSave() {
-    setLoading(true);
-    await upsertProfile(form);
-    onSaved();
-  }
-
-  const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }));
-
+function StatCard({ icon: Icon, label, value, colors, tone, onClick }) {
+  const valueColor = tone === "approved" ? colors.approvedText : tone === "pending" ? colors.pendingText : colors.primary;
   return (
-    <div>
-      <button onClick={onCancel} style={{
-        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
-        color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
-      }}>← Cancel</button>
-
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Edit Profile</h3>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="Name" value={form.name} onChange={v => handleChange("name", v)} />
-        <TextField label="Age" type="number" value={form.age} onChange={v => handleChange("age", v)} />
+    <button onClick={onClick} style={{
+      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14,
+      textAlign: "left",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <Icon size={17} color={colors.primary} />
+        <span style={{ fontSize: 20, fontWeight: 800, color: valueColor, fontFamily: "'Playfair Display', Georgia, serif" }}>{value}</span>
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="City" value={form.city} onChange={v => handleChange("city", v)} />
-        <TextField label="District" value={form.district} onChange={v => handleChange("district", v)} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="State" value={form.state} onChange={v => handleChange("state", v)} />
-        <TextField label="Phone" value={form.phone} onChange={v => handleChange("phone", v)} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="Education" value={form.education} onChange={v => handleChange("education", v)} />
-        <TextField label="Occupation" value={form.occupation} onChange={v => handleChange("occupation", v)} />
-      </div>
-
-      <TextField label="About" value={form.about} onChange={v => handleChange("about", v)} multiline style={{ minHeight: 80 }} />
-
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button onClick={handleSave} disabled={loading} style={{
-          flex: 1, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "10px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1,
-        }}>
-          {loading ? "Saving…" : "Save changes"}
-        </button>
-        <button onClick={onCancel} style={{
-          flex: 1, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
-          borderRadius: 8, padding: "10px", fontWeight: 700, fontSize: 13,
-        }}>Cancel</button>
-      </div>
-    </div>
+      <div style={{ fontSize: 11.5, fontWeight: 600, color: colors.textFaint, lineHeight: 1.35 }}>{label}</div>
+    </button>
   );
 }
 
-function TextField({ label, value, onChange, type = "text", multiline = false, style = {} }) {
+function DashCard({ icon: Icon, title, badge, onClick, colors }) {
   return (
-    <div>
-      <div style={{ fontSize: 11.5, color: colors.textMuted, marginBottom: 4 }}>{label}</div>
-      {multiline ? (
-        <textarea
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, ...style }}
-        />
-      ) : (
-        <input
-          type={type}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, ...style }}
-        />
+    <button onClick={onClick} style={{
+      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 16,
+      textAlign: "left", position: "relative",
+    }}>
+      <Icon size={20} color={colors.primary} style={{ marginBottom: 8 }} />
+      <div style={{ fontWeight: 700, fontSize: 13.5, color: colors.text }}>{title}</div>
+      {badge && (
+        <span style={{
+          position: "absolute", top: 10, right: 10, background: colors.rejectedText, color: "#fff",
+          borderRadius: 999, fontSize: 10.5, fontWeight: 700, minWidth: 18, height: 18,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+        }}>{badge}</span>
       )}
-    </div>
+    </button>
   );
 }
