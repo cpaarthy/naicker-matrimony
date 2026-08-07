@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import { useAuth } from "../context/AuthContext";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
   ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
