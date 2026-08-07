@@ -155,12 +155,26 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
           Complete your profile to browse / விவரத்தை பூர்த்தி செய்யவும்
         </div>
         <div style={{ fontSize: 13, marginBottom: 18 }}>
-          We need your profile details (like gender) to show you suitable matches. / பொருத்தமான விவரங்களைக் காட்ட, உங்கள் விவரம் தேவை.
+          We need your profile details (like gender) to show you suitable matches. / பொருத்தமான விவரங்களைக் காட்க, உங்கள் விவரம் தேவை.
         </div>
         <button onClick={() => onNavigate("editProfile")} style={{
           background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
           padding: "10px 20px", fontWeight: 700, fontSize: 14,
         }}>Complete profile / விவரத்தை பூர்த்தி செய்யவும்</button>
+      </div>
+    );
+  }
+
+  if (session && profile && profile.status !== "approved" && !isAdmin) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+          Profile pending approval / விவரம் நிலுவையில் உள்ளது
+        </div>
+        <div style={{ fontSize: 13, marginBottom: 18 }}>
+          Your profile is being reviewed by admin. Browse will be available after approval. / உங்கள் விவரம் நிர்வாகியால் சரிபார்க்கப்பட்டு வருகிறது.
+        </div>
       </div>
     );
   }
