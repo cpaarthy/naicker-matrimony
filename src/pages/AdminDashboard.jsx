@@ -28,7 +28,11 @@ function computeMatchAnalytics(myProfile, candidates) {
     const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
     const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
 
+    console.log("Gender filter:", { myGender: myProfile.gender, opposingGender, poolSize: pool.length, totalCandidates: candidates.length });
+
     const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
+    console.log("Has preferences:", hasPrefs, myProfile.pref_age_min, myProfile.pref_age_max, myProfile.pref_education, myProfile.pref_occupation);
+
     const matchesPreference = (p) => {
       if (!hasPrefs) return true;
       if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
@@ -39,6 +43,7 @@ function computeMatchAnalytics(myProfile, candidates) {
     };
 
     const matching = pool.filter(matchesPreference);
+    console.log("After preference filter:", matching.length);
 
     let high = 0, medium = 0;
     const scoreBuckets = [
@@ -62,6 +67,8 @@ function computeMatchAnalytics(myProfile, candidates) {
         console.error("Error calculating score for profile:", p.id, err);
       }
     });
+
+    console.log("Score calculation:", { high, medium, scoreBuckets });
 
     const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
     const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
@@ -200,6 +207,7 @@ export default function Dashboard({ onNavigate, showToast }) {
     if (profile && profile.status === "approved") {
       setAnalyticsLoading(true);
       fetchApprovedProfiles().then(({ data }) => {
+        console.log("Fetched profiles:", data?.length);
         setCandidateProfiles(data || []);
         setAnalyticsLoading(false);
       });
@@ -211,7 +219,11 @@ export default function Dashboard({ onNavigate, showToast }) {
   const analytics = useMemo(() => {
     if (!profile || profile.status !== "approved") return null;
     const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
+    console.log("Profile:", profile);
+    console.log("Candidate pool:", pool.length);
+    console.log("Blocked IDs:", blockedIds.size);
     const result = computeMatchAnalytics(profile, pool);
+    console.log("Analytics result:", result);
     return result;
   }, [profile, candidateProfiles, blockedIds]);
 
