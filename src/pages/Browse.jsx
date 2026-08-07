@@ -3,12 +3,12 @@ import { Search, SlidersHorizontal, Users, Lock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
-import { fetchApprovedProfiles, fetchAllProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
+import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
-export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilter }) {
+export default function Browse({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
-  const { session, profile, isAdmin } = useAuth();
+  const { session, profile } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -20,11 +20,6 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
   const [districtFilter, setDistrictFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [blockedIds, setBlockedIds] = useState(new Set());
-  const [dashboardFilterType, setDashboardFilterType] = useState(dashboardFilter?.filter || null);
-
-  useEffect(() => {
-    setDashboardFilterType(dashboardFilter?.filter || null);
-  }, [dashboardFilter]);
 
   const [subCasteOptions, setSubCasteOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
@@ -33,8 +28,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
 
   useEffect(() => {
     if (!session) { setLoading(false); return; }
-    const fetchProfiles = isAdmin ? fetchAllProfiles : fetchApprovedProfiles;
-    fetchProfiles().then(({ data }) => { setProfiles(data); setLoading(false); });
+    fetchApprovedProfiles().then(({ data }) => { setProfiles(data); setLoading(false); });
     fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
@@ -42,7 +36,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
     if (session.user?.id) {
       fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
     }
-  }, [session, isAdmin]);
+  }, [session]);
 
   const opposingGender = profile?.gender === "Male" ? "Female" : profile?.gender === "Female" ? "Male" : null;
 
@@ -50,29 +44,6 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
     return profiles.filter(p => {
       if (opposingGender && p.gender !== opposingGender) return false;
       if (blockedIds.has(p.id)) return false;
-
-      // Dashboard filter logic
-      if (dashboardFilterType && profile) {
-        const score = calculateMatchScore(profile, p);
-        const scorePct = score?.percentage || 0;
-
-        if (dashboardFilterType === "high" && scorePct < 90) return false;
-        if (dashboardFilterType === "medium" && (scorePct < 50 || scorePct >= 90)) return false;
-        if (dashboardFilterType === "new") {
-          const daysAgo = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24);
-          if (daysAgo > 30) return false;
-        }
-        if (dashboardFilterType === "active") {
-          const daysAgo = (Date.now() - new Date(p.last_active_at).getTime()) / (1000 * 60 * 60 * 24);
-          if (daysAgo > 7) return false;
-        }
-        if (dashboardFilterType === "nearby") {
-          const isNearby = (profile.city && p.city && profile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
-                          (profile.district && p.district && profile.district.trim().toLowerCase() === p.district.trim().toLowerCase());
-          if (!isNearby) return false;
-        }
-      }
-
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
@@ -86,7 +57,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
       if (stateFilter && p.state !== stateFilter) return false;
       return true;
     });
-  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, dashboardFilterType, profile]);
+  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter]);
 
   const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter);
 
@@ -139,14 +110,6 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
     );
   }
 
-  const filterLabels = {
-    high: "High Compatibility (90%+)",
-    medium: "Medium Compatibility (50%+)",
-    new: "New Members (Last 30 days)",
-    active: "Recently Active (Last 7 days)",
-    nearby: "Nearby Matches",
-  };
-
   if (session && !profile) {
     return (
       <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
@@ -161,20 +124,6 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
           background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
           padding: "10px 20px", fontWeight: 700, fontSize: 14,
         }}>Complete profile / விவரத்தை பூர்த்தி செய்யவும்</button>
-      </div>
-    );
-  }
-
-  if (session && profile && profile.status !== "approved" && !isAdmin) {
-    return (
-      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
-        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
-        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
-          Profile pending approval / விவரம் நிலுவையில் உள்ளது
-        </div>
-        <div style={{ fontSize: 13, marginBottom: 18 }}>
-          Your profile is being reviewed by admin. Browse will be available after approval. / உங்கள் விவரம் நிர்வாகியால் சரிபார்க்கப்பட்டு வருகிறது.
-        </div>
       </div>
     );
   }
@@ -217,19 +166,6 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
   return (
     <div>
       <h2 className="serif" style={{ fontSize: 19, marginBottom: 12 }}>Browse profiles / விவரங்களை பார்க்க</h2>
-
-      {dashboardFilterType && (
-        <div style={{
-          background: colors.primary, color: colors.primaryText, borderRadius: 8, padding: "8px 12px",
-          marginBottom: 10, fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
-          <span>Filter: {filterLabels[dashboardFilterType] || dashboardFilterType}</span>
-          <button onClick={() => setDashboardFilterType(null)} style={{
-            background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "4px 8px",
-            fontSize: 11, fontWeight: 700,
-          }}>Clear</button>
-        </div>
-      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <div style={{
