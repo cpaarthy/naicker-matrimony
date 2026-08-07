@@ -3,12 +3,12 @@ import { Search, SlidersHorizontal, Users, Lock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
-import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
+import { fetchApprovedProfiles, fetchAllProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
 export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilter }) {
   const { colors } = useTheme();
-  const { session, profile } = useAuth();
+  const { session, profile, isAdmin } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -33,7 +33,8 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
 
   useEffect(() => {
     if (!session) { setLoading(false); return; }
-    fetchApprovedProfiles().then(({ data }) => { setProfiles(data); setLoading(false); });
+    const fetchProfiles = isAdmin ? fetchAllProfiles : fetchApprovedProfiles;
+    fetchProfiles().then(({ data }) => { setProfiles(data); setLoading(false); });
     fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
@@ -41,7 +42,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, dashboardFilt
     if (session.user?.id) {
       fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
     }
-  }, [session]);
+  }, [session, isAdmin]);
 
   const opposingGender = profile?.gender === "Male" ? "Female" : profile?.gender === "Female" ? "Male" : null;
 
