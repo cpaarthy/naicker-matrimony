@@ -6,24 +6,7 @@ import { Avatar, PrimaryButton } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
-const ANALYTICS_FILTER_LABELS = {
-  total: "Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்",
-  high: "High Compatibility (90%+) / அதிக பொருத்தம்",
-  medium: "Medium Compatibility / நடுத்தர பொருத்தம்",
-  new: "New Members Matching Preference / புதிய பொருத்தமான உறுப்பினர்கள்",
-  active: "Recently Active Matches / சமீபத்தில் செயலில் இருந்தவர்கள்",
-  nearby: "Nearby Matches / அருகிலுள்ள பொருத்தங்கள்",
-};
-
-const RECENT_MEMBER_DAYS = 30;
-const RECENT_ACTIVE_DAYS = 7;
-
-function daysAgo(dateStr) {
-  if (!dateStr) return Infinity;
-  return (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-}
-
-export default function Browse({ onNavigate, setSelectedProfileId, analyticsFilter = null }) {
+export default function Browse({ onNavigate, setSelectedProfileId, matchFilter = null }) {
   const { colors } = useTheme();
   const { session, profile } = useAuth();
   const [profiles, setProfiles] = useState([]);
@@ -57,32 +40,45 @@ export default function Browse({ onNavigate, setSelectedProfileId, analyticsFilt
 
   const opposingGender = profile?.gender === "Male" ? "Female" : profile?.gender === "Female" ? "Male" : null;
 
+  const matchesPreference = (p) => {
+    if (!profile) return false;
+    if (profile.pref_age_min && Number(p.age) < Number(profile.pref_age_min)) return false;
+    if (profile.pref_age_max && Number(p.age) > Number(profile.pref_age_max)) return false;
+    if (profile.pref_education && !String(p.education || "").toLowerCase().includes(String(profile.pref_education).trim().toLowerCase())) return false;
+    if (profile.pref_occupation && !String(p.occupation || "").toLowerCase().includes(String(profile.pref_occupation).trim().toLowerCase())) return false;
+    return true;
+  };
+
+  const dateDaysAgo = (value) => {
+    if (!value) return Infinity;
+    const time = new Date(value).getTime();
+    if (!Number.isFinite(time)) return Infinity;
+    return (Date.now() - time) / (1000 * 60 * 60 * 24);
+  };
+
+  const categoryMatches = (p) => {
+    if (!matchFilter) return true;
+    if (!matchesPreference(p)) return false;
+    const score = calculateMatchScore(profile, p);
+    const pct = score?.percentage ?? 0;
+    if (matchFilter === "all") return true;
+    if (matchFilter === "high") return pct >= 90;
+    if (matchFilter === "medium") return pct >= 50 && pct < 90;
+    if (matchFilter === "new") return dateDaysAgo(p.created_at) >= 0 && dateDaysAgo(p.created_at) <= 30;
+    if (matchFilter === "active") return dateDaysAgo(p.last_active_at) >= 0 && dateDaysAgo(p.last_active_at) <= 7;
+    if (matchFilter === "nearby") {
+      const cityMatch = profile?.city && p.city && String(profile.city).trim().toLowerCase() === String(p.city).trim().toLowerCase();
+      const districtMatch = profile?.district && p.district && String(profile.district).trim().toLowerCase() === String(p.district).trim().toLowerCase();
+      return !!(cityMatch || districtMatch);
+    }
+    return true;
+  };
+
   const filtered = useMemo(() => {
     return profiles.filter(p => {
       if (opposingGender && p.gender !== opposingGender) return false;
       if (blockedIds.has(p.id)) return false;
-
-      // Dashboard analytics cards use the same preference-matching rules as
-      // the analytics counters, so clicking a card never falls back to all profiles.
-      const hasPrefs = !!(
-        profile?.pref_age_min || profile?.pref_age_max ||
-        profile?.pref_education || profile?.pref_occupation
-      );
-      const matchesPreference = !hasPrefs || (
-        (!profile.pref_age_min || p.age >= profile.pref_age_min) &&
-        (!profile.pref_age_max || p.age <= profile.pref_age_max) &&
-        (!profile.pref_education || (
-          typeof p.education === "string" &&
-          p.education.toLowerCase().includes(profile.pref_education.toLowerCase())
-        )) &&
-        (!profile.pref_occupation || (
-          typeof p.occupation === "string" &&
-          p.occupation.toLowerCase().includes(profile.pref_occupation.toLowerCase())
-        ))
-      );
-
-      if (analyticsFilter && !matchesPreference) return false;
-
+      if (!categoryMatches(p)) return false;
       if (search) {
         const q = search.toLowerCase();
         const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
@@ -94,39 +90,14 @@ export default function Browse({ onNavigate, setSelectedProfileId, analyticsFilt
       if (cityFilter && p.city !== cityFilter) return false;
       if (districtFilter && p.district !== districtFilter) return false;
       if (stateFilter && p.state !== stateFilter) return false;
-
-      if (!analyticsFilter || analyticsFilter === "total") return true;
-
-      const score = profile ? calculateMatchScore(profile, p) : null;
-      const pct = score?.percentage ?? -1;
-
-      if (analyticsFilter === "high") return pct >= 90;
-      if (analyticsFilter === "medium") return pct >= 50 && pct < 90;
-      if (analyticsFilter === "new") return daysAgo(p.created_at) <= RECENT_MEMBER_DAYS;
-      if (analyticsFilter === "active") return daysAgo(p.last_active_at) <= RECENT_ACTIVE_DAYS;
-      if (analyticsFilter === "nearby") {
-        const sameCity = profile?.city && p.city &&
-          profile.city.trim().toLowerCase() === p.city.trim().toLowerCase();
-        const sameDistrict = profile?.district && p.district &&
-          profile.district.trim().toLowerCase() === p.district.trim().toLowerCase();
-        return !!(sameCity || sameDistrict);
-      }
-
       return true;
     });
-  }, [
-    profiles, opposingGender, blockedIds, search, ageMin, ageMax,
-    subCasteFilter, cityFilter, districtFilter, stateFilter,
-    profile, analyticsFilter
-  ]);
+  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, matchFilter, profile]);
 
-  const hasActiveFilters = !!(
-    search || ageMin || ageMax || subCasteFilter || cityFilter ||
-    districtFilter || stateFilter || analyticsFilter
-  );
+  const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter);
 
   const recommended = useMemo(() => {
-    if (hasActiveFilters || !profile) return [];
+    if (hasActiveFilters || !profile || matchFilter) return [];
     const hasPrefs = profile.pref_age_min || profile.pref_age_max || profile.pref_education || profile.pref_occupation;
     if (!hasPrefs) return [];
     return filtered.filter(p => {
@@ -136,7 +107,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, analyticsFilt
       if (profile.pref_occupation && !p.occupation?.toLowerCase().includes(profile.pref_occupation.toLowerCase())) return false;
       return true;
     }).slice(0, 5);
-  }, [filtered, profile, hasActiveFilters]);
+  }, [filtered, profile, hasActiveFilters, matchFilter]);
 
   function DropdownFilter({ value, onChange, options, placeholder }) {
     return (
@@ -231,21 +202,17 @@ export default function Browse({ onNavigate, setSelectedProfileId, analyticsFilt
     <div>
       <h2 className="serif" style={{ fontSize: 19, marginBottom: 12 }}>Browse profiles / விவரங்களை பார்க்க</h2>
 
-      {analyticsFilter && (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-          background: colors.pendingBg, color: colors.pendingText,
-          border: `1px solid ${colors.pendingText}`, borderRadius: 10,
-          padding: "9px 11px", marginBottom: 10, fontSize: 12.5, fontWeight: 700,
-        }}>
-          <span>{ANALYTICS_FILTER_LABELS[analyticsFilter] || "Matching Profiles / பொருத்தமான விவரங்கள்"}</span>
-          <button
-            onClick={() => onNavigate("browse")}
-            style={{
-              border: "none", background: "transparent", color: colors.pendingText,
-              fontWeight: 800, cursor: "pointer", padding: 0,
-            }}
-          >
+      {matchFilter && (
+        <div style={{ background: colors.pendingBg, border: `1px solid ${colors.pendingText}`, borderRadius: 10, padding: "9px 12px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: colors.pendingText }}>
+            {matchFilter === "all" && "Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்"}
+            {matchFilter === "high" && "High Compatibility (90%+) / அதிக பொருத்தம்"}
+            {matchFilter === "medium" && "Medium Compatibility (50–89%) / நடுத்தர பொருத்தம்"}
+            {matchFilter === "new" && "New Members — Last 30 Days / கடந்த 30 நாட்களில் புதிய உறுப்பினர்கள்"}
+            {matchFilter === "active" && "Recently Active — Last 7 Days / கடந்த 7 நாட்களில் செயலில் இருந்தவர்கள்"}
+            {matchFilter === "nearby" && "Nearby Matches — Same City/District / அருகிலுள்ள பொருத்தங்கள்"}
+          </div>
+          <button onClick={() => onNavigate("browse")} style={{ border: "none", background: "transparent", color: colors.primary, fontWeight: 800, cursor: "pointer", fontSize: 12 }}>
             Clear / நீக்கு
           </button>
         </div>
