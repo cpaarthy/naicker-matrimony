@@ -9,7 +9,6 @@ import ShareProfileModal from "../components/ShareProfileModal";
 import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles, fetchProfileViewsReceived } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 import {
-  matchesPartnerPreference,
   isOppositeGender,
   isNewMember,
   isRecentlyActive,
@@ -31,12 +30,11 @@ function computeMatchAnalytics(myProfile, candidates) {
       return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
     }
 
-    // The exact same candidate pool used by Browse:
-    // approved opposite-gender profiles, excluding the logged-in profile
-    // and profiles that do not satisfy the partner preferences.
-    const matching = candidates.filter(
-      p => isOppositeGender(myProfile, p) && matchesPartnerPreference(myProfile, p)
-    );
+    // Base candidate pool used by Browse: approved opposite-gender profiles.
+    // Do not hard-filter on every preference field here. A preference such as
+    // occupation is used by calculateMatchScore; requiring all preference
+    // fields to match exactly can incorrectly reduce the dashboard to zero.
+    const matching = candidates.filter(p => isOppositeGender(myProfile, p));
 
     let high = 0, medium = 0;
     const scored = [];
