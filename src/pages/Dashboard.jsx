@@ -8,6 +8,13 @@ import Login from "./Login";
 import ShareProfileModal from "../components/ShareProfileModal";
 import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles, fetchProfileViewsReceived } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
+import {
+  matchesPartnerPreference,
+  isOppositeGender,
+  isNewMember,
+  isRecentlyActive,
+  isNearby,
+} from "../utils/matchFilters";
 
 const RECENT_DAYS = 30;
 const ACTIVE_DAYS = 7;
@@ -20,74 +27,59 @@ function daysAgo(dateStr) {
 
 function computeMatchAnalytics(myProfile, candidates) {
   try {
-    if (!myProfile || !candidates) {
-      console.warn("computeMatchAnalytics: missing data", { myProfile, candidates });
+    if (!myProfile || !Array.isArray(candidates)) {
       return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
     }
 
-    const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
-    const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
-
-    const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
-    const matchesPreference = (p) => {
-      if (!hasPrefs) return true;
-      if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
-      if (myProfile.pref_age_max && p.age > myProfile.pref_age_max) return false;
-      if (myProfile.pref_education && typeof p.education === 'string' && !p.education.toLowerCase().includes(myProfile.pref_education.toLowerCase())) return false;
-      if (myProfile.pref_occupation && typeof p.occupation === 'string' && !p.occupation.toLowerCase().includes(myProfile.pref_occupation.toLowerCase())) return false;
-      return true;
-    };
-
-    const matching = pool.filter(matchesPreference);
+    // The exact same candidate pool used by Browse:
+    // approved opposite-gender profiles, excluding the logged-in profile
+    // and profiles that do not satisfy the partner preferences.
+    const matching = candidates.filter(
+      p => isOppositeGender(myProfile, p) && matchesPartnerPreference(myProfile, p)
+    );
 
     let high = 0, medium = 0;
+    const scored = [];
     const scoreBuckets = [
-      { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 }, { label: "41-60%", value: 0 },
-      { label: "61-80%", value: 0 }, { label: "81-100%", value: 0 },
+      { label: "0-20%", value: 0 }, { label: "21-40%", value: 0 },
+      { label: "41-60%", value: 0 }, { label: "61-80%", value: 0 },
+      { label: "81-100%", value: 0 },
     ];
 
     matching.forEach(p => {
-      try {
-        const score = calculateMatchScore(myProfile, p);
-        if (!score) return;
-        const pct = score.percentage;
-        if (pct >= 90) high++;
-        else if (pct >= 50) medium++;
-        if (pct <= 20) scoreBuckets[0].value++;
-        else if (pct <= 40) scoreBuckets[1].value++;
-        else if (pct <= 60) scoreBuckets[2].value++;
-        else if (pct <= 80) scoreBuckets[3].value++;
-        else scoreBuckets[4].value++;
-      } catch (err) {
-        console.error("Error calculating score for profile:", p.id, err);
-      }
+      const score = calculateMatchScore(myProfile, p);
+      if (!score) return;
+      const pct = Number(score.percentage) || 0;
+      scored.push({ profile: p, pct });
+      if (pct >= 90) high++;
+      else if (pct >= 50) medium++;
+
+      if (pct <= 20) scoreBuckets[0].value++;
+      else if (pct <= 40) scoreBuckets[1].value++;
+      else if (pct <= 60) scoreBuckets[2].value++;
+      else if (pct <= 80) scoreBuckets[3].value++;
+      else scoreBuckets[4].value++;
     });
 
-    const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
-    const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
-    const nearby = matching.filter(p =>
-      (myProfile.city && p.city && typeof myProfile.city === 'string' && typeof p.city === 'string' &&
-       myProfile.city.trim().toLowerCase() === p.city.trim().toLowerCase()) ||
-      (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
-       myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
-    ).length;
+    const newMembers = matching.filter(isNewMember).length;
+    const recentlyActive = matching.filter(isRecentlyActive).length;
+    const nearby = matching.filter(p => isNearby(myProfile, p)).length;
 
-    // Matches by district — top 6 districts among the matching pool
     const districtCounts = {};
     matching.forEach(p => {
-      const d = p.district && typeof p.district === 'string' ? p.district.trim() : "Other";
-      districtCounts[d] = (districtCounts[d] || 0) + 1;
+      const district = String(p.district || "Other").trim() || "Other";
+      districtCounts[district] = (districtCounts[district] || 0) + 1;
     });
     const districtChart = Object.entries(districtCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6)
       .map(([label, value]) => ({ label: label.length > 8 ? label.slice(0, 7) + "…" : label, value }));
 
-    // Age-wise histogram — 5-year buckets
     const ageBuckets = {};
     matching.forEach(p => {
-      if (!p.age) return;
-      const bucketStart = Math.floor(p.age / 5) * 5;
+      const age = Number(p.age);
+      if (!Number.isFinite(age)) return;
+      const bucketStart = Math.floor(age / 5) * 5;
       const key = `${bucketStart}-${bucketStart + 4}`;
       ageBuckets[key] = (ageBuckets[key] || 0) + 1;
     });
