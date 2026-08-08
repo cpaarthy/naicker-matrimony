@@ -5,6 +5,11 @@ import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
+import {
+  matchesPartnerPreference,
+  isOppositeGender,
+  matchesAnalyticsFilter,
+} from "../utils/matchFilters";
 
 export default function Browse({ onNavigate, setSelectedProfileId, matchFilter = null }) {
   const { colors } = useTheme();
@@ -38,61 +43,29 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     }
   }, [session]);
 
-  const opposingGender = profile?.gender === "Male" ? "Female" : profile?.gender === "Female" ? "Male" : null;
-
-  const matchesPreference = (p) => {
-    if (!profile) return false;
-    if (profile.pref_age_min && Number(p.age) < Number(profile.pref_age_min)) return false;
-    if (profile.pref_age_max && Number(p.age) > Number(profile.pref_age_max)) return false;
-    if (profile.pref_education && !String(p.education || "").toLowerCase().includes(String(profile.pref_education).trim().toLowerCase())) return false;
-    if (profile.pref_occupation && !String(p.occupation || "").toLowerCase().includes(String(profile.pref_occupation).trim().toLowerCase())) return false;
-    return true;
-  };
-
-  const dateDaysAgo = (value) => {
-    if (!value) return Infinity;
-    const time = new Date(value).getTime();
-    if (!Number.isFinite(time)) return Infinity;
-    return (Date.now() - time) / (1000 * 60 * 60 * 24);
-  };
-
-  const categoryMatches = (p) => {
-    if (!matchFilter) return true;
-    if (!matchesPreference(p)) return false;
-    const score = calculateMatchScore(profile, p);
-    const pct = score?.percentage ?? 0;
-    if (matchFilter === "all") return true;
-    if (matchFilter === "high") return pct >= 90;
-    if (matchFilter === "medium") return pct >= 50 && pct < 90;
-    if (matchFilter === "new") return dateDaysAgo(p.created_at) >= 0 && dateDaysAgo(p.created_at) <= 30;
-    if (matchFilter === "active") return dateDaysAgo(p.last_active_at) >= 0 && dateDaysAgo(p.last_active_at) <= 7;
-    if (matchFilter === "nearby") {
-      const cityMatch = profile?.city && p.city && String(profile.city).trim().toLowerCase() === String(p.city).trim().toLowerCase();
-      const districtMatch = profile?.district && p.district && String(profile.district).trim().toLowerCase() === String(p.district).trim().toLowerCase();
-      return !!(cityMatch || districtMatch);
-    }
-    return true;
-  };
-
   const filtered = useMemo(() => {
     return profiles.filter(p => {
-      if (opposingGender && p.gender !== opposingGender) return false;
+      if (!isOppositeGender(profile, p)) return false;
       if (blockedIds.has(p.id)) return false;
-      if (!categoryMatches(p)) return false;
+
+      const score = profile ? calculateMatchScore(profile, p) : null;
+      const pct = score?.percentage ?? 0;
+      if (!matchesAnalyticsFilter(matchFilter, profile, p, pct)) return false;
+
       if (search) {
         const q = search.toLowerCase();
-        const hay = `${p.name} ${p.city} ${p.occupation} ${p.caste} ${p.sub_caste || ""}`.toLowerCase();
+        const hay = `${p.name || ""} ${p.city || ""} ${p.occupation || ""} ${p.caste || ""} ${p.sub_caste || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (ageMin && p.age < Number(ageMin)) return false;
-      if (ageMax && p.age > Number(ageMax)) return false;
+      if (ageMin && Number(p.age) < Number(ageMin)) return false;
+      if (ageMax && Number(p.age) > Number(ageMax)) return false;
       if (subCasteFilter && p.sub_caste !== subCasteFilter) return false;
       if (cityFilter && p.city !== cityFilter) return false;
       if (districtFilter && p.district !== districtFilter) return false;
       if (stateFilter && p.state !== stateFilter) return false;
       return true;
     });
-  }, [profiles, opposingGender, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, matchFilter, profile]);
+  }, [profiles, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, matchFilter, profile]);
 
   const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter);
 
