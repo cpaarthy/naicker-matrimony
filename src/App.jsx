@@ -31,7 +31,7 @@ function AppShell() {
     return "home";
   });
   const [history, setHistory] = useState([]);
-  const [browseFilter, setBrowseFilter] = useState(null);
+  const [browseMatchFilter, setBrowseMatchFilter] = useState(null);
   const [selectedProfileId, setSelectedProfileId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("profile") || null;
@@ -59,16 +59,15 @@ function AppShell() {
   }, [authChecked, session, pendingSharedProfile]);
 
   function navigate(target) {
-    // Dashboard analytics cards can open Browse with a specific analytics filter.
-    // Examples: "browse:high", "browse:medium", "browse:new", etc.
     let nextPage = target;
     let nextBrowseFilter = null;
     if (typeof target === "string" && target.startsWith("browse:")) {
       nextPage = "browse";
-      nextBrowseFilter = target.slice("browse:".length) || null;
+      nextBrowseFilter = target.slice("browse:".length) || "all";
     }
     setHistory(prev => [...prev, page]);
-    setBrowseFilter(nextBrowseFilter);
+    if (nextPage === "browse") setBrowseMatchFilter(nextBrowseFilter);
+    else setBrowseMatchFilter(null);
     setPage(nextPage);
     window.scrollTo(0, 0);
   }
@@ -107,7 +106,7 @@ function AppShell() {
       {page === "home" && <Home onNavigate={navigate} />}
       {page === "register" && <Register onNavigate={navigate} showToast={showToast} />}
       {page === "login" && <Login onNavigate={navigate} showToast={showToast} />}
-      {page === "browse" && <Browse onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} analyticsFilter={browseFilter} />}
+      {page === "browse" && <Browse onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} matchFilter={browseMatchFilter} />}
       {page === "profileDetails" && (
         <ProfileDetails profileId={selectedProfileId} onNavigate={navigate} showToast={showToast} />
       )}
