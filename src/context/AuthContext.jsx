@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 
 const AuthContext = createContext(null);
@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setAuthChecked(true);
@@ -39,7 +39,7 @@ export function AuthProvider({ children }) {
     }
   }, [userId]);
 
-  useEffect(() => { loadProfile(); }, [loadProfile]);
+  React.useEffect(() => { loadProfile(); }, [loadProfile]);
 
   // --- Email OTP flow ---
   async function sendEmailOtp(email) {

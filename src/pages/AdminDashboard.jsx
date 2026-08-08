@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
   ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
@@ -74,7 +74,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     setLoading(false);
   }, []);
 
-  useEffect(() => { if (unlocked) loadAll(); }, [unlocked, loadAll]);
+  React.useEffect(() => { if (unlocked) loadAll(); }, [unlocked, loadAll]);
 
   async function handleStatus(id, status) {
     const p = profiles.find(x => x.id === id);
@@ -635,10 +635,10 @@ function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
 }
 
 function AnalyticsTab({ colors, showToast }) {
-  const [loading, setLoading] = React.useState(false);
-  const [currentReport, setCurrentReport] = React.useState("profile_completion");
-  const [reportData, setReportData] = React.useState(null);
-  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = useState(false);
+  const [currentReport, setCurrentReport] = useState("profile_completion");
+  const [reportData, setReportData] = useState(null);
+  const [error, setError] = useState(null);
 
   const REPORTS = [
     { key: "profile_completion", label: "Profile Completion", icon: User },
@@ -1195,12 +1195,12 @@ function EducationAnalysisReport({ data, colors }) {
 }
 
 function ActivityLogTab({ colors, showToast }) {
-  const [log, setLog] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [filteredLog, setFilteredLog] = React.useState([]);
-  const [selectedUser, setSelectedUser] = React.useState("all");
-  const [userOptions, setUserOptions] = React.useState([]);
-  const [activityType, setActivityType] = React.useState("admin"); // "admin" or "user"
+  const [log, setLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filteredLog, setFilteredLog] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("all");
+  const [userOptions, setUserOptions] = useState([]);
+  const [activityType, setActivityType] = useState("admin"); // "admin" or "user"
 
   React.useEffect(() => {
     loadActivityLog();
@@ -1378,10 +1378,10 @@ function ContactMessagesTab({ messages, colors, showToast, onReload }) {
 }
 
 function AnnouncementManager({ colors, showToast }) {
-  const [message, setMessage] = React.useState("");
-  const [expiresAt, setExpiresAt] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [announcements, setAnnouncements] = React.useState([]);
+  const [message, setMessage] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
 
   React.useEffect(() => {
     fetchAllAnnouncements().then(({ data }) => setAnnouncements(data || []));
@@ -1472,10 +1472,10 @@ function AnnouncementManager({ colors, showToast }) {
 }
 
 function PoruthamTab({ colors, profiles, showToast }) {
-  const [profileAId, setProfileAId] = React.useState("");
-  const [profileBId, setProfileBId] = React.useState("");
-  const [result, setResult] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
+  const [profileAId, setProfileAId] = useState("");
+  const [profileBId, setProfileBId] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   async function checkPorutham() {
     if (!profileAId || !profileBId) return;
@@ -1550,10 +1550,10 @@ function PoruthamTab({ colors, profiles, showToast }) {
 }
 
 function MasterListsTab({ colors, showToast }) {
-  const [listType, setListType] = React.useState("sub_caste");
-  const [newValue, setNewValue] = React.useState("");
-  const [values, setValues] = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
+  const [listType, setListType] = useState("sub_caste");
+  const [newValue, setNewValue] = useState("");
+  const [values, setValues] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     loadValues();

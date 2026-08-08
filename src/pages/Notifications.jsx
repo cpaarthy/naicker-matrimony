@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Bell, Heart, Check, X as XIcon, Sparkles } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -25,7 +25,7 @@ export default function Notifications({ onNavigate, setSelectedProfileId }) {
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { load(); }, [load]);
 
   async function handleClick(n) {
     if (!n.read) await markNotificationRead(n.id);

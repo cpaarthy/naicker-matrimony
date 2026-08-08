@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Check, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -23,7 +23,7 @@ export default function InterestRequests({ onNavigate, setSelectedProfileId, sho
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { if (userId) load(); }, [userId, load]);
+  React.useEffect(() => { if (userId) load(); }, [userId, load]);
 
   async function handleRespond(reqId, accept) {
     const req = requests.find(r => r.id === reqId);

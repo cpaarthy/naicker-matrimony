@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 const ThemeContext = createContext(null);
 
@@ -52,7 +52,7 @@ export const palettes = {
 export function ThemeProvider({ children }) {
   const [mode, setMode] = useState(() => localStorage.getItem("naicker_theme") || "light");
 
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem("naicker_theme", mode);
   }, [mode]);
 

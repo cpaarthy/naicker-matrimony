@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck, Star } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -19,7 +19,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     load();
   }, [profileId]);
 

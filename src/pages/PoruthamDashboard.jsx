@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Star, ArrowLeft, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -18,7 +18,7 @@ export default function PoruthamDashboard({ profileId, onNavigate }) {
   const [otherProfile, setOtherProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setLoading(true);
     fetchProfileById(profileId).then(({ data }) => {
       setOtherProfile(data);

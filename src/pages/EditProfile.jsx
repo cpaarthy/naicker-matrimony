@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Lock, Camera } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -54,7 +54,7 @@ export default function EditProfile({ onNavigate, showToast }) {
   const [bloodGroupOptions, setBloodGroupOptions] = useState([]);
   const [villageOptions, setVillageOptions] = useState([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadMasterLists();
   }, []);
 
@@ -100,7 +100,7 @@ export default function EditProfile({ onNavigate, showToast }) {
     setVillageOptions(results[17].data?.map(d => d.value) || []);
   }
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (profile) {
       setForm({
         profile_for: profile.profile_for || "Self",

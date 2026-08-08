@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Search, SlidersHorizontal, Users, Lock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -26,7 +26,7 @@ export default function Browse({ onNavigate, setSelectedProfileId }) {
   const [districtOptions, setDistrictOptions] = useState([]);
   const [stateOptions, setStateOptions] = useState([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!session) { setLoading(false); return; }
     fetchApprovedProfiles().then(({ data }) => { setProfiles(data); setLoading(false); });
     fetchMasterList("sub_caste").then(({ data }) => setSubCasteOptions(data.map(d => d.value)));

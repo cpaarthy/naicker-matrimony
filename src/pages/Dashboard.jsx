@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin, BarChart3 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -28,11 +28,7 @@ function computeMatchAnalytics(myProfile, candidates) {
     const opposingGender = myProfile.gender === "Male" ? "Female" : myProfile.gender === "Female" ? "Male" : null;
     const pool = candidates.filter(p => p.id !== myProfile.id && (!opposingGender || p.gender === opposingGender));
 
-    console.log("Gender filter:", { myGender: myProfile.gender, opposingGender, poolSize: pool.length, totalCandidates: candidates.length });
-
     const hasPrefs = !!(myProfile.pref_age_min || myProfile.pref_age_max || myProfile.pref_education || myProfile.pref_occupation);
-    console.log("Has preferences:", hasPrefs, myProfile.pref_age_min, myProfile.pref_age_max, myProfile.pref_education, myProfile.pref_occupation);
-
     const matchesPreference = (p) => {
       if (!hasPrefs) return true;
       if (myProfile.pref_age_min && p.age < myProfile.pref_age_min) return false;
@@ -43,7 +39,6 @@ function computeMatchAnalytics(myProfile, candidates) {
     };
 
     const matching = pool.filter(matchesPreference);
-    console.log("After preference filter:", matching.length);
 
     let high = 0, medium = 0;
     const scoreBuckets = [
@@ -68,8 +63,6 @@ function computeMatchAnalytics(myProfile, candidates) {
       }
     });
 
-    console.log("Score calculation:", { high, medium, scoreBuckets });
-
     const newMembers = matching.filter(p => daysAgo(p.created_at) <= RECENT_DAYS).length;
     const recentlyActive = matching.filter(p => daysAgo(p.last_active_at) <= ACTIVE_DAYS).length;
     const nearby = matching.filter(p =>
@@ -78,8 +71,6 @@ function computeMatchAnalytics(myProfile, candidates) {
       (myProfile.district && p.district && typeof myProfile.district === 'string' && typeof p.district === 'string' &&
        myProfile.district.trim().toLowerCase() === p.district.trim().toLowerCase())
     ).length;
-
-    console.log("Final metrics:", { total: matching.length, high, medium, newMembers, recentlyActive, nearby });
 
     // Matches by district — top 6 districts among the matching pool
     const districtCounts = {};
@@ -191,7 +182,7 @@ export default function Dashboard({ onNavigate, showToast }) {
   const [myRequests, setMyRequests] = useState([]);
   const [profileViews, setProfileViews] = useState([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (userId) {
       fetchRequestsFor(userId).then(({ data }) => {
         setMyRequests(data);
@@ -205,11 +196,10 @@ export default function Dashboard({ onNavigate, showToast }) {
     }
   }, [userId]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (profile && profile.status === "approved") {
       setAnalyticsLoading(true);
       fetchApprovedProfiles().then(({ data }) => {
-        console.log("Fetched profiles:", data?.length);
         setCandidateProfiles(data || []);
         setAnalyticsLoading(false);
       });
@@ -221,11 +211,7 @@ export default function Dashboard({ onNavigate, showToast }) {
   const analytics = useMemo(() => {
     if (!profile || profile.status !== "approved") return null;
     const pool = candidateProfiles.filter(p => !blockedIds.has(p.id));
-    console.log("Profile:", profile);
-    console.log("Candidate pool:", pool.length);
-    console.log("Blocked IDs:", blockedIds.size);
     const result = computeMatchAnalytics(profile, pool);
-    console.log("Analytics result:", result);
     return result;
   }, [profile, candidateProfiles, blockedIds]);
 

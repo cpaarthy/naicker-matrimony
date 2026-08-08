@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { X, Megaphone } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { fetchActiveAnnouncement } from "../data/queries";
@@ -10,7 +10,7 @@ export default function AnnouncementBanner() {
   const [announcement, setAnnouncement] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchActiveAnnouncement().then(({ data }) => {
       if (data) {
         const dismissedId = sessionStorage.getItem(DISMISSED_KEY);

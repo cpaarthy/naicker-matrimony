@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Heart } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -11,7 +11,7 @@ export default function Favourites({ onNavigate, setSelectedProfileId }) {
   const [favProfiles, setFavProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
