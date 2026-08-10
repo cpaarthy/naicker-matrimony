@@ -1,9 +1,14 @@
 import { supabase } from "../supabaseClient";
 
+// Never request phone from member-facing profile queries.
+// Admin uses fetchAllProfiles(), which intentionally includes phone.
+const PUBLIC_PROFILE_COLUMNS = `id, profile_for, name, gender, age, height, religion, caste, sub_caste, education, occupation, income, address, district, city, state, mother_tongue, about, photo_url, status, created_at, father_occupation, mother_occupation, siblings, family_type, star, rasi, birth_time, birth_place, complexion, body_type, blood_group, diet, smoking, drinking, pref_age_min, pref_age_max, pref_education, pref_occupation, admin_deactivated, last_active_at, is_verified`;
+
 export async function fetchApprovedProfiles() {
+  // Public/member-facing profile query deliberately excludes the phone number.
   const { data, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PUBLIC_PROFILE_COLUMNS)
     .eq("status", "approved")
     .order("created_at", { ascending: false });
   return { data: data || [], error };
@@ -18,12 +23,30 @@ export async function fetchAllProfiles() {
 }
 
 export async function fetchProfileById(id) {
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+  // Public/member-facing profile query deliberately excludes the phone number.
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(PUBLIC_PROFILE_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
   return { data, error };
 }
 
 export async function upsertProfile(record) {
   const { data, error } = await supabase.from("profiles").upsert(record).select().single();
+  return { data, error };
+}
+
+// Admin edit must use UPDATE, not upsert. The profiles INSERT policy only
+// permits a user to insert their own row, while the admin UI relies on the
+// existing admin-gated UPDATE policy.
+export async function updateProfileByAdmin(id, record) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(record)
+    .eq("id", id)
+    .select()
+    .single();
   return { data, error };
 }
 

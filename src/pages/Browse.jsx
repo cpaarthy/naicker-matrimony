@@ -158,6 +158,33 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     );
   }
 
+  if (profile?.status !== "approved") {
+    const isRejected = profile?.status === "rejected";
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 8 }}>
+          {isRejected
+            ? "Profile approval required / உங்கள் விவரம் நிராகரிக்கப்பட்டுள்ளது"
+            : "Waiting for admin approval / நிர்வாகி அனுமதிக்காக காத்திருக்கிறது"}
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
+          {isRejected
+            ? "Please update your profile and contact admin for approval."
+            : "You can browse other profiles only after the admin approves your profile."}
+          <br />
+          {isRejected
+            ? "உங்கள் விவரங்களை சரிசெய்து நிர்வாகியை தொடர்பு கொள்ளவும்."
+            : "நிர்வாகி உங்கள் விவரத்தை அனுமதித்த பிறகே மற்ற உறுப்பினர்களின் விவரங்களை பார்க்க முடியும்."}
+        </div>
+        <button onClick={() => onNavigate("editProfile")} style={{
+          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+          padding: "10px 20px", fontWeight: 700, fontSize: 14,
+        }}>Edit profile / விவரத்தை திருத்தவும்</button>
+      </div>
+    );
+  }
+
   if (profile?.admin_deactivated) {
     return (
       <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
@@ -238,14 +265,8 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
       {showFilters && (
         <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <input placeholder="Min age / குறை வயது" value={ageMin} onChange={e => setAgeMin(e.target.value)} type="number" style={{
-              flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              background: colors.inputBg, color: colors.text, fontSize: 13,
-            }} />
-            <input placeholder="Max age / அதிக வயது" value={ageMax} onChange={e => setAgeMax(e.target.value)} type="number" style={{
-              flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-              background: colors.inputBg, color: colors.text, fontSize: 13,
-            }} />
+            <DropdownFilter value={ageMin} onChange={setAgeMin} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} placeholder="Min age / குறைந்த வயது" />
+            <DropdownFilter value={ageMax} onChange={setAgeMax} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} placeholder="Max age / அதிக வயது" />
           </div>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <DropdownFilter value={subCasteFilter} onChange={setSubCasteFilter} options={subCasteOptions} placeholder="Sub caste / உட்பிரிவு" />

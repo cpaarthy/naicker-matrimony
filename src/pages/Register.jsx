@@ -9,7 +9,8 @@ import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/quer
 const emptyForm = {
   profile_for: "Self",
   name: "", gender: "Male", age: "", caste: "Naicker", sub_caste: "Malava",
-  occupation: "", address: "", district: "", city: "", state: "Tamil Nadu",
+  occupation: "", education: "", pref_age_min: "", pref_age_max: "", pref_education: "", pref_occupation: "",
+  address: "", district: "", city: "", state: "Tamil Nadu",
   phone: "", photo_url: "",
 };
 
@@ -34,6 +35,8 @@ export default function Register({ onNavigate, showToast }) {
   const [cityOptions, setCityOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [stateOptions, setStateOptions] = useState([]);
+  const [educationOptions, setEducationOptions] = useState([]);
+  const [occupationOptions, setOccupationOptions] = useState([]);
 
   const [method, setMethod] = useState("email");
   const [email, setEmail] = useState("");
@@ -51,6 +54,8 @@ export default function Register({ onNavigate, showToast }) {
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
+    fetchMasterList("education").then(({ data }) => setEducationOptions(data.map(d => d.value)));
+    fetchMasterList("occupation").then(({ data }) => setOccupationOptions(data.map(d => d.value)));
   }, []);
 
   async function handlePhotoChange(e) {
@@ -95,6 +100,8 @@ export default function Register({ onNavigate, showToast }) {
     const record = {
       ...form, id: newUserId, status: "pending", photo_url: photoUrl,
       age: Number(form.age),
+      pref_age_min: form.pref_age_min ? Number(form.pref_age_min) : null,
+      pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
       phone: form.phone || phone,
       security_answer: securityAnswer || null,
     };
@@ -185,10 +192,11 @@ export default function Register({ onNavigate, showToast }) {
             <TextField label="Full name / முழு பெயர்" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
           </div>
           <SelectField label="Gender / பாலினம்" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} options={["Male", "Female"]} />
-          <TextField label="Age / வயது" type="number" value={form.age} onChange={v => setForm(f => ({ ...f, age: v }))} required />
+          <SelectField label="Age / வயது" value={String(form.age || "")} onChange={v => setForm(f => ({ ...f, age: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} required />
           <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} required />
           <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} required />
-          <TextField label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} required />
+          <MasterListSelect label="Education / கல்வி" value={form.education} onChange={v => setForm(f => ({ ...f, education: v }))} options={educationOptions} />
+          <MasterListSelect label="Occupation / தொழில்" value={form.occupation} onChange={v => setForm(f => ({ ...f, occupation: v }))} options={occupationOptions} required />
           <div style={{ gridColumn: "1 / -1" }}>
             <TextField label="Address / முகவரி" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="Door no, street, area" required />
           </div>
@@ -196,6 +204,14 @@ export default function Register({ onNavigate, showToast }) {
           <MasterListSelect label="City / ஊர்" value={form.city} onChange={v => setForm(f => ({ ...f, city: v }))} options={cityOptions} required />
           <MasterListSelect label="State / மாநிலம்" value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} options={stateOptions} required />
         </div>
+
+        <div style={{ gridColumn: "1 / -1", marginTop: 10, marginBottom: 8 }}>
+          <div className="serif" style={{ fontSize: 15, fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Partner Preference / துணை எதிர்பார்ப்பு</div>
+        </div>
+        <SelectField label="Preferred min age / குறைந்தபட்ச வயது" value={String(form.pref_age_min || "")} onChange={v => setForm(f => ({ ...f, pref_age_min: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} />
+        <SelectField label="Preferred max age / அதிகபட்ச வயது" value={String(form.pref_age_max || "")} onChange={v => setForm(f => ({ ...f, pref_age_max: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} />
+        <MasterListSelect label="Preferred education / விரும்பும் கல்வி" value={form.pref_education} onChange={v => setForm(f => ({ ...f, pref_education: v }))} options={educationOptions} />
+        <MasterListSelect label="Preferred occupation / விரும்பும் தொழில்" value={form.pref_occupation} onChange={v => setForm(f => ({ ...f, pref_occupation: v }))} options={occupationOptions} />
 
         <TextField label="Phone number / தொலைபேசி எண் (kept private, admin only)" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="10-digit mobile number" required />
 

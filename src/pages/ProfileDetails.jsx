@@ -80,12 +80,9 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   }
 
   function addressVisible() {
-    if (!profile) return false;
-    if (profile.id === userId) return true;
-    return myRequests.some(r =>
-      ((r.from_id === userId && r.to_id === profile.id) || (r.from_id === profile.id && r.to_id === userId))
-      && r.status === "accepted"
-    );
+    // Address is the only direct contact/location detail shown to members.
+    // Phone is intentionally never rendered on member-facing pages.
+    return !!profile;
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;

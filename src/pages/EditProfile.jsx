@@ -230,7 +230,7 @@ export default function EditProfile({ onNavigate, showToast }) {
           <TextField label="Full name / முழு பெயர்" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
         </div>
         <SelectField label="Gender / பாலினம்" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} options={["Male", "Female"]} />
-        <TextField label="Age / வயது" type="number" value={form.age} onChange={v => setForm(f => ({ ...f, age: v }))} required />
+        <SelectField label="Age / வயது" value={String(form.age || "")} onChange={v => setForm(f => ({ ...f, age: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} required />
         <TextField label={'Height / உயரம் (e.g. 5\'6")'} value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} />
         <MasterListSelect label="Mother tongue / தாய்மொழி" value={form.mother_tongue} onChange={v => setForm(f => ({ ...f, mother_tongue: v }))} options={motherTongueOptions} />
         <MasterListSelect label="Religion / மதம்" value={form.religion} onChange={v => setForm(f => ({ ...f, religion: v }))} options={religionOptions} />
@@ -284,10 +284,10 @@ export default function EditProfile({ onNavigate, showToast }) {
 
       <SectionTitle>Partner Preference / துணை எதிர்பார்ப்பு</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-        <TextField label="Preferred age (min) / குறைந்தபட்ச வயது" type="number" value={form.pref_age_min} onChange={v => setForm(f => ({ ...f, pref_age_min: v }))} />
-        <TextField label="Preferred age (max) / அதிகபட்ச வயது" type="number" value={form.pref_age_max} onChange={v => setForm(f => ({ ...f, pref_age_max: v }))} />
-        <TextField label="Preferred education / விரும்பும் கல்வி" value={form.pref_education} onChange={v => setForm(f => ({ ...f, pref_education: v }))} />
-        <TextField label="Preferred occupation / விரும்பும் தொழில்" value={form.pref_occupation} onChange={v => setForm(f => ({ ...f, pref_occupation: v }))} />
+        <SelectField label="Preferred age (min) / குறைந்தபட்ச வயது" value={String(form.pref_age_min || "")} onChange={v => setForm(f => ({ ...f, pref_age_min: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} />
+        <SelectField label="Preferred age (max) / அதிகபட்ச வயது" value={String(form.pref_age_max || "")} onChange={v => setForm(f => ({ ...f, pref_age_max: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} />
+        <MasterListSelect label="Preferred education / விரும்பும் கல்வி" value={form.pref_education} onChange={v => setForm(f => ({ ...f, pref_education: v }))} options={educationOptions} />
+        <MasterListSelect label="Preferred occupation / விரும்பும் தொழில்" value={form.pref_occupation} onChange={v => setForm(f => ({ ...f, pref_occupation: v }))} options={occupationOptions} />
       </div>
 
       <SectionTitle>About / குறிப்பு</SectionTitle>

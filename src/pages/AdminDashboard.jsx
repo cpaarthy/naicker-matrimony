@@ -7,7 +7,7 @@ import {
 import { useTheme } from "../context/ThemeContext";
 import { Avatar, Badge } from "../components/ui";
 import {
-  fetchAllProfiles, updateProfileStatus, deleteProfile,
+  fetchAllProfiles, updateProfileStatus, deleteProfile, updateProfileByAdmin,
   fetchAllRequests, fetchContactMessages, upsertProfile,
   fetchMasterList, addMasterListValue, deleteMasterListValue,
   bulkUpdateProfileStatus, bulkDeleteProfiles, setProfileDeactivated,
@@ -242,6 +242,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
         profile={editingProfile}
         colors={colors}
         onCancel={() => setEditingProfile(null)}
+        showToast={showToast}
         onSaved={() => {
           logAdminAction({ action: "edit", targetType: "profile", targetId: editingProfile.id, targetName: editingProfile.name });
           setEditingProfile(null); loadAll(); showToast("Profile updated");
@@ -1784,22 +1785,43 @@ function Section({ title, colors, children }) {
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
+      function AdminEditProfile({ profile, colors, onCancel, onSaved, showToast }) {
   const [form, setForm] = React.useState({ ...profile });
   const [loading, setLoading] = React.useState(false);
+  const [options, setOptions] = React.useState({
+    education: [], occupation: [], district: [], city: [], state: [], sub_caste: [],
+    religion: [], caste: [], mother_tongue: [], star: [], rasi: [],
+    father_occupation: [], mother_occupation: [], siblings: [], village: [],
+    complexion: [], body_type: [], blood_group: [],
+  });
+
+  React.useEffect(() => {
+    const listTypes = Object.keys(options);
+    Promise.all(listTypes.map(async (type) => {
+      const { data } = await fetchMasterList(type);
+      return [type, (data || []).map(x => x.value)];
+    })).then(entries => setOptions(Object.fromEntries(entries)));
+  }, []);
 
   async function handleSave() {
     setLoading(true);
-    await upsertProfile(form);
+    const payload = { ...form };
+    if (payload.age !== "" && payload.age != null) payload.age = Number(payload.age);
+    if (payload.pref_age_min !== "" && payload.pref_age_min != null) payload.pref_age_min = Number(payload.pref_age_min);
+    if (payload.pref_age_max !== "" && payload.pref_age_max != null) payload.pref_age_max = Number(payload.pref_age_max);
+
+    const { error } = await updateProfileByAdmin(profile.id, payload);
+    setLoading(false);
+    if (error) {
+      console.error("Admin profile update failed:", error);
+      showToast?.(`Could not save profile: ${error.message || "Update failed"}`);
+      return;
+    }
     onSaved();
   }
 
   const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }));
+  const ageOptions = Array.from({ length: 53 }, (_, i) => String(i + 18));
 
   return (
     <div>
@@ -1808,37 +1830,71 @@ function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
         color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
       }}>← Cancel</button>
 
-      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Edit Profile</h3>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="Name" value={form.name} onChange={v => handleChange("name", v)} />
-        <TextField label="Age" type="number" value={form.age} onChange={v => handleChange("age", v)} />
+      <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Edit Profile / விவரத்தை திருத்தவும்</h3>
+      <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 14 }}>
+        Admin can edit the complete member profile, including private phone number.
       </div>
 
+      <AdminSelect colors={colors} label="Profile for" value={form.profile_for || "Self"} onChange={v => handleChange("profile_for", v)} options={["Self", "Son", "Daughter"]} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="City" value={form.city} onChange={v => handleChange("city", v)} />
-        <TextField label="District" value={form.district} onChange={v => handleChange("district", v)} />
+        <TextField colors={colors} label="Name" value={form.name || ""} onChange={v => handleChange("name", v)} />
+        <AdminSelect colors={colors} label="Gender" value={form.gender || ""} onChange={v => handleChange("gender", v)} options={["Male", "Female"]} />
+        <AdminSelect colors={colors} label="Age" value={String(form.age || "")} onChange={v => handleChange("age", v)} options={ageOptions} />
+        <TextField colors={colors} label="Height" value={form.height || ""} onChange={v => handleChange("height", v)} />
+        <AdminSelect colors={colors} label="Mother tongue" value={form.mother_tongue || ""} onChange={v => handleChange("mother_tongue", v)} options={options.mother_tongue} />
+        <AdminSelect colors={colors} label="Religion" value={form.religion || ""} onChange={v => handleChange("religion", v)} options={options.religion} />
+        <AdminSelect colors={colors} label="Caste" value={form.caste || ""} onChange={v => handleChange("caste", v)} options={options.caste} />
+        <AdminSelect colors={colors} label="Sub caste" value={form.sub_caste || ""} onChange={v => handleChange("sub_caste", v)} options={options.sub_caste} />
+        <AdminSelect colors={colors} label="Education" value={form.education || ""} onChange={v => handleChange("education", v)} options={options.education} />
+        <AdminSelect colors={colors} label="Occupation" value={form.occupation || ""} onChange={v => handleChange("occupation", v)} options={options.occupation} />
+        <TextField colors={colors} label="Income" value={form.income || ""} onChange={v => handleChange("income", v)} />
       </div>
 
+      <h4 style={{ color: colors.primary, borderBottom: `1px solid ${colors.cardBorder}`, paddingBottom: 6 }}>Location</h4>
+      <TextField colors={colors} label="Address" value={form.address || ""} onChange={v => handleChange("address", v)} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="State" value={form.state} onChange={v => handleChange("state", v)} />
-        <TextField label="Phone" value={form.phone} onChange={v => handleChange("phone", v)} />
+        <AdminSelect colors={colors} label="Village" value={form.village || ""} onChange={v => handleChange("village", v)} options={options.village} />
+        <AdminSelect colors={colors} label="District" value={form.district || ""} onChange={v => handleChange("district", v)} options={options.district} />
+        <AdminSelect colors={colors} label="City" value={form.city || ""} onChange={v => handleChange("city", v)} options={options.city} />
+        <AdminSelect colors={colors} label="State" value={form.state || ""} onChange={v => handleChange("state", v)} options={options.state} />
       </div>
 
+      <h4 style={{ color: colors.primary, borderBottom: `1px solid ${colors.cardBorder}`, paddingBottom: 6 }}>Partner Preference</h4>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <TextField label="Education" value={form.education} onChange={v => handleChange("education", v)} />
-        <TextField label="Occupation" value={form.occupation} onChange={v => handleChange("occupation", v)} />
+        <AdminSelect colors={colors} label="Preferred min age" value={String(form.pref_age_min || "")} onChange={v => handleChange("pref_age_min", v)} options={ageOptions} />
+        <AdminSelect colors={colors} label="Preferred max age" value={String(form.pref_age_max || "")} onChange={v => handleChange("pref_age_max", v)} options={ageOptions} />
+        <AdminSelect colors={colors} label="Preferred education" value={form.pref_education || ""} onChange={v => handleChange("pref_education", v)} options={options.education} />
+        <AdminSelect colors={colors} label="Preferred occupation" value={form.pref_occupation || ""} onChange={v => handleChange("pref_occupation", v)} options={options.occupation} />
       </div>
 
-      <TextField label="About" value={form.about} onChange={v => handleChange("about", v)} multiline style={{ minHeight: 80 }} />
+      <h4 style={{ color: colors.primary, borderBottom: `1px solid ${colors.cardBorder}`, paddingBottom: 6 }}>Family & Horoscope</h4>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <AdminSelect colors={colors} label="Father occupation" value={form.father_occupation || ""} onChange={v => handleChange("father_occupation", v)} options={options.father_occupation} />
+        <AdminSelect colors={colors} label="Mother occupation" value={form.mother_occupation || ""} onChange={v => handleChange("mother_occupation", v)} options={options.mother_occupation} />
+        <AdminSelect colors={colors} label="Siblings" value={form.siblings || ""} onChange={v => handleChange("siblings", v)} options={options.siblings} />
+        <AdminSelect colors={colors} label="Family type" value={form.family_type || ""} onChange={v => handleChange("family_type", v)} options={["Nuclear", "Joint"]} />
+        <AdminSelect colors={colors} label="Star" value={form.star || ""} onChange={v => handleChange("star", v)} options={options.star} />
+        <AdminSelect colors={colors} label="Rasi" value={form.rasi || ""} onChange={v => handleChange("rasi", v)} options={options.rasi} />
+        <TextField colors={colors} label="Birth time" value={form.birth_time || ""} onChange={v => handleChange("birth_time", v)} />
+        <TextField colors={colors} label="Birth place" value={form.birth_place || ""} onChange={v => handleChange("birth_place", v)} />
+        <AdminSelect colors={colors} label="Complexion" value={form.complexion || ""} onChange={v => handleChange("complexion", v)} options={options.complexion} />
+        <AdminSelect colors={colors} label="Body type" value={form.body_type || ""} onChange={v => handleChange("body_type", v)} options={options.body_type} />
+        <AdminSelect colors={colors} label="Blood group" value={form.blood_group || ""} onChange={v => handleChange("blood_group", v)} options={options.blood_group} />
+        <AdminSelect colors={colors} label="Diet" value={form.diet || ""} onChange={v => handleChange("diet", v)} options={["Vegetarian", "Non-Vegetarian", "Eggetarian"]} />
+        <AdminSelect colors={colors} label="Smoking" value={form.smoking || ""} onChange={v => handleChange("smoking", v)} options={["No", "Occasionally", "Yes"]} />
+        <AdminSelect colors={colors} label="Drinking" value={form.drinking || ""} onChange={v => handleChange("drinking", v)} options={["No", "Occasionally", "Yes"]} />
+      </div>
+
+      <h4 style={{ color: colors.primary, borderBottom: `1px solid ${colors.cardBorder}`, paddingBottom: 6 }}>Private / Admin only</h4>
+      <TextField colors={colors} label="Phone number (Admin only)" value={form.phone || ""} onChange={v => handleChange("phone", v)} />
+      <TextField colors={colors} label="Security answer" value={form.security_answer || ""} onChange={v => handleChange("security_answer", v)} />
+      <TextField colors={colors} label="About" value={form.about || ""} onChange={v => handleChange("about", v)} multiline style={{ minHeight: 80 }} />
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <button onClick={handleSave} disabled={loading} style={{
           flex: 1, background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
           padding: "10px", fontWeight: 700, fontSize: 13, opacity: loading ? 0.6 : 1,
-        }}>
-          {loading ? "Saving…" : "Save changes"}
-        </button>
+        }}>{loading ? "Saving…" : "Save changes"}</button>
         <button onClick={onCancel} style={{
           flex: 1, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
           borderRadius: 8, padding: "10px", fontWeight: 700, fontSize: 13,
@@ -1848,20 +1904,35 @@ function AdminEditProfile({ profile, colors, onCancel, onSaved }) {
   );
 }
 
-function TextField({ label, value, onChange, type = "text", multiline = false, style = {} }) {
+function AdminSelect({ colors, label, value, onChange, options = [] }) {
+  const safeOptions = value && !(options || []).includes(value) ? [value, ...(options || [])] : (options || []);
   return (
-    <div>
+    <label style={{ display: "block", marginBottom: 8 }}>
+      <div style={{ fontSize: 11.5, color: colors.textMuted, marginBottom: 4 }}>{label}</div>
+      <select value={value || ""} onChange={e => onChange(e.target.value)} style={{
+        width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
+        fontSize: 13, background: colors.inputBg, color: colors.text,
+      }}>
+        <option value="">Select {label}</option>
+        {safeOptions.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </label>
+  );
+}
+function TextField({ colors, label, value, onChange, type = "text", multiline = false, style = {} }) {
+  return (
+    <div style={{ marginBottom: 8 }}>
       <div style={{ fontSize: 11.5, color: colors.textMuted, marginBottom: 4 }}>{label}</div>
       {multiline ? (
         <textarea
-          value={value}
+          value={value || ""}
           onChange={e => onChange(e.target.value)}
           style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, ...style }}
         />
       ) : (
         <input
           type={type}
-          value={value}
+          value={value || ""}
           onChange={e => onChange(e.target.value)}
           style={{ width: "100%", padding: "8px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`, fontSize: 13, background: colors.inputBg, color: colors.text, ...style }}
         />
