@@ -72,6 +72,10 @@ export function matchesAnalyticsFilter(matchFilter, myProfile, candidate, scoreP
       return Number(scorePercentage) >= 90;
     case "medium":
       return Number(scorePercentage) >= 50 && Number(scorePercentage) < 90;
+    case "low":
+      return Number(scorePercentage) < 50;
+    case "verified":
+      return !!candidate.is_verified;
     case "new":
       return isNewMember(candidate);
     case "active":

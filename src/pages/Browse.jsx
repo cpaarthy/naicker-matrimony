@@ -3,7 +3,7 @@ import { Search, SlidersHorizontal, Users, Lock, BadgeCheck } from "lucide-react
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
-import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles } from "../data/queries";
+import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles, fetchFavourites } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 import {
   matchesPartnerPreference,
@@ -39,6 +39,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
   const [heightMax, setHeightMax] = useState("");
   const [complexionFilter, setComplexionFilter] = useState("");
   const [blockedIds, setBlockedIds] = useState(new Set());
+  const [shortlistedIds, setShortlistedIds] = useState(new Set());
 
   const [subCasteOptions, setSubCasteOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
@@ -59,7 +60,8 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     fetchMasterList("rasi").then(({ data }) => setRasiOptions(data.map(d => d.value)));
     fetchMasterList("mother_tongue").then(({ data }) => setMotherTongueOptions(data.map(d => d.value)));
     if (session.user?.id) {
-      fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
+      fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set((data || []).map(b => b.blocked_id))));
+      fetchFavourites(session.user.id).then(({ data }) => setShortlistedIds(new Set((data || []).map(f => f.profile_id))));
     }
   }, [session]);
 
@@ -70,7 +72,8 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
 
       const score = profile ? calculateMatchScore(profile, p) : null;
       const pct = score?.percentage ?? 0;
-      if (!matchesAnalyticsFilter(matchFilter, profile, p, pct)) return false;
+      if (!matchesAnalyticsFilter(matchFilter === "shortlisted" ? null : matchFilter, profile, p, pct)) return false;
+      if (matchFilter === "shortlisted" && !shortlistedIds.has(p.id)) return false;
 
       if (search) {
         const q = search.toLowerCase();
@@ -100,7 +103,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
       if (complexionFilter && p.complexion !== complexionFilter) return false;
       return true;
     });
-  }, [profiles, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, educationFilter, occupationFilter, incomeFilter, starFilter, rasiFilter, dietFilter, smokingFilter, drinkingFilter, verifiedOnly, motherTongueFilter, familyTypeFilter, heightMin, heightMax, complexionFilter, matchFilter, profile]);
+  }, [profiles, blockedIds, shortlistedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, educationFilter, occupationFilter, incomeFilter, starFilter, rasiFilter, dietFilter, smokingFilter, drinkingFilter, verifiedOnly, motherTongueFilter, familyTypeFilter, heightMin, heightMax, complexionFilter, matchFilter, profile]);
 
   const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter || educationFilter || occupationFilter || incomeFilter || starFilter || rasiFilter || dietFilter || smokingFilter || drinkingFilter || verifiedOnly || motherTongueFilter || familyTypeFilter || heightMin || heightMax || complexionFilter);
 
@@ -245,6 +248,26 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
   return (
     <div>
       <h2 className="serif" style={{ fontSize: 19, marginBottom: 12 }}>Browse profiles / விவரங்களை பார்க்க</h2>
+      <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 8, marginBottom: 10 }}>
+        {[
+          ["all", "All / அனைத்தும்"],
+          ["high", "High Match"],
+          ["medium", "Medium Match"],
+          ["low", "Low Match"],
+          ["new", "New 30 Days"],
+          ["active", "Recently Active"],
+          ["verified", "Verified"],
+          ["shortlisted", "Shortlisted"],
+        ].map(([key, label]) => (
+          <button key={key} onClick={() => onNavigate(`browse:${key}`)} style={{
+            flex: "0 0 auto", padding: "7px 11px", borderRadius: 999,
+            border: `1px solid ${matchFilter === key ? colors.primary : colors.cardBorder}`,
+            background: matchFilter === key ? colors.primary : colors.card,
+            color: matchFilter === key ? colors.primaryText : colors.text,
+            fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+          }}>{label}</button>
+        ))}
+      </div>
 
       {matchFilter && (
         <div style={{ background: colors.pendingBg, border: `1px solid ${colors.pendingText}`, borderRadius: 10, padding: "9px 12px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -252,6 +275,9 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
             {matchFilter === "all" && "Total Matching Profiles / மொத்த பொருத்தமான விவரங்கள்"}
             {matchFilter === "high" && "High Compatibility (90%+) / அதிக பொருத்தம்"}
             {matchFilter === "medium" && "Medium Compatibility (50–89%) / நடுத்தர பொருத்தம்"}
+            {matchFilter === "low" && "Low Compatibility (<50%) / குறைந்த பொருத்தம்"}
+            {matchFilter === "verified" && "Verified Profiles / சரிபார்க்கப்பட்ட விவரங்கள்"}
+            {matchFilter === "shortlisted" && "My Shortlisted Profiles / விருப்பப் பட்டியல்"}
             {matchFilter === "new" && "New Members — Last 30 Days / கடந்த 30 நாட்களில் புதிய உறுப்பினர்கள்"}
             {matchFilter === "active" && "Recently Active — Last 7 Days / கடந்த 7 நாட்களில் செயலில் இருந்தவர்கள்"}
             {matchFilter === "nearby" && "Nearby Matches — Same City/District / அருகிலுள்ள பொருத்தங்கள்"}
