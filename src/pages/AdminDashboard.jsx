@@ -44,11 +44,9 @@ const TABS = [
   { key: "log", label: "Activity Log", icon: History },
 ];
 
-export default function AdminDashboard({ onNavigate, setSelectedProfileId, showToast }) {
+export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSelectedProfileId, showToast }) {
   const { colors } = useTheme();
-  const [unlocked, setUnlocked] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
+
   const [tab, setTab] = useState("stats");
 
   const [profiles, setProfiles] = useState([]);
@@ -70,7 +68,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     setLoadError("");
     try {
       const results = await Promise.all([
-        fetchAllProfiles(pin),
+        fetchAllProfiles(adminPin),
         fetchAllRequests(),
         fetchContactMessages(),
         fetchProfileReports(),
@@ -98,14 +96,14 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     } finally {
       setLoading(false);
     }
-  }, [pin]);
+  }, [adminPin]);
 
-  React.useEffect(() => { if (unlocked) loadAll(); }, [unlocked, loadAll]);
+  React.useEffect(() => { if (adminPin) loadAll(); }, [adminPin, loadAll]);
 
   async function handleStatus(id, status) {
     const p = profiles.find(x => x.id === id);
     const wasAlreadyApproved = p?.status === "approved";
-    await updateProfileStatus(id, status, pin);
+    await updateProfileStatus(id, status, adminPin);
     await logAdminAction({ action: status, targetType: "profile", targetId: id, targetName: p?.name });
 
     if (status === "approved" && p && !wasAlreadyApproved) {
@@ -135,7 +133,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleDelete(id, name) {
     if (!window.confirm(`Delete profile "${name}"? This cannot be undone.`)) return;
-    const { error } = await deleteProfile(id, pin);
+    const { error } = await deleteProfile(id, adminPin);
     if (error) { showToast("Could not delete profile"); return; }
     await logAdminAction({ action: "delete", targetType: "profile", targetId: id, targetName: name });
     showToast("Profile deleted");
@@ -144,7 +142,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleToggleActive(p) {
     const newVal = !p.admin_deactivated;
-    const { error } = await setProfileDeactivated(p.id, newVal, pin);
+    const { error } = await setProfileDeactivated(p.id, newVal, adminPin);
     if (error) { showToast("Could not update account"); return; }
     await logAdminAction({
       action: newVal ? "deactivate" : "activate", targetType: "profile", targetId: p.id, targetName: p.name,
@@ -169,7 +167,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
     const newlyApproved = profiles.filter(p => ids.includes(p.id) && p.status !== "approved");
-    await bulkUpdateProfileStatus(ids, "approved", pin);
+    await bulkUpdateProfileStatus(ids, "approved", adminPin);
     await logAdminAction({ action: "bulk_approve", targetType: "profile", details: `${ids.length} profiles` });
     for (const p of newlyApproved) {
       await notifyMatchesForNewProfile(p);
@@ -182,7 +180,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   async function handleBulkReject() {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
-    await bulkUpdateProfileStatus(ids, "rejected", pin);
+    await bulkUpdateProfileStatus(ids, "rejected", adminPin);
     await logAdminAction({ action: "bulk_reject", targetType: "profile", details: `${ids.length} profiles` });
     showToast(`${ids.length} profiles rejected`);
     setSelectedIds(new Set());
@@ -193,7 +191,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     if (selectedIds.size === 0) return;
     if (!window.confirm(`Delete ${selectedIds.size} profiles? This cannot be undone.`)) return;
     const ids = Array.from(selectedIds);
-    await bulkDeleteProfiles(ids, pin);
+    await bulkDeleteProfiles(ids, adminPin);
     await logAdminAction({ action: "bulk_delete", targetType: "profile", details: `${ids.length} profiles` });
     showToast(`${ids.length} profiles deleted`);
     setSelectedIds(new Set());
@@ -203,7 +201,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   async function handleExportCsv() {
     try {
       console.log("Starting CSV export...");
-      const { data, error } = await fetchAllProfiles(pin);
+      const { data, error } = await fetchAllProfiles(adminPin);
       if (error) {
         console.error("Error fetching profiles:", error);
         showToast("Error fetching profiles: " + error);
@@ -226,39 +224,10 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleFullBackup() {
     setBackingUp(true);
-    const { data } = await fetchFullBackup(pin);
+    const { data } = await fetchFullBackup(adminPin);
     downloadJson(data, `naicker-matrimony-backup-${new Date().toISOString().split('T')[0]}.json`);
     setBackingUp(false);
     showToast("Backup downloaded");
-  }
-
-  if (!unlocked) {
-    return (
-      <div style={{ textAlign: "center", padding: "30px 16px" }}>
-        <ShieldCheck size={30} color={colors.primary} style={{ marginBottom: 10 }} />
-        <h2 className="serif" style={{ fontSize: 18, marginBottom: 12 }}>Admin Login</h2>
-        <input
-          type="password"
-          value={pin}
-          onChange={e => { setPin(e.target.value); setPinError(""); }}
-          placeholder="Enter admin password"
-          style={{
-            width: "100%", maxWidth: 260, padding: "11px 12px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`,
-            fontSize: 15, background: colors.inputBg, color: colors.text, marginBottom: 10, textAlign: "center",
-          }}
-        />
-        {pinError && <div style={{ color: colors.rejectedText, fontSize: 12.5, marginBottom: 10 }}>{pinError}</div>}
-        <button onClick={async () => {
-          if (!pin) { setPinError("Enter admin password"); return; }
-          const { data, error } = await supabase.rpc("is_valid_admin_pin", { p_pin: pin });
-          if (!error && data === true) setUnlocked(true);
-          else setPinError("Incorrect password");
-        }} style={{
-          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "10px 24px", fontWeight: 700, fontSize: 14,
-        }}>Enter</button>
-      </div>
-    );
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
@@ -278,7 +247,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     return (
       <AdminEditProfile
         profile={editingProfile}
-        adminPin={pin}
+        adminPin={adminPin}
         colors={colors}
         onCancel={() => setEditingProfile(null)}
         showToast={showToast}
@@ -340,7 +309,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   return (
     <div>
-      <h2 className="serif" style={{ fontSize: 19, marginBottom: 14 }}>Admin Dashboard</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}><h2 className="serif" style={{ fontSize: 19, margin: 0 }}>Admin Dashboard</h2><button onClick={onLogout} style={{ border: `1px solid ${colors.cardBorder}`, background: colors.card, color: colors.textMuted, borderRadius: 8, padding: "7px 10px", fontWeight: 700, fontSize: 11.5 }}>Admin Logout</button></div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
         {TABS.map(t => {
@@ -594,7 +563,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
       )}
 
       {tab === "verification" && (
-        <VerificationTab verifications={verifications} profiles={profiles} colors={colors} showToast={showToast} onReload={loadAll} adminPin={pin} />
+        <VerificationTab verifications={verifications} profiles={profiles} colors={colors} showToast={showToast} onReload={loadAll} adminPin={adminPin} />
       )}
 
       {tab === "reports" && (

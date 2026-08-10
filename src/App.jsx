@@ -7,6 +7,7 @@ import { Toast } from "./components/ui";
 import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import AdminLogin from "./pages/AdminLogin";
 import Browse from "./pages/Browse";
 import ProfileDetails from "./pages/ProfileDetails";
 import Dashboard from "./pages/Dashboard";
@@ -33,7 +34,7 @@ function AppShell() {
 
   const [page, setPage] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("admin") === "1") return "admin";
+    if (params.get("admin") === "1") return "adminLogin";
     if (params.get("profile")) return "loading"; // resolved once auth state is known, see effect below
     return "home";
   });
@@ -44,6 +45,7 @@ function AppShell() {
     return params.get("profile") || null;
   });
   const [toast, setToast] = useState("");
+  const [adminPin, setAdminPin] = useState("");
   const [pendingSharedProfile, setPendingSharedProfile] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("profile") || null;
@@ -113,6 +115,7 @@ function AppShell() {
       {page === "home" && <Home onNavigate={navigate} />}
       {page === "register" && <Register onNavigate={navigate} showToast={showToast} />}
       {page === "login" && <Login onNavigate={navigate} showToast={showToast} />}
+      {page === "adminLogin" && <AdminLogin onNavigate={navigate} showToast={showToast} onAuthenticated={(credentials) => { setAdminPin(credentials.pin); setPage("admin"); setHistory([]); }} />}
       {page === "browse" && <Browse onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} matchFilter={browseMatchFilter} />}
       {page === "profileDetails" && (
         <ProfileDetails profileId={selectedProfileId} onNavigate={navigate} showToast={showToast} />
@@ -145,7 +148,7 @@ function AppShell() {
       {page === "successStories" && <SuccessStories />}
       {page === "plans" && <Plans onNavigate={navigate} showToast={showToast} />}
       {page === "admin" && (
-        <AdminDashboard onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
+        <AdminDashboard adminPin={adminPin} onLogout={() => { setAdminPin(""); setPage("adminLogin"); setHistory([]); }} onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
       )}
     </Layout>
   );
