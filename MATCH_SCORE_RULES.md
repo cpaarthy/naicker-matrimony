@@ -1,11 +1,14 @@
 # Correct Match Score
 
-Only four factors contribute to the percentage:
+The UI expects `calculateMatchScore(profile, candidate)` to return:
+`{ percentage, breakdown }`.
 
-- Age = 35
-- City = 25
-- Education = 20
-- Occupation = 20
+Only four factors contribute:
+
+- Age = 35%
+- City = 25%
+- Education = 20%
+- Occupation = 20%
 
 Examples:
 - Age only = 35%

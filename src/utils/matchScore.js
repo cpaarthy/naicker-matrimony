@@ -1,7 +1,7 @@
 // Match score: ONLY Age, City, Education and Occupation.
 // Weights: Age 35, City 25, Education 20, Occupation 20.
-// A matching factor gets its full weight; otherwise it gets 0.
-// Total is always an integer from 0 to 100.
+// The returned object is intentionally compatible with the existing UI:
+// calculateMatchScore(...).percentage and .breakdown.
 
 const text = (v) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -11,55 +11,59 @@ const same = (a, b) => {
   return !!x && !!y && x === y;
 };
 
-const ageInPreference = (candidateAge, min, max) => {
-  const age = Number(candidateAge);
+function ageMatches(profile, candidate) {
+  const age = Number(candidate?.age);
   if (!Number.isFinite(age)) return false;
 
-  const lo = Number(min);
-  const hi = Number(max);
+  const min = Number(profile?.pref_age_min);
+  const max = Number(profile?.pref_age_max);
+  const hasPreference = Number.isFinite(min) || Number.isFinite(max);
 
-  if (Number.isFinite(lo) && age < lo) return false;
-  if (Number.isFinite(hi) && age > hi) return false;
-  return true;
-};
+  // If an age preference exists, being inside that preferred range is an
+  // Age match. If no preference exists, compare the two actual ages.
+  if (hasPreference) {
+    if (Number.isFinite(min) && age < min) return false;
+    if (Number.isFinite(max) && age > max) return false;
+    return true;
+  }
+
+  const myAge = Number(profile?.age);
+  return Number.isFinite(myAge) && age === myAge;
+}
 
 export function calculateMatchScore(profile, candidate) {
-  if (!profile || !candidate) return 0;
+  if (!profile || !candidate) {
+    return { percentage: 0, breakdown: [] };
+  }
 
-  // Age factor: full 35 points when the candidate's age is within
-  // the viewer's stated min/max preference. If no min/max is stored,
-  // compare exact age so missing preferences do not create a score.
-  const hasAgePreference =
-    Number.isFinite(Number(profile.pref_age_min)) ||
-    Number.isFinite(Number(profile.pref_age_max));
-
-  const ageMatch = hasAgePreference
-    ? ageInPreference(
-        candidate.age,
-        profile.pref_age_min,
-        profile.pref_age_max
-      )
-    : Number(profile.age) === Number(candidate.age);
-
-  // City: exact normalized city match.
+  const ageMatch = ageMatches(profile, candidate);
   const cityMatch = same(profile.city, candidate.city);
-
-  // Education: exact normalized education match.
   const educationMatch = same(profile.education, candidate.education);
-
-  // Occupation: exact normalized occupation match.
   const occupationMatch = same(profile.occupation, candidate.occupation);
 
-  return (
+  const percentage =
     (ageMatch ? 35 : 0) +
     (cityMatch ? 25 : 0) +
     (educationMatch ? 20 : 0) +
-    (occupationMatch ? 20 : 0)
-  );
+    (occupationMatch ? 20 : 0);
+
+  return {
+    percentage,
+    breakdown: [
+      { key: "age", label: "Age", matched: ageMatch, weight: 35 },
+      { key: "city", label: "City", matched: cityMatch, weight: 25 },
+      { key: "education", label: "Education", matched: educationMatch, weight: 20 },
+      { key: "occupation", label: "Occupation", matched: occupationMatch, weight: 20 },
+    ],
+  };
 }
 
-export function getMatchCategory(score) {
-  const value = Number(score) || 0;
+export function getMatchCategory(scoreOrResult) {
+  const value =
+    typeof scoreOrResult === "object"
+      ? Number(scoreOrResult?.percentage) || 0
+      : Number(scoreOrResult) || 0;
+
   if (value >= 90) return "high";
   if (value >= 50) return "medium";
   return "low";
