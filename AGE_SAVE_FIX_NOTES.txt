@@ -1,0 +1,5 @@
+Age save fix:
+- Added explicit IDs to Register and Complete/Edit Profile age selects.
+- Save validation reads the visible selected value as a fallback to React state.
+- Age is normalized to a string for form state and number for Supabase.
+- No Supabase schema changes required.

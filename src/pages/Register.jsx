@@ -69,7 +69,9 @@ export default function Register({ onNavigate, showToast }) {
   }
 
   function validateProfileForm() {
-    const normalizedAge = String(form.age ?? "").trim();
+    const ageFromForm = String(form.age ?? "").trim();
+    const ageFromSelect = String(document.getElementById("register-age")?.value ?? "").trim();
+    const normalizedAge = ageFromForm || ageFromSelect;
     const normalized = { ...form, age: normalizedAge };
     const missing = [];
     if (!String(normalized.name ?? "").trim()) missing.push("name");
@@ -108,7 +110,9 @@ export default function Register({ onNavigate, showToast }) {
       const { url } = await uploadProfilePhoto(newUserId, pendingPhotoFile);
       if (url) photoUrl = url;
     }
-    const ageValue = Number(String(form.age ?? "").trim());
+    const ageValue = Number(
+      String(form.age ?? document.getElementById("register-age")?.value ?? "").trim()
+    );
     if (!Number.isFinite(ageValue) || ageValue < 18 || ageValue > 70) {
       setError("Please select a valid age (18–70) before saving.");
       return false;
@@ -221,7 +225,7 @@ export default function Register({ onNavigate, showToast }) {
             <TextField label="Full name / முழு பெயர்" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
           </div>
           <SelectField label="Gender / பாலினம்" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} options={["Male", "Female"]} />
-          <SelectField label="Age / வயது" value={String(form.age || "")} onChange={v => setForm(f => ({ ...f, age: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} required />
+          <SelectField id="register-age" label="Age / வயது" value={String(form.age ?? "")} onChange={v => setForm(f => ({ ...f, age: String(v) }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} required />
           <TextField label="Caste / சாதி" value={form.caste} onChange={v => setForm(f => ({ ...f, caste: v }))} required />
           <MasterListSelect label="Sub caste / உட்பிரிவு" value={form.sub_caste} onChange={v => setForm(f => ({ ...f, sub_caste: v }))} options={subCasteOptions} required />
           <MasterListSelect label="Education / கல்வி" value={form.education} onChange={v => setForm(f => ({ ...f, education: v }))} options={educationOptions} />

@@ -154,7 +154,11 @@ export default function EditProfile({ onNavigate, showToast }) {
   }
 
   async function handleSubmit() {
-    const normalizedAge = String(form.age ?? "").trim();
+    // Read the visible select as a fallback as well as React state. This prevents
+    // a stale profile hydration/render from making a selected age look empty.
+    const ageFromForm = String(form.age ?? "").trim();
+    const ageFromSelect = String(document.getElementById("profile-age")?.value ?? "").trim();
+    const normalizedAge = ageFromForm || ageFromSelect;
     const missing = [];
     if (!String(form.name ?? "").trim()) missing.push("name");
     if (!normalizedAge || !Number.isFinite(Number(normalizedAge)) || Number(normalizedAge) < 18 || Number(normalizedAge) > 70) missing.push("age");
@@ -171,7 +175,6 @@ export default function EditProfile({ onNavigate, showToast }) {
       showToast(`Fill required fields: ${missing.join(", ")}`);
       return;
     }
-    setForm(f => ({ ...f, age: normalizedAge }));
     setSubmitting(true);
     const keepApproved = profile?.status === "approved";
     const record = {
@@ -250,7 +253,7 @@ export default function EditProfile({ onNavigate, showToast }) {
           <TextField label="Full name / முழு பெயர்" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
         </div>
         <SelectField label="Gender / பாலினம்" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))} options={["Male", "Female"]} />
-        <SelectField label="Age / வயது" value={String(form.age || "")} onChange={v => setForm(f => ({ ...f, age: v }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} required />
+        <SelectField id="profile-age" label="Age / வயது" value={String(form.age ?? "")} onChange={v => setForm(f => ({ ...f, age: String(v) }))} options={Array.from({ length: 53 }, (_, i) => String(i + 18))} required />
         <TextField label={'Height / உயரம் (e.g. 5\'6")'} value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} />
         <MasterListSelect label="Mother tongue / தாய்மொழி" value={form.mother_tongue} onChange={v => setForm(f => ({ ...f, mother_tongue: v }))} options={motherTongueOptions} />
         <MasterListSelect label="Religion / மதம்" value={form.religion} onChange={v => setForm(f => ({ ...f, religion: v }))} options={religionOptions} />

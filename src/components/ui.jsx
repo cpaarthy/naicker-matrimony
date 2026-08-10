@@ -68,12 +68,13 @@ export function TextField({ label, value, onChange, type = "text", placeholder, 
   );
 }
 
-export function SelectField({ label, value, onChange, options }) {
+export function SelectField({ label, value, onChange, options, id }) {
   const { colors } = useTheme();
   return (
     <label style={{ display: "block", marginBottom: 14 }}>
       <span style={{ display: "block", fontSize: 12.5, color: colors.textMuted, marginBottom: 5, fontWeight: 600 }}>{label}</span>
       <select
+        id={id}
         value={value}
         onChange={e => onChange(e.target.value)}
         style={{
