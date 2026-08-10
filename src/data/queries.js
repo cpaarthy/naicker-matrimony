@@ -5,12 +5,10 @@ import { supabase } from "../supabaseClient";
 const PUBLIC_PROFILE_COLUMNS = `id, profile_for, name, gender, age, height, religion, caste, sub_caste, education, occupation, income, address, district, city, state, mother_tongue, about, photo_url, status, created_at, father_occupation, mother_occupation, siblings, family_type, star, rasi, birth_time, birth_place, complexion, body_type, blood_group, diet, smoking, drinking, pref_age_min, pref_age_max, pref_education, pref_occupation, admin_deactivated, last_active_at, is_verified`;
 
 export async function fetchApprovedProfiles() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(PUBLIC_PROFILE_COLUMNS)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
-  return { data: data || [], error };
+  // Address is masked by the database RPC until the viewer has an accepted
+  // interest connection with that profile. Never query the raw member rows here.
+  const { data, error } = await supabase.rpc("member_fetch_approved_profiles");
+  return { data: Array.isArray(data) ? data : [], error };
 }
 
 // Admin-only profile fetch. The database RPC validates the admin PIN and joins
@@ -29,13 +27,10 @@ export async function fetchAllProfiles(adminPin = null) {
 }
 
 export async function fetchProfileById(id) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(PUBLIC_PROFILE_COLUMNS)
-    .eq("id", id)
-    .eq("status", "approved")
-    .maybeSingle();
-  return { data, error };
+  // The RPC returns the full address only when the current member is the
+  // profile owner or an accepted interest exists between the two members.
+  const { data, error } = await supabase.rpc("member_fetch_profile", { p_profile_id: id });
+  return { data: data || null, error };
 }
 
 // Phone/security answer live in profile_private and are never written to the

@@ -80,9 +80,9 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   }
 
   function addressVisible() {
-    // Address is the only direct contact/location detail shown to members.
-    // Phone is intentionally never rendered on member-facing pages.
-    return !!profile;
+    // The database RPC masks address/village until an accepted interest exists.
+    // Keep this UI guard as a second layer; phone is never rendered here.
+    return profile?.id === userId || profile?.address != null;
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
