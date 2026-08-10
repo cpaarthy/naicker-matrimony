@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Search, SlidersHorizontal, Users, Lock } from "lucide-react";
+import { Search, SlidersHorizontal, Users, Lock, BadgeCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
@@ -340,7 +340,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
               }}>
                 <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={44} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="serif" style={{ fontWeight: 700, fontSize: 14.5 }}>{p.name}</div>
+                  <div className="serif" style={{ fontWeight: 700, fontSize: 14.5, display: "flex", alignItems: "center", gap: 5 }}>{p.name}{p.is_verified && <span title="Verified profile" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: "sans-serif", fontSize: 9.5, fontWeight: 800, color: colors.approvedText }}><BadgeCheck size={13} /> Verified</span>}</div>
                   <div style={{ fontSize: 12, color: colors.textMuted }}>{p.occupation || "—"} · Location hidden · {p.age} yrs</div>
                 </div>
               </div>
@@ -371,7 +371,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
               <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <div className="serif" style={{ fontWeight: 700, fontSize: 16.5 }}>{p.name}</div>
+                  <div className="serif" style={{ fontWeight: 700, fontSize: 16.5, display: "flex", alignItems: "center", gap: 6 }}>{p.name}{p.is_verified && <span title="Verified profile" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: "sans-serif", fontSize: 9.5, fontWeight: 800, color: colors.approvedText, whiteSpace: "nowrap" }}><BadgeCheck size={14} /> Verified</span>}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {match && (
                       <span style={{

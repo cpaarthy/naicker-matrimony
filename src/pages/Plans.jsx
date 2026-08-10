@@ -16,6 +16,9 @@ const freePlan = {
     "Notifications",
     "Block and report profiles",
     "Porutham / compatibility details",
+    "Profile verification request",
+    "Verified-profile search",
+    "Privacy, block and report tools",
   ],
 };
 
