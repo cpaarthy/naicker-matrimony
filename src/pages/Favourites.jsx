@@ -1,26 +1,34 @@
 import React, { useState } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Trash2 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar } from "../components/ui";
-import { fetchFavourites, fetchAllProfiles } from "../data/queries";
+import { fetchFavourites, fetchApprovedProfiles, toggleFavourite } from "../data/queries";
 
 export default function Favourites({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
   const { userId } = useAuth();
   const [favProfiles, setFavProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [removing, setRemoving] = useState(null);
 
   React.useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
-      const [{ data: favs }, { data: profs }] = await Promise.all([fetchFavourites(userId), fetchAllProfiles()]);
+      const [{ data: favs }, { data: profs }] = await Promise.all([fetchFavourites(userId), fetchApprovedProfiles()]);
       const ids = new Set(favs.map(f => f.profile_id));
       setFavProfiles(profs.filter(p => ids.has(p.id)));
       setLoading(false);
     })();
   }, [userId]);
+
+  async function removeFavourite(profileId) {
+    setRemoving(profileId);
+    const { error } = await toggleFavourite(userId, profileId, true);
+    if (!error) setFavProfiles(prev => prev.filter(p => p.id !== profileId));
+    setRemoving(null);
+  }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
 

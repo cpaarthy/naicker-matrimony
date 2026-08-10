@@ -98,12 +98,26 @@ export async function fetchRequestsFor(userId) {
   return { data: data || [], error };
 }
 
-export async function fetchAllRequests() {
-  const { data, error } = await supabase.from("requests").select("*");
+export async function fetchAllRequests(adminPin = null) {
+  if (!adminPin) return { data: [], error: { message: "Admin authorization required" } };
+  const { data, error } = await supabase.rpc("admin_fetch_all_requests", { p_pin: adminPin });
+  return { data: Array.isArray(data) ? data : [], error };
+}
+
+export async function fetchRequestBetween(userId, profileId) {
+  const { data, error } = await supabase
+    .from("requests")
+    .select("*")
+    .or(`and(from_id.eq.${userId},to_id.eq.${profileId}),and(from_id.eq.${profileId},to_id.eq.${userId})`)
+    .order("created_at", { ascending: false });
   return { data: data || [], error };
 }
 
 export async function sendInterestRequest(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return { error: { message: "Invalid interest request" } };
+  const { data: existing } = await fetchRequestBetween(fromId, toId);
+  const active = (existing || []).find(r => ["pending", "accepted"].includes(r.status));
+  if (active) return { error: { message: active.status === "accepted" ? "Interest already accepted" : "Interest already sent" } };
   const { error } = await supabase.from("requests").insert({ from_id: fromId, to_id: toId, status: "pending" });
   if (!error) {
     await logUserActivity({ userId: fromId, action: "sent_interest", targetType: "profile", targetId: toId, details: "Sent interest request" });
@@ -111,17 +125,26 @@ export async function sendInterestRequest(fromId, toId) {
   return { error };
 }
 
-export async function respondToRequest(reqId, accept) {
-  const { data: req } = await supabase.from("requests").select("*").eq("id", reqId).single();
-  const { error } = await supabase.from("requests").update({ status: accept ? "accepted" : "declined" }).eq("id", reqId);
-  if (!error && req) {
-    await logUserActivity({ userId: req.to_id, action: accept ? "accepted_interest" : "declined_interest", targetType: "profile", targetId: req.from_id, details: `${accept ? "Accepted" : "Declined"} interest request` });
-  }
+export async function withdrawInterestRequest(reqId, userId) {
+  const { error } = await supabase
+    .from("requests")
+    .update({ status: "withdrawn" })
+    .eq("id", reqId)
+    .eq("from_id", userId)
+    .eq("status", "pending");
+  if (!error) await logUserActivity({ userId, action: "withdrew_interest", targetType: "request", targetId: reqId, details: "Withdrew pending interest request" });
   return { error };
 }
 
+export async function respondToRequest(reqId, accept) {
+  const { data: result, error } = await supabase.rpc("respond_to_interest_request", { p_request_id: reqId, p_accept: !!accept });
+  if (error) return { error };
+  if (result?.success === false) return { error: { message: result.error || "Could not update request" } };
+  return { error: null };
+}
+
 export async function fetchFavourites(userId) {
-  const { data, error } = await supabase.from("favourites").select("*").eq("user_id", userId);
+  const { data, error } = await supabase.from("favourites").select("*").eq("user_id", userId).order("created_at", { ascending: false });
   return { data: data || [], error };
 }
 
@@ -602,7 +625,7 @@ export async function fetchAgeDistribution(adminPin = null) {
 // Response rate analysis
 export async function fetchResponseRateAnalysis(adminPin = null) {
   try {
-    const { data: requests, error } = await supabase.from("requests").select("*");
+    const { data: requests, error } = await supabase.rpc("admin_fetch_all_requests", { p_pin: adminPin });
     if (error) {
       console.error("Response rate analysis error:", error);
       return { data: null, error: error.message };
@@ -703,7 +726,7 @@ export async function fetchOccupationAnalysis(adminPin = null) {
   const { data: profiles, error } = await fetchAdminProfilesForAnalytics(adminPin);
   if (error) return { data: [], error };
 
-  const { data: requests } = await supabase.from("requests").select("*");
+  const { data: requests } = await supabase.rpc("admin_fetch_all_requests", { p_pin: adminPin });
 
   const occupationData = {};
   profiles.forEach(p => {

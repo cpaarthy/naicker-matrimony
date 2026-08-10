@@ -69,7 +69,7 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
     try {
       const results = await Promise.all([
         fetchAllProfiles(adminPin),
-        fetchAllRequests(),
+        fetchAllRequests(adminPin),
         fetchContactMessages(),
         fetchProfileReports(),
         fetchAllVerifications(),

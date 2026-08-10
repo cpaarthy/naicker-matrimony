@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from "react";
-import { Check, X } from "lucide-react";
+import { Check, X, RotateCcw } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
-import { fetchRequestsFor, fetchAllProfiles, respondToRequest, createNotification } from "../data/queries";
+import { fetchRequestsFor, fetchApprovedProfiles, respondToRequest, withdrawInterestRequest, createNotification } from "../data/queries";
 
 export default function InterestRequests({ onNavigate, setSelectedProfileId, showToast }) {
   const { colors } = useTheme();
@@ -16,7 +16,7 @@ export default function InterestRequests({ onNavigate, setSelectedProfileId, sho
     setLoading(true);
     const [{ data: reqs }, { data: profs }] = await Promise.all([
       fetchRequestsFor(userId),
-      fetchAllProfiles(),
+      fetchApprovedProfiles(),
     ]);
     setRequests(reqs);
     setProfiles(profs);
@@ -24,6 +24,13 @@ export default function InterestRequests({ onNavigate, setSelectedProfileId, sho
   }, [userId]);
 
   React.useEffect(() => { if (userId) load(); }, [userId, load]);
+
+  async function handleWithdraw(reqId) {
+    const { error } = await withdrawInterestRequest(reqId, userId);
+    if (error) { showToast(error.message || "Could not withdraw request"); return; }
+    showToast("Interest request withdrawn");
+    load();
+  }
 
   async function handleRespond(reqId, accept) {
     const req = requests.find(r => r.id === reqId);

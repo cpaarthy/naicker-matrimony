@@ -33,6 +33,11 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
   const [smokingFilter, setSmokingFilter] = useState("");
   const [drinkingFilter, setDrinkingFilter] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [motherTongueFilter, setMotherTongueFilter] = useState("");
+  const [familyTypeFilter, setFamilyTypeFilter] = useState("");
+  const [heightMin, setHeightMin] = useState("");
+  const [heightMax, setHeightMax] = useState("");
+  const [complexionFilter, setComplexionFilter] = useState("");
   const [blockedIds, setBlockedIds] = useState(new Set());
 
   const [subCasteOptions, setSubCasteOptions] = useState([]);
@@ -41,6 +46,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
   const [stateOptions, setStateOptions] = useState([]);
   const [starOptions, setStarOptions] = useState([]);
   const [rasiOptions, setRasiOptions] = useState([]);
+  const [motherTongueOptions, setMotherTongueOptions] = useState([]);
 
   React.useEffect(() => {
     if (!session) { setLoading(false); return; }
@@ -51,6 +57,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
     fetchMasterList("star").then(({ data }) => setStarOptions(data.map(d => d.value)));
     fetchMasterList("rasi").then(({ data }) => setRasiOptions(data.map(d => d.value)));
+    fetchMasterList("mother_tongue").then(({ data }) => setMotherTongueOptions(data.map(d => d.value)));
     if (session.user?.id) {
       fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
     }
@@ -85,11 +92,17 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
       if (smokingFilter && p.smoking !== smokingFilter) return false;
       if (drinkingFilter && p.drinking !== drinkingFilter) return false;
       if (verifiedOnly && !p.is_verified) return false;
+      if (motherTongueFilter && p.mother_tongue !== motherTongueFilter) return false;
+      if (familyTypeFilter && p.family_type !== familyTypeFilter) return false;
+      const heightInches = parseHeightInches(p.height);
+      if (heightMin && (!heightInches || heightInches < Number(heightMin))) return false;
+      if (heightMax && (!heightInches || heightInches > Number(heightMax))) return false;
+      if (complexionFilter && p.complexion !== complexionFilter) return false;
       return true;
     });
-  }, [profiles, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, educationFilter, occupationFilter, incomeFilter, starFilter, rasiFilter, dietFilter, smokingFilter, drinkingFilter, verifiedOnly, matchFilter, profile]);
+  }, [profiles, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, educationFilter, occupationFilter, incomeFilter, starFilter, rasiFilter, dietFilter, smokingFilter, drinkingFilter, verifiedOnly, motherTongueFilter, familyTypeFilter, heightMin, heightMax, complexionFilter, matchFilter, profile]);
 
-  const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter || educationFilter || occupationFilter || incomeFilter || starFilter || rasiFilter || dietFilter || smokingFilter || drinkingFilter || verifiedOnly);
+  const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter || educationFilter || occupationFilter || incomeFilter || starFilter || rasiFilter || dietFilter || smokingFilter || drinkingFilter || verifiedOnly || motherTongueFilter || familyTypeFilter || heightMin || heightMax || complexionFilter);
 
   const recommended = useMemo(() => {
     if (hasActiveFilters || !profile || matchFilter) return [];
@@ -104,6 +117,15 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     }).slice(0, 5);
   }, [filtered, profile, hasActiveFilters, matchFilter]);
 
+  function parseHeightInches(value) {
+    const text = String(value || "").trim();
+    const feetInches = text.match(/(\d+)\s*[\'′]\s*(\d+)?/);
+    if (feetInches) return Number(feetInches[1]) * 12 + Number(feetInches[2] || 0);
+    const cm = text.match(/(\d+(?:\.\d+)?)\s*cm/i);
+    if (cm) return Number(cm[1]) / 2.54;
+    return null;
+  }
+
   function DropdownFilter({ value, onChange, options, placeholder }) {
     return (
       <select value={value} onChange={e => onChange(e.target.value)} style={{
@@ -111,7 +133,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
         background: colors.inputBg, color: colors.text, fontSize: 13,
       }}>
         <option value="">{placeholder}</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        {options.map(o => <option key={o} value={o}>{placeholder.startsWith("Min height") || placeholder.startsWith("Max height") ? `${Math.floor(Number(o) / 12)}'${Number(o) % 12}` : o}</option>)}
       </select>
     );
   }
@@ -291,6 +313,15 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <DropdownFilter value={smokingFilter} onChange={setSmokingFilter} options={["No", "Occasionally", "Yes"]} placeholder="Smoking / புகை" />
             <DropdownFilter value={drinkingFilter} onChange={setDrinkingFilter} options={["No", "Occasionally", "Yes"]} placeholder="Drinking / மது" />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <DropdownFilter value={motherTongueFilter} onChange={setMotherTongueFilter} options={motherTongueOptions} placeholder="Mother tongue / தாய்மொழி" />
+            <DropdownFilter value={familyTypeFilter} onChange={setFamilyTypeFilter} options={["Nuclear", "Joint"]} placeholder="Family type / குடும்பம்" />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <DropdownFilter value={heightMin} onChange={setHeightMin} options={Array.from({ length: 19 }, (_, i) => String((4 * 12 + 10 + i)))} placeholder="Min height" />
+            <DropdownFilter value={heightMax} onChange={setHeightMax} options={Array.from({ length: 19 }, (_, i) => String((5 * 12 + 2 + i)))} placeholder="Max height" />
+            <DropdownFilter value={complexionFilter} onChange={setComplexionFilter} options={["Very Fair", "Fair", "Wheatish", "Dusky", "Dark"]} placeholder="Complexion" />
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 700, color: colors.text }}><input type="checkbox" checked={verifiedOnly} onChange={e => setVerifiedOnly(e.target.checked)} /> Verified profiles only / சரிபார்க்கப்பட்டவர்கள் மட்டும்</label>
         </div>

@@ -22,7 +22,6 @@ import RecentlyViewed from "./pages/RecentlyViewed";
 import PoruthamDashboard from "./pages/PoruthamDashboard";
 import FAQ from "./pages/FAQ";
 import More from "./pages/More";
-import Messages from "./pages/Messages";
 import SavedSearches from "./pages/SavedSearches";
 import Verification from "./pages/Verification";
 import PrivacySettings from "./pages/PrivacySettings";
@@ -97,7 +96,7 @@ function AppShell() {
 
   // Bottom nav "dashboard" key maps internally, but admin is reached via a hidden route
   const navPageKey = page === "editProfile" || page === "requests" || page === "favourites"
-    || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" || page === "faq" || page === "messages" || page === "savedSearches" || page === "verification" || page === "privacy" || page === "successStories" || page === "plans" ? "more"
+    || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" || page === "faq" || page === "savedSearches" || page === "verification" || page === "privacy" || page === "successStories" || page === "plans" ? "more"
     : page === "profileDetails" || page === "porutham" ? "browse"
     : page;
 
@@ -141,7 +140,6 @@ function AppShell() {
       )}
       {page === "faq" && <FAQ />}
       {page === "more" && <More onNavigate={navigate} />}
-      {page === "messages" && <Messages onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />}
       {page === "savedSearches" && <SavedSearches onNavigate={navigate} showToast={showToast} />}
       {page === "verification" && <Verification showToast={showToast} />}
       {page === "privacy" && <PrivacySettings showToast={showToast} />}
