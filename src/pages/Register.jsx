@@ -67,21 +67,25 @@ export default function Register({ onNavigate, showToast }) {
   }
 
   function validateProfileForm() {
+    const normalizedAge = String(form.age ?? "").trim();
+    const normalized = { ...form, age: normalizedAge };
     const missing = [];
-    if (!form.name) missing.push("name");
-    if (!form.age) missing.push("age");
-    if (!form.caste) missing.push("caste");
-    if (!form.sub_caste) missing.push("sub caste");
-    if (!form.occupation) missing.push("occupation");
-    if (!form.address) missing.push("address");
-    if (!form.district) missing.push("district");
-    if (!form.city) missing.push("city");
-    if (!form.state) missing.push("state");
-    if (!form.phone) missing.push("phone number");
+    if (!String(normalized.name ?? "").trim()) missing.push("name");
+    if (!normalizedAge || !Number.isFinite(Number(normalizedAge)) || Number(normalizedAge) < 18 || Number(normalizedAge) > 70) missing.push("age");
+    if (!String(normalized.caste ?? "").trim()) missing.push("caste");
+    if (!String(normalized.sub_caste ?? "").trim()) missing.push("sub caste");
+    if (!String(normalized.occupation ?? "").trim()) missing.push("occupation");
+    if (!String(normalized.address ?? "").trim()) missing.push("address");
+    if (!String(normalized.district ?? "").trim()) missing.push("district");
+    if (!String(normalized.city ?? "").trim()) missing.push("city");
+    if (!String(normalized.state ?? "").trim()) missing.push("state");
+    if (!String(normalized.phone ?? phone ?? "").trim()) missing.push("phone number");
     if (missing.length > 0) {
       showToast(`Fill required fields: ${missing.join(", ")}`);
       return false;
     }
+    // Keep the validated age in the same form object that is submitted later.
+    setForm(f => ({ ...f, age: normalizedAge }));
     return true;
   }
 
@@ -97,15 +101,25 @@ export default function Register({ onNavigate, showToast }) {
       const { url } = await uploadProfilePhoto(newUserId, pendingPhotoFile);
       if (url) photoUrl = url;
     }
+    const ageValue = Number(String(form.age ?? "").trim());
+    if (!Number.isFinite(ageValue) || ageValue < 18 || ageValue > 70) {
+      setError("Please select a valid age (18–70) before saving.");
+      return false;
+    }
     const record = {
       ...form, id: newUserId, status: "pending", photo_url: photoUrl,
-      age: Number(form.age),
+      age: ageValue,
       pref_age_min: form.pref_age_min ? Number(form.pref_age_min) : null,
       pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
       phone: form.phone || phone,
       security_answer: securityAnswer || null,
     };
-    await upsertProfile(record);
+    const { error: profileError } = await upsertProfile(record);
+    if (profileError) {
+      setError(profileError.message || "Could not save your profile. Please try again.");
+      return false;
+    }
+    return true;
   }
 
   async function handleSendOtp() {
@@ -130,7 +144,10 @@ export default function Register({ onNavigate, showToast }) {
     setLoading(false);
     if (error) { setError("Invalid or expired OTP, or password could not be set"); return; }
     const newUserId = data?.session?.user?.id;
-    if (newUserId) await saveProfileAfterAuth(newUserId);
+    if (newUserId) {
+      const saved = await saveProfileAfterAuth(newUserId);
+      if (!saved) return;
+    }
     showToast("Account created and profile submitted!");
     onNavigate("dashboard");
   }
@@ -149,7 +166,10 @@ export default function Register({ onNavigate, showToast }) {
       return;
     }
     const newUserId = data?.session?.user?.id;
-    if (newUserId) await saveProfileAfterAuth(newUserId);
+    if (newUserId) {
+      const saved = await saveProfileAfterAuth(newUserId);
+      if (!saved) return;
+    }
     showToast("Account created and profile submitted!");
     onNavigate("dashboard");
   }

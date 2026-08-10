@@ -136,22 +136,24 @@ export default function EditProfile({ onNavigate, showToast }) {
   }
 
   async function handleSubmit() {
+    const normalizedAge = String(form.age ?? "").trim();
     const missing = [];
-    if (!form.name) missing.push("name");
-    if (!form.age) missing.push("age");
-    if (!form.religion) missing.push("religion");
-    if (!form.caste) missing.push("caste");
-    if (!form.sub_caste) missing.push("sub caste");
-    if (!form.occupation) missing.push("occupation");
-    if (!form.address) missing.push("address");
-    if (!form.district) missing.push("district");
-    if (!form.city) missing.push("city");
-    if (!form.state) missing.push("state");
-    if (!form.phone) missing.push("phone number");
+    if (!String(form.name ?? "").trim()) missing.push("name");
+    if (!normalizedAge || !Number.isFinite(Number(normalizedAge)) || Number(normalizedAge) < 18 || Number(normalizedAge) > 70) missing.push("age");
+    if (!String(form.religion ?? "").trim()) missing.push("religion");
+    if (!String(form.caste ?? "").trim()) missing.push("caste");
+    if (!String(form.sub_caste ?? "").trim()) missing.push("sub caste");
+    if (!String(form.occupation ?? "").trim()) missing.push("occupation");
+    if (!String(form.address ?? "").trim()) missing.push("address");
+    if (!String(form.district ?? "").trim()) missing.push("district");
+    if (!String(form.city ?? "").trim()) missing.push("city");
+    if (!String(form.state ?? "").trim()) missing.push("state");
+    if (!String(form.phone ?? "").trim()) missing.push("phone number");
     if (missing.length > 0) {
       showToast(`Fill required fields: ${missing.join(", ")}`);
       return;
     }
+    setForm(f => ({ ...f, age: normalizedAge }));
     setSubmitting(true);
     const keepApproved = profile?.status === "approved";
     const record = {
