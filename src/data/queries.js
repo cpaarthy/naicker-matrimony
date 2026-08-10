@@ -1,11 +1,10 @@
 import { supabase } from "../supabaseClient";
 
 // Never request phone from member-facing profile queries.
-// Admin uses fetchAllProfiles(), which intentionally includes phone.
+// Admin passes the PIN to a SECURITY DEFINER RPC; member-facing calls return public profile fields only.
 const PUBLIC_PROFILE_COLUMNS = `id, profile_for, name, gender, age, height, religion, caste, sub_caste, education, occupation, income, address, district, city, state, mother_tongue, about, photo_url, status, created_at, father_occupation, mother_occupation, siblings, family_type, star, rasi, birth_time, birth_place, complexion, body_type, blood_group, diet, smoking, drinking, pref_age_min, pref_age_max, pref_education, pref_occupation, admin_deactivated, last_active_at, is_verified`;
 
 export async function fetchApprovedProfiles() {
-  // Public/member-facing profile query deliberately excludes the phone number.
   const { data, error } = await supabase
     .from("profiles")
     .select(PUBLIC_PROFILE_COLUMNS)
@@ -14,44 +13,73 @@ export async function fetchApprovedProfiles() {
   return { data: data || [], error };
 }
 
-export async function fetchAllProfiles() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("created_at", { ascending: false });
-  return { data: data || [], error };
+// Admin-only profile fetch. The database RPC validates the admin PIN and joins
+// the private phone/security fields only for the admin response.
+export async function fetchAllProfiles(adminPin = null) {
+  if (!adminPin) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(PUBLIC_PROFILE_COLUMNS)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
+    return { data: data || [], error };
+  }
+  const { data, error } = await supabase.rpc("admin_fetch_all_profiles", { p_pin: adminPin });
+  return { data: Array.isArray(data) ? data : [], error };
 }
 
 export async function fetchProfileById(id) {
-  // Public/member-facing profile query deliberately excludes the phone number.
   const { data, error } = await supabase
     .from("profiles")
     .select(PUBLIC_PROFILE_COLUMNS)
     .eq("id", id)
+    .eq("status", "approved")
+    .maybeSingle();
+  return { data, error };
+}
+
+// Phone/security answer live in profile_private and are never written to the
+// public profiles table. This keeps them out of member-facing API responses.
+export async function fetchOwnPrivateProfile() {
+  const { data, error } = await supabase
+    .from("profile_private")
+    .select("user_id, phone, security_answer")
     .maybeSingle();
   return { data, error };
 }
 
 export async function upsertProfile(record) {
-  const { data, error } = await supabase.from("profiles").upsert(record).select().single();
-  return { data, error };
+  const { phone, security_answer, ...publicRecord } = record || {};
+  const { data, error } = await supabase.from("profiles").upsert(publicRecord).select().single();
+  if (error) return { data: null, error };
+  if (phone !== undefined || security_answer !== undefined) {
+    const privatePayload = {
+      user_id: publicRecord.id,
+      phone: phone ?? null,
+      security_answer: security_answer ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error: privateError } = await supabase
+      .from("profile_private")
+      .upsert(privatePayload, { onConflict: "user_id" });
+    if (privateError) return { data: null, error: privateError };
+  }
+  return { data, error: null };
 }
 
-// Admin edit must use UPDATE, not upsert. The profiles INSERT policy only
-// permits a user to insert their own row, while the admin UI relies on the
-// existing admin-gated UPDATE policy.
-export async function updateProfileByAdmin(id, record) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .update(record)
-    .eq("id", id)
-    .select()
-    .single();
-  return { data, error };
+export async function updateProfileByAdmin(id, record, adminPin) {
+  const { error } = await supabase.rpc("admin_update_profile", {
+    p_pin: adminPin,
+    p_profile_id: id,
+    p_profile: record || {},
+  });
+  return { data: null, error };
 }
 
-export async function updateProfileStatus(id, status) {
-  const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
+export async function updateProfileStatus(id, status, adminPin) {
+  const { error } = await supabase.rpc("admin_update_profile_status", {
+    p_pin: adminPin, p_profile_id: id, p_status: status,
+  });
   return { error };
 }
 
@@ -127,8 +155,8 @@ export async function submitContactMessage(record) {
   return { error };
 }
 
-export async function deleteProfile(id) {
-  const { error } = await supabase.from("profiles").delete().eq("id", id);
+export async function deleteProfile(id, adminPin) {
+  const { error } = await supabase.rpc("admin_delete_profile", { p_pin: adminPin, p_profile_id: id });
   return { error };
 }
 
@@ -161,19 +189,19 @@ export async function deleteMasterListValue(id) {
 }
 
 // ============ BULK ACTIONS ============
-export async function bulkUpdateProfileStatus(ids, status) {
-  const { error } = await supabase.from("profiles").update({ status }).in("id", ids);
+export async function bulkUpdateProfileStatus(ids, status, adminPin) {
+  const { error } = await supabase.rpc("admin_bulk_update_profile_status", { p_pin: adminPin, p_profile_ids: ids, p_status: status });
   return { error };
 }
 
-export async function bulkDeleteProfiles(ids) {
-  const { error } = await supabase.from("profiles").delete().in("id", ids);
+export async function bulkDeleteProfiles(ids, adminPin) {
+  const { error } = await supabase.rpc("admin_bulk_delete_profiles", { p_pin: adminPin, p_profile_ids: ids });
   return { error };
 }
 
 // ============ ACCOUNT ACTIVATION ============
-export async function setProfileDeactivated(id, deactivated) {
-  const { error } = await supabase.from("profiles").update({ admin_deactivated: deactivated }).eq("id", id);
+export async function setProfileDeactivated(id, deactivated, adminPin) {
+  const { error } = await supabase.rpc("admin_set_profile_deactivated", { p_pin: adminPin, p_profile_id: id, p_deactivated: deactivated });
   return { error };
 }
 
@@ -733,13 +761,26 @@ const BACKUP_TABLES = [
   "announcements", "contact_messages", "porutham_reviews", "messages", "saved_searches", "profile_verifications", "privacy_settings",
 ];
 
-export async function fetchFullBackup() {
+export async function fetchFullBackup(adminPin = null) {
   const backup = {
     generated_at: new Date().toISOString(),
     tables: {},
     errors: [],
   };
-  for (const table of BACKUP_TABLES) {
+  if (adminPin) {
+    const { data, error } = await supabase.rpc("admin_fetch_all_profiles", { p_pin: adminPin });
+    if (error) {
+      backup.errors.push({ table: "profiles", message: error.message });
+      backup.tables.profiles = [];
+    } else {
+      backup.tables.profiles = data || [];
+    }
+  } else {
+    const { data, error } = await supabase.from("profiles").select(PUBLIC_PROFILE_COLUMNS);
+    if (error) { backup.errors.push({ table: "profiles", message: error.message }); backup.tables.profiles = []; }
+    else backup.tables.profiles = data || [];
+  }
+  for (const table of BACKUP_TABLES.filter(t => t !== "profiles")) {
     const { data, error } = await supabase.from(table).select("*");
     if (error) {
       backup.errors.push({ table, message: error.message });
@@ -819,10 +860,9 @@ export async function fetchAllVerifications() {
   return await supabase.from("profile_verifications").select("*").order("created_at", { ascending: false });
 }
 
-export async function updateVerificationStatus(id, status, adminNote = "") {
-  const { data: row, error } = await supabase.from("profile_verifications").select("user_id").eq("id", id).single();
-  if (error) return { error };
-  const result = await supabase.from("profile_verifications").update({ status, admin_note: adminNote, reviewed_at: new Date().toISOString() }).eq("id", id);
-  if (!result.error) await supabase.from("profiles").update({ is_verified: status === "approved" }).eq("id", row.user_id);
-  return result;
+export async function updateVerificationStatus(id, status, adminNote = "", adminPin = "") {
+  const { error } = await supabase.rpc("admin_update_verification_status", {
+    p_pin: adminPin, p_verification_id: id, p_status: status, p_admin_note: adminNote,
+  });
+  return { error };
 }

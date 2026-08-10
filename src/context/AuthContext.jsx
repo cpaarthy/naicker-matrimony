@@ -30,7 +30,11 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async () => {
     if (!userId) { setProfile(null); setProfileLoading(false); return; }
     setProfileLoading(true);
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    const [{ data: publicProfile }, { data: privateProfile }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("profile_private").select("phone,security_answer").eq("user_id", userId).maybeSingle(),
+    ]);
+    const data = publicProfile ? { ...publicProfile, ...(privateProfile || {}) } : null;
     setProfile(data || null);
     setProfileLoading(false);
     if (data) {

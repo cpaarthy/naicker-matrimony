@@ -5,6 +5,7 @@ import {
   Database as DatabaseIcon, Camera, MapPin, Eye, Briefcase, BookOpen,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { supabase } from "../supabaseClient";
 import { Avatar, Badge } from "../components/ui";
 import {
   fetchAllProfiles, updateProfileStatus, deleteProfile, updateProfileByAdmin,
@@ -27,8 +28,6 @@ import { BarChart, DonutChart } from "../components/AdminCharts";
 import { exportToCsv } from "../utils/exportCsv";
 import { downloadJson } from "../utils/downloadJson";
 import { calculateMatchScore } from "../utils/matchScore";
-
-const ADMIN_PIN = "Naik@1998!";
 
 const TABS = [
   { key: "stats", label: "Overview", icon: BarChart3 },
@@ -68,7 +67,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const loadAll = useCallback(async () => {
     setLoading(true);
     const [{ data: profs }, { data: reqs }, { data: msgs }, { data: reps }, { data: vers }] = await Promise.all([
-      fetchAllProfiles(), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(), fetchAllVerifications(),
+      fetchAllProfiles(pin), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(), fetchAllVerifications(),
     ]);
     setProfiles(profs);
     setRequests(reqs);
@@ -83,7 +82,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   async function handleStatus(id, status) {
     const p = profiles.find(x => x.id === id);
     const wasAlreadyApproved = p?.status === "approved";
-    await updateProfileStatus(id, status);
+    await updateProfileStatus(id, status, pin);
     await logAdminAction({ action: status, targetType: "profile", targetId: id, targetName: p?.name });
 
     if (status === "approved" && p && !wasAlreadyApproved) {
@@ -113,7 +112,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleDelete(id, name) {
     if (!window.confirm(`Delete profile "${name}"? This cannot be undone.`)) return;
-    const { error } = await deleteProfile(id);
+    const { error } = await deleteProfile(id, pin);
     if (error) { showToast("Could not delete profile"); return; }
     await logAdminAction({ action: "delete", targetType: "profile", targetId: id, targetName: name });
     showToast("Profile deleted");
@@ -122,7 +121,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleToggleActive(p) {
     const newVal = !p.admin_deactivated;
-    const { error } = await setProfileDeactivated(p.id, newVal);
+    const { error } = await setProfileDeactivated(p.id, newVal, pin);
     if (error) { showToast("Could not update account"); return; }
     await logAdminAction({
       action: newVal ? "deactivate" : "activate", targetType: "profile", targetId: p.id, targetName: p.name,
@@ -147,7 +146,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
     const newlyApproved = profiles.filter(p => ids.includes(p.id) && p.status !== "approved");
-    await bulkUpdateProfileStatus(ids, "approved");
+    await bulkUpdateProfileStatus(ids, "approved", pin);
     await logAdminAction({ action: "bulk_approve", targetType: "profile", details: `${ids.length} profiles` });
     for (const p of newlyApproved) {
       await notifyMatchesForNewProfile(p);
@@ -160,7 +159,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   async function handleBulkReject() {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
-    await bulkUpdateProfileStatus(ids, "rejected");
+    await bulkUpdateProfileStatus(ids, "rejected", pin);
     await logAdminAction({ action: "bulk_reject", targetType: "profile", details: `${ids.length} profiles` });
     showToast(`${ids.length} profiles rejected`);
     setSelectedIds(new Set());
@@ -171,7 +170,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     if (selectedIds.size === 0) return;
     if (!window.confirm(`Delete ${selectedIds.size} profiles? This cannot be undone.`)) return;
     const ids = Array.from(selectedIds);
-    await bulkDeleteProfiles(ids);
+    await bulkDeleteProfiles(ids, pin);
     await logAdminAction({ action: "bulk_delete", targetType: "profile", details: `${ids.length} profiles` });
     showToast(`${ids.length} profiles deleted`);
     setSelectedIds(new Set());
@@ -181,7 +180,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   async function handleExportCsv() {
     try {
       console.log("Starting CSV export...");
-      const { data, error } = await fetchAllProfiles();
+      const { data, error } = await fetchAllProfiles(pin);
       if (error) {
         console.error("Error fetching profiles:", error);
         showToast("Error fetching profiles: " + error);
@@ -204,7 +203,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   async function handleFullBackup() {
     setBackingUp(true);
-    const { data } = await fetchFullBackup();
+    const { data } = await fetchFullBackup(pin);
     downloadJson(data, `naicker-matrimony-backup-${new Date().toISOString().split('T')[0]}.json`);
     setBackingUp(false);
     showToast("Backup downloaded");
@@ -226,7 +225,12 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
           }}
         />
         {pinError && <div style={{ color: colors.rejectedText, fontSize: 12.5, marginBottom: 10 }}>{pinError}</div>}
-        <button onClick={() => { if (pin === ADMIN_PIN) setUnlocked(true); else setPinError("Incorrect password"); }} style={{
+        <button onClick={async () => {
+          if (!pin) { setPinError("Enter admin password"); return; }
+          const { data, error } = await supabase.rpc("is_valid_admin_pin", { p_pin: pin });
+          if (!error && data === true) setUnlocked(true);
+          else setPinError("Incorrect password");
+        }} style={{
           background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
           padding: "10px 24px", fontWeight: 700, fontSize: 14,
         }}>Enter</button>
@@ -240,6 +244,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
     return (
       <AdminEditProfile
         profile={editingProfile}
+        adminPin={pin}
         colors={colors}
         onCancel={() => setEditingProfile(null)}
         showToast={showToast}
@@ -555,7 +560,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
       )}
 
       {tab === "verification" && (
-        <VerificationTab verifications={verifications} profiles={profiles} colors={colors} showToast={showToast} onReload={loadAll} />
+        <VerificationTab verifications={verifications} profiles={profiles} colors={colors} showToast={showToast} onReload={loadAll} adminPin={pin} />
       )}
 
       {tab === "reports" && (
@@ -598,11 +603,11 @@ function StatCard({ label, value, colors, tone, icon: Icon }) {
   );
 }
 
-function VerificationTab({ verifications, profiles, colors, showToast, onReload }) {
+function VerificationTab({ verifications, profiles, colors, showToast, onReload, adminPin }) {
   const [saving, setSaving] = useState(null);
   async function update(id, status) {
     setSaving(id);
-    const { error } = await updateVerificationStatus(id, status);
+    const { error } = await updateVerificationStatus(id, status, "", adminPin);
     setSaving(null);
     if (error) { showToast("Could not update verification"); return; }
     showToast(`Verification ${status}`);
@@ -1785,7 +1790,7 @@ function Section({ title, colors, children }) {
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>{title}</div>
-      function AdminEditProfile({ profile, colors, onCancel, onSaved, showToast }) {
+      function AdminEditProfile({ profile, adminPin, colors, onCancel, onSaved, showToast }) {
   const [form, setForm] = React.useState({ ...profile });
   const [loading, setLoading] = React.useState(false);
   const [options, setOptions] = React.useState({
@@ -1810,7 +1815,7 @@ function Section({ title, colors, children }) {
     if (payload.pref_age_min !== "" && payload.pref_age_min != null) payload.pref_age_min = Number(payload.pref_age_min);
     if (payload.pref_age_max !== "" && payload.pref_age_max != null) payload.pref_age_max = Number(payload.pref_age_max);
 
-    const { error } = await updateProfileByAdmin(profile.id, payload);
+    const { error } = await updateProfileByAdmin(profile.id, payload, adminPin);
     setLoading(false);
     if (error) {
       console.error("Admin profile update failed:", error);
