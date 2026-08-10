@@ -80,9 +80,14 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   }
 
   function addressVisible() {
-    // The database RPC masks address/village until an accepted interest exists.
-    // Keep this UI guard as a second layer; phone is never rendered here.
-    return profile?.id === userId || profile?.address != null;
+    // Member privacy rule: location is visible ONLY to the owner or after an
+    // interest request involving both members has been accepted.
+    if (profile?.id === userId) return true;
+    return myRequests.some(r =>
+      r.status === "accepted" &&
+      ((r.from_id === userId && r.to_id === profile?.id) ||
+       (r.from_id === profile?.id && r.to_id === userId))
+    );
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;

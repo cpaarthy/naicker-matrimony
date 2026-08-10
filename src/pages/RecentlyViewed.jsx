@@ -46,7 +46,7 @@ export default function RecentlyViewed({ onNavigate, setSelectedProfileId }) {
             <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="serif" style={{ fontWeight: 700, fontSize: 16.5 }}>{p.name}</div>
-              <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · {p.city}</div>
+              <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · Location hidden</div>
               <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 3 }}>
                 Viewed {new Date(p.viewed_at).toLocaleDateString()}
               </div>

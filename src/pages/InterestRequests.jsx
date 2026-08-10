@@ -66,7 +66,7 @@ export default function InterestRequests({ onNavigate, setSelectedProfileId, sho
             <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-              <div style={{ fontSize: 12, color: colors.textFaint }}>{p.city} · {p.age} yrs</div>
+              <div style={{ fontSize: 12, color: colors.textFaint }}>Location hidden · {p.age} yrs</div>
             </div>
             {r.status === "pending" ? (
               <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
@@ -97,7 +97,7 @@ export default function InterestRequests({ onNavigate, setSelectedProfileId, sho
             <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-              <div style={{ fontSize: 12, color: colors.textFaint }}>{p.city} · {p.age} yrs</div>
+              <div style={{ fontSize: 12, color: colors.textFaint }}>Location hidden · {p.age} yrs</div>
             </div>
             <Badge tone={r.status === "accepted" ? "approved" : r.status === "declined" ? "rejected" : "pending"}>
               {r.status === "pending" ? "waiting" : r.status}

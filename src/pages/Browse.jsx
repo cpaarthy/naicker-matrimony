@@ -310,7 +310,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
                 <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={44} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="serif" style={{ fontWeight: 700, fontSize: 14.5 }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: colors.textMuted }}>{p.occupation || "—"} · {p.city}, {p.age} yrs</div>
+                  <div style={{ fontSize: 12, color: colors.textMuted }}>{p.occupation || "—"} · Location hidden · {p.age} yrs</div>
                 </div>
               </div>
             ))}
@@ -352,7 +352,7 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
                     <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.age} yrs</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · {p.city}</div>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · Location hidden</div>
                 <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 2 }}>
                   {p.religion} · {p.caste}{p.sub_caste ? ` (${p.sub_caste})` : ""} · {p.mother_tongue}
                 </div>
