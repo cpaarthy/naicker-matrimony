@@ -1,6 +1,6 @@
--- V6 Address Privacy
--- Members can see another member's full address only after an accepted interest request.
--- Phone remains private as before. Admin access is unchanged.
+-- V6 Address Privacy hardening
+-- Members must NOT receive address/location fields from browse/profile APIs
+-- until an accepted interest exists. Phone remains private.
 
 create or replace function public.member_fetch_approved_profiles()
 returns setof jsonb
@@ -9,14 +9,22 @@ security definer
 set search_path = public
 as $$
   select
-    (to_jsonb(p)
+    (
+      to_jsonb(p)
       - 'phone'
       - 'security_answer'
       - 'address'
-      - 'village')
+      - 'village'
+      - 'district'
+      - 'city'
+      - 'state'
+    )
     || jsonb_build_object(
       'address', null,
-      'village', null
+      'village', null,
+      'district', null,
+      'city', null,
+      'state', null
     )
   from public.profiles p
   where p.status = 'approved'
@@ -41,8 +49,9 @@ begin
     return null;
   end if;
 
-  select to_jsonb(p) - 'phone' - 'security_answer'
-    into v_profile
+  select
+    to_jsonb(p) - 'phone' - 'security_answer'
+  into v_profile
   from public.profiles p
   where p.id = p_profile_id
     and p.status = 'approved'
@@ -52,8 +61,6 @@ begin
     return null;
   end if;
 
-  -- A member may always see their own address. For another member,
-  -- both sides get access only after the interest request is accepted.
   if v_user = p_profile_id then
     v_unlocked := true;
   else
@@ -68,7 +75,13 @@ begin
 
   if not v_unlocked then
     v_profile := v_profile
-      || jsonb_build_object('address', null, 'village', null);
+      || jsonb_build_object(
+        'address', null,
+        'village', null,
+        'district', null,
+        'city', null,
+        'state', null
+      );
   end if;
 
   return v_profile;

@@ -2,7 +2,16 @@ import { supabase } from "../supabaseClient";
 
 // Never request phone from member-facing profile queries.
 // Admin passes the PIN to a SECURITY DEFINER RPC; member-facing calls return public profile fields only.
-const PUBLIC_PROFILE_COLUMNS = `id, profile_for, name, gender, age, height, religion, caste, sub_caste, education, occupation, income, address, district, city, state, mother_tongue, about, photo_url, status, created_at, father_occupation, mother_occupation, siblings, family_type, star, rasi, birth_time, birth_place, complexion, body_type, blood_group, diet, smoking, drinking, pref_age_min, pref_age_max, pref_education, pref_occupation, admin_deactivated, last_active_at, is_verified`;
+const HIDDEN_MEMBER_LOCATION_FIELDS = ["address", "village", "district", "city", "state"];
+
+function maskMemberLocation(profile) {
+  if (!profile || typeof profile !== "object") return profile;
+  const copy = { ...profile };
+  HIDDEN_MEMBER_LOCATION_FIELDS.forEach((field) => { copy[field] = null; });
+  return copy;
+}
+
+const PUBLIC_PROFILE_COLUMNS = `id, profile_for, name, gender, age, height, religion, caste, sub_caste, education, occupation, income, mother_tongue, about, photo_url, status, created_at, father_occupation, mother_occupation, siblings, family_type, star, rasi, birth_time, birth_place, complexion, body_type, blood_group, diet, smoking, drinking, pref_age_min, pref_age_max, pref_education, pref_occupation, admin_deactivated, last_active_at, is_verified`;
 
 export async function fetchApprovedProfiles() {
   // Address is masked by the database RPC until the viewer has an accepted
@@ -14,13 +23,11 @@ export async function fetchApprovedProfiles() {
 // Admin-only profile fetch. The database RPC validates the admin PIN and joins
 // the private phone/security fields only for the admin response.
 export async function fetchAllProfiles(adminPin = null) {
+  // Never fall back to a raw member-facing profiles query: it could expose
+  // private location fields if RLS/schema changes. Admin must use the
+  // SECURITY DEFINER RPC with the validated admin credential.
   if (!adminPin) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(PUBLIC_PROFILE_COLUMNS)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false });
-    return { data: data || [], error };
+    return { data: [], error: { message: "Admin authorization required" } };
   }
   const { data, error } = await supabase.rpc("admin_fetch_all_profiles", { p_pin: adminPin });
   return { data: Array.isArray(data) ? data : [], error };
