@@ -63,19 +63,42 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const [allProfilesStatusFilter, setAllProfilesStatusFilter] = useState("all");
   const [detailProfile, setDetailProfile] = useState(null);
   const [backingUp, setBackingUp] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [{ data: profs }, { data: reqs }, { data: msgs }, { data: reps }, { data: vers }] = await Promise.all([
-      fetchAllProfiles(pin), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(), fetchAllVerifications(),
-    ]);
-    setProfiles(profs);
-    setRequests(reqs);
-    setMessages(msgs);
-    setReports(reps);
-    setVerifications(vers || []);
-    setLoading(false);
-  }, []);
+    setLoadError("");
+    try {
+      const results = await Promise.all([
+        fetchAllProfiles(pin),
+        fetchAllRequests(),
+        fetchContactMessages(),
+        fetchProfileReports(),
+        fetchAllVerifications(),
+      ]);
+      const [profileResult, requestResult, messageResult, reportResult, verificationResult] = results;
+
+      if (profileResult?.error) {
+        throw new Error(profileResult.error.message || profileResult.error);
+      }
+
+      setProfiles(Array.isArray(profileResult?.data) ? profileResult.data : []);
+      setRequests(Array.isArray(requestResult?.data) ? requestResult.data : []);
+      setMessages(Array.isArray(messageResult?.data) ? messageResult.data : []);
+      setReports(Array.isArray(reportResult?.data) ? reportResult.data : []);
+      setVerifications(Array.isArray(verificationResult?.data) ? verificationResult.data : []);
+    } catch (err) {
+      console.error("Admin dashboard load failed:", err);
+      setProfiles([]);
+      setRequests([]);
+      setMessages([]);
+      setReports([]);
+      setVerifications([]);
+      setLoadError(err?.message || "Could not load admin data. Please check the V5 Supabase migration.");
+    } finally {
+      setLoading(false);
+    }
+  }, [pin]);
 
   React.useEffect(() => { if (unlocked) loadAll(); }, [unlocked, loadAll]);
 
@@ -239,6 +262,17 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 20, textAlign: "center" }}>
+        <ShieldCheck size={30} color={colors.rejectedText} style={{ marginBottom: 10 }} />
+        <h3 style={{ fontSize: 16, marginBottom: 8 }}>Admin data could not be loaded</h3>
+        <div style={{ color: colors.rejectedText, fontSize: 12.5, marginBottom: 14 }}>{loadError}</div>
+        <button onClick={loadAll} style={{ background: colors.primary, color: colors.primaryText, border: 0, borderRadius: 8, padding: "9px 18px", fontWeight: 700 }}>Retry</button>
+      </div>
+    );
+  }
 
   if (editingProfile) {
     return (
@@ -1790,7 +1824,12 @@ function Section({ title, colors, children }) {
   return (
     <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>{title}</div>
-      function AdminEditProfile({ profile, adminPin, colors, onCancel, onSaved, showToast }) {
+      {children}
+    </div>
+  );
+}
+
+function AdminEditProfile({ profile, adminPin, colors, onCancel, onSaved, showToast }) {
   const [form, setForm] = React.useState({ ...profile });
   const [loading, setLoading] = React.useState(false);
   const [options, setOptions] = React.useState({
