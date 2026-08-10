@@ -30,10 +30,13 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async () => {
     if (!userId) { setProfile(null); setProfileLoading(false); return; }
     setProfileLoading(true);
-    const [{ data: publicProfile }, { data: privateProfile }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+    const [{ data: publicProfile, error: publicError }, { data: privateProfile }] = await Promise.all([
+      supabase.rpc("member_fetch_profile", { p_profile_id: userId }),
       supabase.from("profile_private").select("phone,security_answer").eq("user_id", userId).maybeSingle(),
     ]);
+    if (publicError) {
+      console.error("Own profile load error:", publicError);
+    }
     const data = publicProfile ? { ...publicProfile, ...(privateProfile || {}) } : null;
     setProfile(data || null);
     setProfileLoading(false);

@@ -580,6 +580,7 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
         <AnalyticsTab
           colors={colors}
           showToast={showToast}
+          adminPin={adminPin}
         />
       )}
 
@@ -675,7 +676,7 @@ function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
   );
 }
 
-function AnalyticsTab({ colors, showToast }) {
+function AnalyticsTab({ colors, showToast, adminPin }) {
   const [loading, setLoading] = useState(false);
   const [currentReport, setCurrentReport] = useState("profile_completion");
   const [reportData, setReportData] = useState(null);
@@ -706,28 +707,28 @@ function AnalyticsTab({ colors, showToast }) {
       let result;
       switch (currentReport) {
         case "profile_completion":
-          result = await fetchProfileCompletionReport();
+          result = await fetchProfileCompletionReport(adminPin);
           break;
         case "photo_stats":
-          result = await fetchPhotoStatistics();
+          result = await fetchPhotoStatistics(adminPin);
           break;
         case "district_analysis":
-          result = await fetchDistrictAnalysis();
+          result = await fetchDistrictAnalysis(adminPin);
           break;
         case "age_distribution":
-          result = await fetchAgeDistribution();
+          result = await fetchAgeDistribution(adminPin);
           break;
         case "response_rate":
-          result = await fetchResponseRateAnalysis();
+          result = await fetchResponseRateAnalysis(adminPin);
           break;
         case "most_viewed":
-          result = await fetchMostViewedProfiles(20);
+          result = await fetchMostViewedProfiles(20, adminPin);
           break;
         case "occupation_analysis":
-          result = await fetchOccupationAnalysis();
+          result = await fetchOccupationAnalysis(adminPin);
           break;
         case "education_analysis":
-          result = await fetchEducationAnalysis();
+          result = await fetchEducationAnalysis(adminPin);
           break;
         default:
           result = { data: null, error: null };

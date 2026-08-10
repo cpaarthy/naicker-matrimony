@@ -52,7 +52,7 @@ export async function fetchOwnPrivateProfile() {
 
 export async function upsertProfile(record) {
   const { phone, security_answer, ...publicRecord } = record || {};
-  const { data, error } = await supabase.from("profiles").upsert(publicRecord).select().single();
+  const { error } = await supabase.from("profiles").upsert(publicRecord);
   if (error) return { data: null, error };
   if (phone !== undefined || security_answer !== undefined) {
     const privatePayload = {
@@ -66,7 +66,7 @@ export async function upsertProfile(record) {
       .upsert(privatePayload, { onConflict: "user_id" });
     if (privateError) return { data: null, error: privateError };
   }
-  return { data, error: null };
+  return { data: publicRecord, error: null };
 }
 
 export async function updateProfileByAdmin(id, record, adminPin) {
@@ -452,11 +452,21 @@ export async function updateLastActive(userId) {
 }
 
 // ============ ADMIN ANALYTICS REPORTS ============
+// All analytics that need profile rows use the admin RPC so raw member
+// profile data is never exposed through the public profiles table.
+async function fetchAdminProfilesForAnalytics(adminPin) {
+  if (!adminPin) {
+    return { data: [], error: { message: "Admin authorization required" } };
+  }
+  const { data, error } = await supabase.rpc("admin_fetch_all_profiles", { p_pin: adminPin });
+  return { data: Array.isArray(data) ? data : [], error };
+}
+
 
 // Profile completion report - how many profiles have complete data
-export async function fetchProfileCompletionReport() {
+export async function fetchProfileCompletionReport(adminPin = null) {
   try {
-    const { data, error } = await supabase.from("profiles").select("*");
+    const { data, error } = await fetchAdminProfilesForAnalytics(adminPin);
     if (error) return { data: [], error };
 
     const report = data.map(p => {
@@ -488,9 +498,9 @@ export async function fetchProfileCompletionReport() {
 }
 
 // Photo statistics
-export async function fetchPhotoStatistics() {
+export async function fetchPhotoStatistics(adminPin = null) {
   try {
-    const { data, error } = await supabase.from("profiles").select("id, name, photo_url, status, gender, created_at");
+    const { data, error } = await fetchAdminProfilesForAnalytics(adminPin);
     if (error) {
       console.error("Photo statistics error:", error);
       return { data: null, error: error.message };
@@ -530,8 +540,8 @@ export async function fetchPhotoStatistics() {
 }
 
 // District-wise analysis
-export async function fetchDistrictAnalysis() {
-  const { data, error } = await supabase.from("profiles").select("district, city, status, gender");
+export async function fetchDistrictAnalysis(adminPin = null) {
+  const { data, error } = await fetchAdminProfilesForAnalytics(adminPin);
   if (error) return { data: [], error };
 
   const districtData = {};
@@ -555,8 +565,8 @@ export async function fetchDistrictAnalysis() {
 }
 
 // Age distribution
-export async function fetchAgeDistribution() {
-  const { data, error } = await supabase.from("profiles").select("age, gender, status");
+export async function fetchAgeDistribution(adminPin = null) {
+  const { data, error } = await fetchAdminProfilesForAnalytics(adminPin);
   if (error) return { data: [], error };
 
   const ageGroups = {
@@ -590,7 +600,7 @@ export async function fetchAgeDistribution() {
 }
 
 // Response rate analysis
-export async function fetchResponseRateAnalysis() {
+export async function fetchResponseRateAnalysis(adminPin = null) {
   try {
     const { data: requests, error } = await supabase.from("requests").select("*");
     if (error) {
@@ -636,7 +646,7 @@ export async function fetchResponseRateAnalysis() {
 }
 
 // Most viewed profiles
-export async function fetchMostViewedProfiles(limit = 20) {
+export async function fetchMostViewedProfiles(limit = 20, adminPin = null) {
   try {
     const { data, error } = await supabase
       .from("recently_viewed")
@@ -672,7 +682,9 @@ export async function fetchMostViewedProfiles(limit = 20) {
 
     // Fetch profile details for the most viewed
     const profileIds = report.map(r => r.profile_id);
-    const { data: profiles } = await supabase.from("profiles").select("id, name, age, gender, city, photo_url, status").in("id", profileIds);
+    const { data: allProfiles, error: profileError } = await fetchAdminProfilesForAnalytics(adminPin);
+    if (profileError) return { data: [], error: profileError };
+    const profiles = (allProfiles || []).filter(p => profileIds.includes(p.id));
 
     const enrichedReport = report.map(r => {
       const profile = profiles.find(p => p.id === r.profile_id);
@@ -687,8 +699,8 @@ export async function fetchMostViewedProfiles(limit = 20) {
 }
 
 // Occupation-wise success analysis
-export async function fetchOccupationAnalysis() {
-  const { data: profiles, error } = await supabase.from("profiles").select("id, occupation, status, gender");
+export async function fetchOccupationAnalysis(adminPin = null) {
+  const { data: profiles, error } = await fetchAdminProfilesForAnalytics(adminPin);
   if (error) return { data: [], error };
 
   const { data: requests } = await supabase.from("requests").select("*");
@@ -729,8 +741,8 @@ export async function fetchOccupationAnalysis() {
 }
 
 // Education-wise breakdown
-export async function fetchEducationAnalysis() {
-  const { data: profiles, error } = await supabase.from("profiles").select("id, education, status, gender");
+export async function fetchEducationAnalysis(adminPin = null) {
+  const { data: profiles, error } = await fetchAdminProfilesForAnalytics(adminPin);
   if (error) return { data: [], error };
 
   const educationData = {};
@@ -778,9 +790,8 @@ export async function fetchFullBackup(adminPin = null) {
       backup.tables.profiles = data || [];
     }
   } else {
-    const { data, error } = await supabase.from("profiles").select(PUBLIC_PROFILE_COLUMNS);
-    if (error) { backup.errors.push({ table: "profiles", message: error.message }); backup.tables.profiles = []; }
-    else backup.tables.profiles = data || [];
+    backup.errors.push({ table: "profiles", message: "Admin authorization required to back up profiles" });
+    backup.tables.profiles = [];
   }
   for (const table of BACKUP_TABLES.filter(t => t !== "profiles")) {
     const { data, error } = await supabase.from(table).select("*");
