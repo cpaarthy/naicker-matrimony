@@ -6,6 +6,8 @@ import { TextField, SelectField, MasterListSelect, PrimaryButton, Avatar } from 
 import TermsModal from "../components/TermsModal";
 import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/queries";
 
+const REGISTRATION_DRAFT_KEY = "naicker_registration_draft";
+
 const emptyForm = {
   profile_for: "Self",
   name: "", gender: "Male", age: "", caste: "Naicker", sub_caste: "Malava",
@@ -92,6 +94,11 @@ export default function Register({ onNavigate, showToast }) {
   function goToAccountStep() {
     if (!validateProfileForm()) return;
     if (!agreedToTerms) { showToast("Please accept the Terms & Conditions to continue"); return; }
+    // Keep the first-step details locally so Complete Profile can pre-fill them
+    // immediately after account creation, even if the auth/profile request is delayed.
+    try {
+      localStorage.setItem(REGISTRATION_DRAFT_KEY, JSON.stringify({ ...form, age: String(form.age ?? ""), phone: form.phone || phone || "" }));
+    } catch (_) {}
     setStage("account");
   }
 
@@ -148,8 +155,9 @@ export default function Register({ onNavigate, showToast }) {
       const saved = await saveProfileAfterAuth(newUserId);
       if (!saved) return;
     }
-    showToast("Account created and profile submitted!");
-    onNavigate("dashboard");
+    try { localStorage.removeItem(REGISTRATION_DRAFT_KEY); } catch (_) {}
+    showToast("Account created. Please complete your profile.");
+    onNavigate("editProfile");
   }
 
   async function handlePhoneSignup() {
@@ -170,8 +178,9 @@ export default function Register({ onNavigate, showToast }) {
       const saved = await saveProfileAfterAuth(newUserId);
       if (!saved) return;
     }
-    showToast("Account created and profile submitted!");
-    onNavigate("dashboard");
+    try { localStorage.removeItem(REGISTRATION_DRAFT_KEY); } catch (_) {}
+    showToast("Account created. Please complete your profile.");
+    onNavigate("editProfile");
   }
 
   if (stage === "profile") {

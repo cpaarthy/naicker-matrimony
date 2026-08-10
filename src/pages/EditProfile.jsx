@@ -5,6 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { TextField, SelectField, MasterListSelect, PrimaryButton, Avatar } from "../components/ui";
 import { upsertProfile, uploadProfilePhoto, fetchMasterList } from "../data/queries";
 
+const REGISTRATION_DRAFT_KEY = "naicker_registration_draft";
+
 const emptyForm = {
   profile_for: "Self",
   name: "", gender: "Male", age: "", height: "", religion: "", caste: "",
@@ -102,28 +104,44 @@ export default function EditProfile({ onNavigate, showToast }) {
 
   React.useEffect(() => {
     if (profile) {
+      let draft = {};
+      try {
+        const raw = localStorage.getItem(REGISTRATION_DRAFT_KEY);
+        if (raw) draft = JSON.parse(raw) || {};
+      } catch (_) {}
+      const source = { ...draft, ...profile };
       setForm({
-        profile_for: profile.profile_for || "Self",
-        name: profile.name || "", gender: profile.gender || "Male", age: String(profile.age || ""),
-        height: profile.height || "", religion: profile.religion || "", caste: profile.caste || "",
-        sub_caste: profile.sub_caste || "",
-        education: profile.education || "", occupation: profile.occupation || "", income: profile.income || "",
-        address: profile.address || "", village: profile.village || "", district: profile.district || "",
-        city: profile.city || "", state: profile.state || "Tamil Nadu", mother_tongue: profile.mother_tongue || "",
-        about: profile.about || "", phone: profile.phone || "", photo_url: profile.photo_url || "",
-        father_occupation: profile.father_occupation || "", mother_occupation: profile.mother_occupation || "",
-        siblings: profile.siblings || "", family_type: profile.family_type || "Nuclear",
-        star: profile.star || "", rasi: profile.rasi || "", birth_time: profile.birth_time || "", birth_place: profile.birth_place || "",
-        complexion: profile.complexion || "", body_type: profile.body_type || "", blood_group: profile.blood_group || "",
-        diet: profile.diet || "Vegetarian", smoking: profile.smoking || "No", drinking: profile.drinking || "No",
-        pref_age_min: String(profile.pref_age_min || ""), pref_age_max: String(profile.pref_age_max || ""),
-        pref_education: profile.pref_education || "", pref_occupation: profile.pref_occupation || "",
-        security_answer: profile.security_answer || "",
+        profile_for: source.profile_for || "Self",
+        name: source.name || "", gender: source.gender || "Male", age: String(source.age || ""),
+        height: source.height || "", religion: source.religion || "", caste: source.caste || "",
+        sub_caste: source.sub_caste || "",
+        education: source.education || "", occupation: source.occupation || "", income: source.income || "",
+        address: source.address || "", village: source.village || "", district: source.district || "",
+        city: source.city || "", state: source.state || "Tamil Nadu", mother_tongue: source.mother_tongue || "",
+        about: source.about || "", phone: source.phone || "", photo_url: source.photo_url || "",
+        father_occupation: source.father_occupation || "", mother_occupation: source.mother_occupation || "",
+        siblings: source.siblings || "", family_type: source.family_type || "Nuclear",
+        star: source.star || "", rasi: source.rasi || "", birth_time: source.birth_time || "", birth_place: source.birth_place || "",
+        complexion: source.complexion || "", body_type: source.body_type || "", blood_group: source.blood_group || "",
+        diet: source.diet || "Vegetarian", smoking: source.smoking || "No", drinking: source.drinking || "No",
+        pref_age_min: String(source.pref_age_min || ""), pref_age_max: String(source.pref_age_max || ""),
+        pref_education: source.pref_education || "", pref_occupation: source.pref_occupation || "",
+        security_answer: source.security_answer || "",
       });
     }
   }, [profile]);
 
-  async function handlePhotoChange(e) {
+  async function handlePhotoChange(e
+
+  React.useEffect(() => {
+    if (profile) return;
+    try {
+      const raw = localStorage.getItem(REGISTRATION_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) || {};
+      setForm(f => ({ ...f, ...draft, age: String(draft.age ?? f.age ?? ""), phone: draft.phone || f.phone || "" }));
+    } catch (_) {}
+  }, [profile]);) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 50 * 1024) { showToast("Photo must be under 50KB / புகைப்படம் 50KB-க்குள் இருக்க வேண்டும்"); return; }
