@@ -1,11 +1,119 @@
 import React from "react";
 import { Crown, Check, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
-import { PrimaryButton } from "../components/ui";
 
-const plans = [
-  { name: "Free", price: "₹0", features: ["Create profile", "Browse approved profiles", "Send interests", "Favourites & recently viewed"] },
-  { name: "Gold", price: "₹999", features: ["Everything in Free", "Priority profile visibility", "Advanced matching insights", "More profile communication"] },
-  { name: "Premium", price: "₹1,999", features: ["Everything in Gold", "Verified badge review", "Priority support", "Premium profile highlight"] },
-];
-export default function Plans({ onNavigate, showToast }) { const { colors } = useTheme(); return <div><h2 className="serif" style={{ fontSize: 20 }}>Membership Plans / உறுப்பினர் திட்டங்கள்</h2><p style={{ fontSize: 12.5, color: colors.textMuted }}>Optional premium services for members who want more visibility and support.</p>{plans.map((p,i)=><div key={p.name} style={{ background: colors.card, border: `1px solid ${i === 2 ? colors.primary : colors.cardBorder}`, borderRadius: 15, padding: 16, marginBottom: 11 }}><div style={{ display: "flex", alignItems: "center", gap: 9 }}><Crown size={19} color={colors.primary} /><div style={{ flex: 1 }}><div className="serif" style={{ fontWeight: 800, fontSize: 17 }}>{p.name}</div><div style={{ color: colors.primary, fontWeight: 900 }}>{p.price}<span style={{ fontSize: 10, color: colors.textFaint }}> / plan</span></div></div>{i === 2 && <span style={{ fontSize: 9.5, fontWeight: 800, padding: "4px 7px", borderRadius: 999, background: colors.approvedBg, color: colors.approvedText }}>POPULAR</span>}</div><div style={{ marginTop: 11 }}>{p.features.map(f=><div key={f} style={{ fontSize: 12, margin: "7px 0", display: "flex", gap: 7 }}><Check size={14} color={colors.approvedText} />{f}</div>)}</div><button onClick={() => { showToast?.("Membership purchase can be connected to Razorpay/UPI by the admin"); onNavigate("contact"); }} style={{ width: "100%", marginTop: 8, border: 0, borderRadius: 9, padding: 11, background: i === 0 ? colors.pendingBg : colors.primary, color: i === 0 ? colors.pendingText : colors.primaryText, fontWeight: 800 }}>{i === 0 ? "Current free plan" : "Enquire / Upgrade"}</button></div>)}<div style={{ background: colors.pendingBg, padding: 12, borderRadius: 12, fontSize: 11.5, color: colors.pendingText }}><ShieldCheck size={13} style={{ verticalAlign: "middle", marginRight: 4 }} /> Payment gateway is intentionally not hard-coded; connect your preferred Razorpay/UPI business account before collecting money.</div></div>; }
+const freePlan = {
+  name: "Free",
+  price: "₹0",
+  features: [
+    "Create profile",
+    "Browse approved profiles",
+    "Send and receive interests",
+    "Accept or decline interests",
+    "Shortlist / Favourites",
+    "Recently viewed profiles",
+    "Advanced profile search",
+    "Notifications",
+    "Block and report profiles",
+    "Porutham / compatibility details",
+  ],
+};
+
+export default function Plans() {
+  const { colors } = useTheme();
+
+  return (
+    <div>
+      <h2 className="serif" style={{ fontSize: 20 }}>
+        Membership Plan / உறுப்பினர் திட்டம்
+      </h2>
+      <p style={{ fontSize: 12.5, color: colors.textMuted, lineHeight: 1.6 }}>
+        Naicker Matrimony is currently completely free for all registered members.
+        There are no paid, Gold, Premium or upgrade plans at present.
+      </p>
+
+      <div
+        style={{
+          background: colors.card,
+          border: `1px solid ${colors.primary}`,
+          borderRadius: 15,
+          padding: 16,
+          marginBottom: 11,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <Crown size={19} color={colors.primary} />
+          <div style={{ flex: 1 }}>
+            <div className="serif" style={{ fontWeight: 800, fontSize: 17 }}>
+              {freePlan.name}
+            </div>
+            <div style={{ color: colors.primary, fontWeight: 900, fontSize: 20 }}>
+              {freePlan.price}
+              <span style={{ fontSize: 10, color: colors.textFaint }}> / forever</span>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: 9.5,
+              fontWeight: 800,
+              padding: "4px 7px",
+              borderRadius: 999,
+              background: colors.approvedBg,
+              color: colors.approvedText,
+            }}
+          >
+            CURRENT PLAN
+          </span>
+        </div>
+
+        <div style={{ marginTop: 11 }}>
+          {freePlan.features.map((feature) => (
+            <div
+              key={feature}
+              style={{
+                fontSize: 12,
+                margin: "7px 0",
+                display: "flex",
+                gap: 7,
+                alignItems: "center",
+              }}
+            >
+              <Check size={14} color={colors.approvedText} />
+              {feature}
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            width: "100%",
+            marginTop: 12,
+            borderRadius: 9,
+            padding: 11,
+            background: colors.pendingBg,
+            color: colors.pendingText,
+            fontWeight: 800,
+            textAlign: "center",
+            boxSizing: "border-box",
+          }}
+        >
+          Free for everyone
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: colors.pendingBg,
+          padding: 12,
+          borderRadius: 12,
+          fontSize: 11.5,
+          color: colors.pendingText,
+          lineHeight: 1.5,
+        }}
+      >
+        <ShieldCheck size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+        No payment is required. No paid membership plans are currently offered.
+      </div>
+    </div>
+  );
+}
