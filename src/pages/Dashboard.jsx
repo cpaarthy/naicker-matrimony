@@ -31,11 +31,11 @@ function computeMatchAnalytics(myProfile, candidates) {
       return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
     }
 
-    // The exact same candidate pool used by Browse:
-    // approved opposite-gender profiles, excluding the logged-in profile
-    // and profiles that do not satisfy the partner preferences.
+    // Same broad discovery pool used by Browse: approved opposite-gender
+    // profiles, excluding the logged-in profile. Partner preferences are
+    // used for recommendations, not for hiding discovery categories.
     const matching = candidates.filter(
-      p => isOppositeGender(myProfile, p) && matchesPartnerPreference(myProfile, p)
+      p => isOppositeGender(myProfile, p)
     );
 
     let high = 0, medium = 0;

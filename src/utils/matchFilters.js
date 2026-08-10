@@ -63,8 +63,12 @@ export function isNearby(myProfile, candidate) {
 // matchFilter is the exact filter used by the dashboard cards.
 export function matchesAnalyticsFilter(matchFilter, myProfile, candidate, scorePercentage) {
   if (!matchFilter) return true;
-  if (!matchesPartnerPreference(myProfile, candidate)) return false;
 
+  // Category tabs (High/Medium/Low/New/Active/Verified/Nearby) are
+  // discovery views, not strict partner-preference filters. Applying
+  // partner preferences here was causing profiles to disappear from
+  // categories and made the tabs appear empty. Partner preferences are
+  // still used by the dedicated recommended-matches view.
   switch (matchFilter) {
     case "all":
       return true;
