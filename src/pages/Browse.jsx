@@ -24,12 +24,23 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
   const [cityFilter, setCityFilter] = useState("");
   const [districtFilter, setDistrictFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("");
+  const [educationFilter, setEducationFilter] = useState("");
+  const [occupationFilter, setOccupationFilter] = useState("");
+  const [incomeFilter, setIncomeFilter] = useState("");
+  const [starFilter, setStarFilter] = useState("");
+  const [rasiFilter, setRasiFilter] = useState("");
+  const [dietFilter, setDietFilter] = useState("");
+  const [smokingFilter, setSmokingFilter] = useState("");
+  const [drinkingFilter, setDrinkingFilter] = useState("");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [blockedIds, setBlockedIds] = useState(new Set());
 
   const [subCasteOptions, setSubCasteOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [stateOptions, setStateOptions] = useState([]);
+  const [starOptions, setStarOptions] = useState([]);
+  const [rasiOptions, setRasiOptions] = useState([]);
 
   React.useEffect(() => {
     if (!session) { setLoading(false); return; }
@@ -38,6 +49,8 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     fetchMasterList("city").then(({ data }) => setCityOptions(data.map(d => d.value)));
     fetchMasterList("district").then(({ data }) => setDistrictOptions(data.map(d => d.value)));
     fetchMasterList("state").then(({ data }) => setStateOptions(data.map(d => d.value)));
+    fetchMasterList("star").then(({ data }) => setStarOptions(data.map(d => d.value)));
+    fetchMasterList("rasi").then(({ data }) => setRasiOptions(data.map(d => d.value)));
     if (session.user?.id) {
       fetchBlockedProfiles(session.user.id).then(({ data }) => setBlockedIds(new Set(data.map(b => b.blocked_id))));
     }
@@ -63,11 +76,20 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
       if (cityFilter && p.city !== cityFilter) return false;
       if (districtFilter && p.district !== districtFilter) return false;
       if (stateFilter && p.state !== stateFilter) return false;
+      if (educationFilter && !String(p.education || "").toLowerCase().includes(educationFilter.toLowerCase())) return false;
+      if (occupationFilter && !String(p.occupation || "").toLowerCase().includes(occupationFilter.toLowerCase())) return false;
+      if (incomeFilter && !String(p.income || "").toLowerCase().includes(incomeFilter.toLowerCase())) return false;
+      if (starFilter && p.star !== starFilter) return false;
+      if (rasiFilter && p.rasi !== rasiFilter) return false;
+      if (dietFilter && p.diet !== dietFilter) return false;
+      if (smokingFilter && p.smoking !== smokingFilter) return false;
+      if (drinkingFilter && p.drinking !== drinkingFilter) return false;
+      if (verifiedOnly && !p.is_verified) return false;
       return true;
     });
-  }, [profiles, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, matchFilter, profile]);
+  }, [profiles, blockedIds, search, ageMin, ageMax, subCasteFilter, cityFilter, districtFilter, stateFilter, educationFilter, occupationFilter, incomeFilter, starFilter, rasiFilter, dietFilter, smokingFilter, drinkingFilter, verifiedOnly, matchFilter, profile]);
 
-  const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter);
+  const hasActiveFilters = !!(search || ageMin || ageMax || subCasteFilter || cityFilter || districtFilter || stateFilter || educationFilter || occupationFilter || incomeFilter || starFilter || rasiFilter || dietFilter || smokingFilter || drinkingFilter || verifiedOnly);
 
   const recommended = useMemo(() => {
     if (hasActiveFilters || !profile || matchFilter) return [];
@@ -229,10 +251,27 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
             <DropdownFilter value={subCasteFilter} onChange={setSubCasteFilter} options={subCasteOptions} placeholder="Sub caste / உட்பிரிவு" />
             <DropdownFilter value={stateFilter} onChange={setStateFilter} options={stateOptions} placeholder="State / மாநிலம்" />
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <DropdownFilter value={districtFilter} onChange={setDistrictFilter} options={districtOptions} placeholder="District / மாவட்டம்" />
             <DropdownFilter value={cityFilter} onChange={setCityFilter} options={cityOptions} placeholder="City / ஊர்" />
           </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <input value={educationFilter} onChange={e => setEducationFilter(e.target.value)} placeholder="Education / கல்வி" style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`, background: colors.inputBg, color: colors.text, fontSize: 13 }} />
+            <input value={occupationFilter} onChange={e => setOccupationFilter(e.target.value)} placeholder="Occupation / வேலை" style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`, background: colors.inputBg, color: colors.text, fontSize: 13 }} />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <input value={incomeFilter} onChange={e => setIncomeFilter(e.target.value)} placeholder="Income / வருமானம்" style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${colors.inputBorder}`, background: colors.inputBg, color: colors.text, fontSize: 13 }} />
+            <DropdownFilter value={starFilter} onChange={setStarFilter} options={starOptions} placeholder="Star / நட்சத்திரம்" />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <DropdownFilter value={rasiFilter} onChange={setRasiFilter} options={rasiOptions} placeholder="Rasi / ராசி" />
+            <DropdownFilter value={dietFilter} onChange={setDietFilter} options={["Vegetarian", "Non-Vegetarian", "Eggetarian"]} placeholder="Diet / உணவு" />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <DropdownFilter value={smokingFilter} onChange={setSmokingFilter} options={["No", "Occasionally", "Yes"]} placeholder="Smoking / புகை" />
+            <DropdownFilter value={drinkingFilter} onChange={setDrinkingFilter} options={["No", "Occasionally", "Yes"]} placeholder="Drinking / மது" />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 700, color: colors.text }}><input type="checkbox" checked={verifiedOnly} onChange={e => setVerifiedOnly(e.target.checked)} /> Verified profiles only / சரிபார்க்கப்பட்டவர்கள் மட்டும்</label>
         </div>
       )}
 

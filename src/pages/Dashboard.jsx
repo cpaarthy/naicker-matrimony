@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Heart, Mail, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin, BarChart3 } from "lucide-react";
+import { Heart, Mail, MessageCircle, ShieldCheck, Bell, Settings, Clock, Share2, HelpCircle, TrendingUp, Users, Sparkles, UserPlus, Activity, MapPin, BarChart3 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, Badge } from "../components/ui";
@@ -9,6 +9,7 @@ import ShareProfileModal from "../components/ShareProfileModal";
 import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles, fetchProfileViewsReceived } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 import {
+  matchesPartnerPreference,
   isOppositeGender,
   isNewMember,
   isRecentlyActive,
@@ -30,11 +31,12 @@ function computeMatchAnalytics(myProfile, candidates) {
       return { total: 0, high: 0, medium: 0, newMembers: 0, recentlyActive: 0, nearby: 0, districtChart: [], ageChart: [], scoreBuckets: [] };
     }
 
-    // Base candidate pool used by Browse: approved opposite-gender profiles.
-    // Do not hard-filter on every preference field here. A preference such as
-    // occupation is used by calculateMatchScore; requiring all preference
-    // fields to match exactly can incorrectly reduce the dashboard to zero.
-    const matching = candidates.filter(p => isOppositeGender(myProfile, p));
+    // The exact same candidate pool used by Browse:
+    // approved opposite-gender profiles, excluding the logged-in profile
+    // and profiles that do not satisfy the partner preferences.
+    const matching = candidates.filter(
+      p => isOppositeGender(myProfile, p) && matchesPartnerPreference(myProfile, p)
+    );
 
     let high = 0, medium = 0;
     const scored = [];
@@ -282,6 +284,7 @@ export default function Dashboard({ onNavigate, showToast }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         <DashCard icon={Heart} title="Interest Requests / ஆர்வ கோரிக்கைகள்" badge={pendingIncoming > 0 ? pendingIncoming : null} onClick={() => onNavigate("requests")} colors={colors} />
         <DashCard icon={Bell} title="Notifications / அறிவிப்புகள்" badge={unreadNotifications > 0 ? unreadNotifications : null} onClick={() => onNavigate("notifications")} colors={colors} />
+        <DashCard icon={MessageCircle} title="Messages / செய்திகள்" onClick={() => onNavigate("messages")} colors={colors} />
         <DashCard icon={ShieldCheck} title="Favourites / பிடித்தவை" onClick={() => onNavigate("favourites")} colors={colors} />
         <DashCard icon={Clock} title="Recently Viewed / சமீபத்தியவை" onClick={() => onNavigate("recentlyViewed")} colors={colors} />
         <DashCard icon={Mail} title="Contact Us / தொடர்பு கொள்ள" onClick={() => onNavigate("contact")} colors={colors} />

@@ -707,7 +707,7 @@ export async function fetchEducationAnalysis() {
 const BACKUP_TABLES = [
   "profiles", "requests", "favourites", "notifications", "blocked_profiles",
   "profile_reports", "recently_viewed", "activity_log", "master_lists",
-  "announcements", "contact_messages", "porutham_reviews",
+  "announcements", "contact_messages", "porutham_reviews", "messages", "saved_searches", "profile_verifications", "privacy_settings",
 ];
 
 export async function fetchFullBackup() {
@@ -726,4 +726,80 @@ export async function fetchFullBackup() {
     }
   }
   return backup;
+}
+
+// ================= PROFESSIONAL MATRIMONY FEATURES =================
+export async function fetchConversations(userId) {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id,sender_id,receiver_id,body,created_at,read_at")
+    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
+  if (error) return { data: [], error };
+  const map = new Map();
+  (data || []).forEach(m => {
+    const other_id = m.sender_id === userId ? m.receiver_id : m.sender_id;
+    if (!map.has(other_id)) map.set(other_id, { other_id, last_body: m.body, last_at: m.created_at, unread: m.receiver_id === userId && !m.read_at });
+  });
+  return { data: Array.from(map.values()), error: null };
+}
+
+export async function fetchMessages(userId, otherId) {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id,sender_id,receiver_id,body,created_at,read_at")
+    .or(`and(sender_id.eq.${userId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userId})`)
+    .order("created_at", { ascending: true });
+  return { data: data || [], error };
+}
+
+export async function sendMessage({ senderId, receiverId, body }) {
+  return await supabase.from("messages").insert({ sender_id: senderId, receiver_id: receiverId, body }).select().single();
+}
+
+export async function markMessagesRead(userId, otherId) {
+  return await supabase.from("messages").update({ read_at: new Date().toISOString() }).eq("receiver_id", userId).eq("sender_id", otherId).is("read_at", null);
+}
+
+export async function fetchSavedSearches(userId) {
+  return await supabase.from("saved_searches").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+}
+
+export async function createSavedSearch({ userId, name, filters }) {
+  return await supabase.from("saved_searches").insert({ user_id: userId, name, filters }).select().single();
+}
+
+export async function deleteSavedSearch(id, userId) {
+  return await supabase.from("saved_searches").delete().eq("id", id).eq("user_id", userId);
+}
+
+export async function fetchMyVerification(userId) {
+  const { data, error } = await supabase.from("profile_verifications").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return { data, error };
+}
+
+export async function submitVerificationRequest({ userId, type, note }) {
+  return await supabase.from("profile_verifications").upsert({ user_id: userId, type, note, status: "pending" }, { onConflict: "user_id,type" }).select().single();
+}
+
+export async function fetchPrivacySettings(userId) {
+  const { data, error } = await supabase.from("privacy_settings").select("*").eq("user_id", userId).maybeSingle();
+  if (!data) return { data: null, error };
+  return { data: { showPhoto: data.show_photo, showPhone: data.show_phone, showAddress: data.show_address, allowMessages: data.allow_messages, showLastActive: data.show_last_active }, error };
+}
+
+export async function savePrivacySettings(userId, settings) {
+  return await supabase.from("privacy_settings").upsert({ user_id: userId, show_photo: settings.showPhoto, show_phone: settings.showPhone, show_address: settings.showAddress, allow_messages: settings.allowMessages, show_last_active: settings.showLastActive, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+}
+
+export async function fetchAllVerifications() {
+  return await supabase.from("profile_verifications").select("*").order("created_at", { ascending: false });
+}
+
+export async function updateVerificationStatus(id, status, adminNote = "") {
+  const { data: row, error } = await supabase.from("profile_verifications").select("user_id").eq("id", id).single();
+  if (error) return { error };
+  const result = await supabase.from("profile_verifications").update({ status, admin_note: adminNote, reviewed_at: new Date().toISOString() }).eq("id", id);
+  if (!result.error) await supabase.from("profiles").update({ is_verified: status === "approved" }).eq("id", row.user_id);
+  return result;
 }

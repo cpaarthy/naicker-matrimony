@@ -34,12 +34,9 @@ export function matchesPartnerPreference(myProfile, candidate) {
 export function isOppositeGender(myProfile, candidate) {
   if (!myProfile || !candidate) return false;
   if (candidate.id === myProfile.id) return false;
-  const mine = String(myProfile.gender || "").trim().toLowerCase();
-  const theirs = String(candidate.gender || "").trim().toLowerCase();
-  if (mine === "male") return theirs === "female";
-  if (mine === "female") return theirs === "male";
-  // If gender is not set on the viewer, do not hide every profile.
-  return !!candidate.id;
+  if (myProfile.gender === "Male") return candidate.gender === "Female";
+  if (myProfile.gender === "Female") return candidate.gender === "Male";
+  return true;
 }
 
 export function isNewMember(candidate) {
@@ -65,13 +62,12 @@ export function isNearby(myProfile, candidate) {
 
 // matchFilter is the exact filter used by the dashboard cards.
 export function matchesAnalyticsFilter(matchFilter, myProfile, candidate, scorePercentage) {
-  if (!matchFilter || matchFilter === "all") return true;
+  if (!matchFilter) return true;
+  if (!matchesPartnerPreference(myProfile, candidate)) return false;
 
-  // Important: analytics categories must not require every preference field
-  // to match exactly. Preferences contribute to the compatibility score;
-  // otherwise a single preference (for example occupation) can make the
-  // entire Browse page empty.
   switch (matchFilter) {
+    case "all":
+      return true;
     case "high":
       return Number(scorePercentage) >= 90;
     case "medium":

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck, Star } from "lucide-react";
+import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck, Star, BadgeCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar, PrimaryButton } from "../components/ui";
@@ -98,7 +98,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
         <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} size={72} />
         <div style={{ flex: 1 }}>
-          <div className="serif" style={{ fontWeight: 700, fontSize: 20 }}>{profile.name}</div>
+          <div className="serif" style={{ fontWeight: 700, fontSize: 20, display: "flex", alignItems: "center", gap: 6 }}>{profile.name}{profile.is_verified && <BadgeCheck size={17} color={colors.approvedText} />}</div>
           <div style={{ fontSize: 13, color: colors.textFaint }}>{profile.age} yrs · {profile.height}</div>
           {profile.profile_for && profile.profile_for !== "Self" && (
             <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 2 }}>

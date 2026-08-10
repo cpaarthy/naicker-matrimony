@@ -1,4 +1,4 @@
-import { ArrowLeft, LogOut, Moon, Sun, Home as HomeIcon, Users, User, Mail } from "lucide-react";
+import { ArrowLeft, LogOut, Moon, Sun, Home as HomeIcon, Users, User, Mail, MoreHorizontal } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import AnnouncementBanner from "./AnnouncementBanner";
@@ -21,6 +21,7 @@ export default function Layout({ page, onNavigate, onBack, children }) {
     { key: "browse", label: "Browse", icon: Users },
     { key: "dashboard", label: session ? "Dashboard" : "Login", icon: User },
     { key: "contact", label: "Contact", icon: Mail },
+    { key: "more", label: "More", icon: MoreHorizontal },
   ];
 
   return (

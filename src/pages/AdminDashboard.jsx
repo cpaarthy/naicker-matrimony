@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
-  Phone, ShieldCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
+  Phone, ShieldCheck, BadgeCheck, Users, Heart, Mail, BarChart3, Trash2, Pencil, User, UserRound,
   ListChecks, Plus, X, Download, Power, History, CheckSquare, Square, Reply, Check, Flag, Megaphone, Star,
   Database as DatabaseIcon, Camera, MapPin, Eye, Briefcase, BookOpen,
 } from "lucide-react";
@@ -20,6 +20,7 @@ import {
   fetchProfileCompletionReport, fetchPhotoStatistics, fetchDistrictAnalysis,
   fetchAgeDistribution, fetchResponseRateAnalysis, fetchMostViewedProfiles,
   fetchOccupationAnalysis, fetchEducationAnalysis,
+  fetchAllVerifications, updateVerificationStatus,
 } from "../data/queries";
 import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
 import { BarChart, DonutChart } from "../components/AdminCharts";
@@ -36,6 +37,7 @@ const TABS = [
   { key: "requests", label: "Requests", icon: Heart },
   { key: "contact", label: "Messages", icon: Mail },
   { key: "reports", label: "Reports", icon: Flag },
+  { key: "verification", label: "Verification", icon: BadgeCheck },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "announce", label: "Announcement", icon: Megaphone },
   { key: "porutham", label: "Porutham Check", icon: Star },
@@ -54,6 +56,7 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
   const [requests, setRequests] = useState([]);
   const [messages, setMessages] = useState([]);
   const [reports, setReports] = useState([]);
+  const [verifications, setVerifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingProfile, setEditingProfile] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -64,13 +67,14 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [{ data: profs }, { data: reqs }, { data: msgs }, { data: reps }] = await Promise.all([
-      fetchAllProfiles(), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(),
+    const [{ data: profs }, { data: reqs }, { data: msgs }, { data: reps }, { data: vers }] = await Promise.all([
+      fetchAllProfiles(), fetchAllRequests(), fetchContactMessages(), fetchProfileReports(), fetchAllVerifications(),
     ]);
     setProfiles(profs);
     setRequests(reqs);
     setMessages(msgs);
     setReports(reps);
+    setVerifications(vers || []);
     setLoading(false);
   }, []);
 
@@ -549,6 +553,10 @@ export default function AdminDashboard({ onNavigate, setSelectedProfileId, showT
         />
       )}
 
+      {tab === "verification" && (
+        <VerificationTab verifications={verifications} profiles={profiles} colors={colors} showToast={showToast} onReload={loadAll} />
+      )}
+
       {tab === "reports" && (
         <ReportsTab
           reports={reports}
@@ -587,6 +595,30 @@ function StatCard({ label, value, colors, tone, icon: Icon }) {
       <div style={{ fontSize: 22, fontWeight: 800, color: tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text }}>{value}</div>
     </div>
   );
+}
+
+function VerificationTab({ verifications, profiles, colors, showToast, onReload }) {
+  const [saving, setSaving] = useState(null);
+  async function update(id, status) {
+    setSaving(id);
+    const { error } = await updateVerificationStatus(id, status);
+    setSaving(null);
+    if (error) { showToast("Could not update verification"); return; }
+    showToast(`Verification ${status}`);
+    onReload();
+  }
+  return <div>
+    <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>Profile Verification Requests</h3>
+    {verifications.length === 0 && <div style={{ padding: 30, textAlign: "center", color: colors.textFaint }}>No verification requests.</div>}
+    {verifications.map(v => {
+      const p = profiles.find(x => x.id === v.user_id);
+      return <div key={v.id} style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 13, padding: 13, marginBottom: 9 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar name={p?.name || "Member"} gender={p?.gender} photoUrl={p?.photo_url} size={46} /><div style={{ flex: 1 }}><div style={{ fontWeight: 800 }}>{p?.name || v.user_id}</div><div style={{ fontSize: 11, color: colors.textFaint }}>{v.type} · {new Date(v.created_at).toLocaleString()}</div></div><Badge tone={v.status === "approved" ? "approved" : v.status === "rejected" ? "rejected" : "pending"}>{v.status}</Badge></div>
+        {v.note && <div style={{ marginTop: 8, fontSize: 12, color: colors.textMuted }}>{v.note}</div>}
+        {v.status === "pending" && <div style={{ display: "flex", gap: 7, marginTop: 10 }}><button disabled={saving === v.id} onClick={() => update(v.id, "approved")} style={{ flex: 1, border: 0, borderRadius: 8, padding: 9, background: colors.approvedBg, color: colors.approvedText, fontWeight: 800 }}>Approve</button><button disabled={saving === v.id} onClick={() => update(v.id, "rejected")} style={{ flex: 1, border: 0, borderRadius: 8, padding: 9, background: colors.rejectedBg, color: colors.rejectedText, fontWeight: 800 }}>Reject</button></div>}
+      </div>;
+    })}
+  </div>;
 }
 
 function ReportsTab({ reports, profiles, colors, showToast, onReload }) {
