@@ -131,8 +131,6 @@ export default function EditProfile({ onNavigate, showToast }) {
     }
   }, [profile]);
 
-  async function handlePhotoChange(e
-
   React.useEffect(() => {
     if (profile) return;
     try {
@@ -141,7 +139,9 @@ export default function EditProfile({ onNavigate, showToast }) {
       const draft = JSON.parse(raw) || {};
       setForm(f => ({ ...f, ...draft, age: String(draft.age ?? f.age ?? ""), phone: draft.phone || f.phone || "" }));
     } catch (_) {}
-  }, [profile]);) {
+  }, [profile]);
+
+  async function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 50 * 1024) { showToast("Photo must be under 50KB / புகைப்படம் 50KB-க்குள் இருக்க வேண்டும்"); return; }
@@ -176,7 +176,7 @@ export default function EditProfile({ onNavigate, showToast }) {
     const keepApproved = profile?.status === "approved";
     const record = {
       ...form, id: userId, status: keepApproved ? "approved" : "pending",
-      age: Number(form.age),
+      age: Number(normalizedAge),
       pref_age_min: form.pref_age_min ? Number(form.pref_age_min) : null,
       pref_age_max: form.pref_age_max ? Number(form.pref_age_max) : null,
     };
