@@ -1,129 +1,69 @@
-// Calculates a rule-based "match score" between the logged-in user's profile and
-// the profile being viewed, using existing fields (age, caste, sub-caste, city,
-// education, occupation, mother tongue, diet) plus the viewer's stated partner
-// preferences. Each criterion contributes a weighted amount to the total score
-// out of 100. Weights are kept in smaller, finer-grained units (max 15 each) so
-// that a genuinely near-perfect match can realistically land in the 90%+ band —
-// with only a couple of large (20-point) criteria, 90%+ was only reachable via
-// a near-impossible single scenario (missing exactly District while everything
-// else matched), which meant "High Compatibility" almost never triggered.
+// Match score uses ONLY four factors: Age, City, Education, Occupation.
+// Total score: 100 points (Age 35, City 25, Education 20, Occupation 20).
+
+function norm(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function ageMatches(myProfile, otherProfile) {
+  const age = Number(otherProfile?.age);
+  if (!Number.isFinite(age)) return false;
+
+  const min = Number(myProfile?.pref_age_min);
+  const max = Number(myProfile?.pref_age_max);
+
+  // If the viewer has an age preference, the candidate must be inside it.
+  if (Number.isFinite(min) || Number.isFinite(max)) {
+    const lower = Number.isFinite(min) ? min : 0;
+    const upper = Number.isFinite(max) ? max : 200;
+    return age >= lower && age <= upper;
+  }
+
+  // Without a preference, compare ages reasonably closely.
+  const mine = Number(myProfile?.age);
+  return Number.isFinite(mine) && Math.abs(age - mine) <= 5;
+}
+
+function educationMatches(myProfile, otherProfile) {
+  const aPref = norm(myProfile?.pref_education);
+  const b = norm(otherProfile?.education);
+  if (!b) return false;
+  if (aPref) return b.includes(aPref) || aPref.includes(b);
+
+  const a = norm(myProfile?.education);
+  return !!a && (a === b || a.includes(b) || b.includes(a));
+}
+
+function occupationMatches(myProfile, otherProfile) {
+  const aPref = norm(myProfile?.pref_occupation);
+  const b = norm(otherProfile?.occupation);
+  if (!b) return false;
+  if (aPref) return b.includes(aPref) || aPref.includes(b);
+
+  const a = norm(myProfile?.occupation);
+  return !!a && (a === b || a.includes(b) || b.includes(a));
+}
 
 export function calculateMatchScore(myProfile, otherProfile) {
   if (!myProfile || !otherProfile) return null;
 
-  const results = [];
-  let totalWeight = 0;
-  let earnedWeight = 0;
+  const age = ageMatches(myProfile, otherProfile);
+  const city = !!norm(myProfile.city) && norm(myProfile.city) === norm(otherProfile.city);
+  const education = educationMatches(myProfile, otherProfile);
+  const occupation = occupationMatches(myProfile, otherProfile);
 
-  // Age — matches if within the viewer's stated preferred range, or if no
-  // preference was set, matches loosely (within 5 years is treated as a match).
-  {
-    const weight = 15;
-    totalWeight += weight;
-    const hasPref = myProfile.pref_age_min || myProfile.pref_age_max;
-    let matched;
-    if (hasPref) {
-      const min = myProfile.pref_age_min || 0;
-      const max = myProfile.pref_age_max || 200;
-      matched = otherProfile.age >= min && otherProfile.age <= max;
-    } else {
-      matched = Math.abs((otherProfile.age || 0) - (myProfile.age || 0)) <= 5;
-    }
-    if (matched) earnedWeight += weight;
-    results.push({ label: "Age", matched: !!matched });
-  }
+  const breakdown = [
+    { label: "Age", matched: age },
+    { label: "City", matched: city },
+    { label: "Education", matched: education },
+    { label: "Occupation", matched: occupation },
+  ];
 
-  // Sub caste — exact match
-  {
-    const weight = 15;
-    totalWeight += weight;
-    const matched = myProfile.sub_caste && otherProfile.sub_caste
-      && myProfile.sub_caste.trim().toLowerCase() === otherProfile.sub_caste.trim().toLowerCase();
-    if (matched) earnedWeight += weight;
-    results.push({ label: "Sub caste", matched: !!matched });
-  }
+  const percentage =
+    (age ? 35 : 0) +
+    (city ? 25 : 0) +
+    (education ? 20 : 0) +
+    (occupation ? 20 : 0);
 
-  // City — exact match
-  {
-    const weight = 10;
-    totalWeight += weight;
-    const matched = myProfile.city && otherProfile.city
-      && myProfile.city.trim().toLowerCase() === otherProfile.city.trim().toLowerCase();
-    if (matched) earnedWeight += weight;
-    results.push({ label: "City", matched: !!matched });
-  }
-
-  // District — exact match
-  {
-    const weight = 10;
-    totalWeight += weight;
-    const matched = myProfile.district && otherProfile.district
-      && myProfile.district.trim().toLowerCase() === otherProfile.district.trim().toLowerCase();
-    if (matched) earnedWeight += weight;
-    results.push({ label: "District", matched: !!matched });
-  }
-
-  // Education — matches the viewer's stated preference (substring match), or if
-  // no preference was set, compares the actual education values (one contains
-  // the other) so this only counts as a match when they're genuinely similar —
-  // not just because both fields happen to be filled in.
-  {
-    const weight = 15;
-    totalWeight += weight;
-    let matched;
-    if (myProfile.pref_education && myProfile.pref_education.trim()) {
-      matched = otherProfile.education
-        && otherProfile.education.toLowerCase().includes(myProfile.pref_education.trim().toLowerCase());
-    } else {
-      const a = (myProfile.education || "").trim().toLowerCase();
-      const b = (otherProfile.education || "").trim().toLowerCase();
-      matched = !!(a && b && (a === b || a.includes(b) || b.includes(a)));
-    }
-    if (matched) earnedWeight += weight;
-    results.push({ label: "Education", matched: !!matched });
-  }
-
-  // Occupation — matches the viewer's stated preference (substring match), or if
-  // no preference was set, compares the actual occupation values (one contains
-  // the other) so this only counts as a match when they're genuinely similar —
-  // not just because both fields happen to be filled in.
-  {
-    const weight = 15;
-    totalWeight += weight;
-    let matched;
-    if (myProfile.pref_occupation && myProfile.pref_occupation.trim()) {
-      matched = otherProfile.occupation
-        && otherProfile.occupation.toLowerCase().includes(myProfile.pref_occupation.trim().toLowerCase());
-    } else {
-      const a = (myProfile.occupation || "").trim().toLowerCase();
-      const b = (otherProfile.occupation || "").trim().toLowerCase();
-      matched = !!(a && b && (a === b || a.includes(b) || b.includes(a)));
-    }
-    if (matched) earnedWeight += weight;
-    results.push({ label: "Occupation", matched: !!matched });
-  }
-
-  // Mother tongue — exact match
-  {
-    const weight = 10;
-    totalWeight += weight;
-    const matched = myProfile.mother_tongue && otherProfile.mother_tongue
-      && myProfile.mother_tongue.trim().toLowerCase() === otherProfile.mother_tongue.trim().toLowerCase();
-    if (matched) earnedWeight += weight;
-    results.push({ label: "Mother tongue", matched: !!matched });
-  }
-
-  // Diet — exact match (Vegetarian / Non-Vegetarian / Eggetarian)
-  {
-    const weight = 10;
-    totalWeight += weight;
-    const matched = myProfile.diet && otherProfile.diet
-      && myProfile.diet.trim().toLowerCase() === otherProfile.diet.trim().toLowerCase();
-    if (matched) earnedWeight += weight;
-    results.push({ label: "Diet", matched: !!matched });
-  }
-
-  const percentage = totalWeight > 0 ? Math.round((earnedWeight / totalWeight) * 100) : 0;
-
-  return { percentage, breakdown: results };
+  return { percentage, breakdown };
 }
