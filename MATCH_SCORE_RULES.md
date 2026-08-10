@@ -1,12 +1,23 @@
-# Match Score
+# Correct Match Score
 
-Only four factors contribute:
+Only four factors contribute to the percentage:
 
-- Age: 35
-- City: 25
-- Education: 20
-- Occupation: 20
+- Age = 35
+- City = 25
+- Education = 20
+- Occupation = 20
 
-Total: 100.
+Examples:
+- Age only = 35%
+- Age + City = 60%
+- Age + Education = 55%
+- Age + Occupation = 55%
+- City + Education + Occupation = 65%
+- Age + City + Education = 80%
+- Age + City + Occupation = 80%
+- All four = 100%
 
-All other profile fields are excluded from the match score.
+Categories:
+- 90–100 = High
+- 50–89 = Medium
+- 0–49 = Low
