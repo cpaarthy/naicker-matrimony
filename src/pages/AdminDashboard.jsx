@@ -36,7 +36,11 @@ const TABS = [
   { key: "requests", label: "Requests", icon: Heart },
   { key: "contact", label: "Messages", icon: Mail },
   { key: "reports", label: "Reports", icon: Flag },
-  { key: "verification", label: "Verification", icon: BadgeCheck },
+ {
+  key: "successStories",
+  label: "Success Stories",
+  icon: HeartHandshake,
+},
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "announce", label: "Announcement", icon: Megaphone },
   { key: "porutham", label: "Porutham Check", icon: Star },
