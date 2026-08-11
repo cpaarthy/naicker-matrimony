@@ -902,3 +902,95 @@ export async function updateVerificationStatus(id, status, adminNote = "", admin
   });
   return { error };
 }
+
+// ============ SUCCESS STORIES ============
+
+export async function submitSuccessStory({
+  userId,
+  groomName,
+  brideName,
+  weddingDate,
+  city,
+  story,
+  photoUrl,
+}) {
+  const { data, error } = await supabase
+    .from("success_stories")
+    .insert({
+      user_id: userId,
+      groom_name: groomName,
+      bride_name: brideName,
+      wedding_date: weddingDate || null,
+      city: city || null,
+      story,
+      photo_url: photoUrl || null,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+export async function fetchApprovedSuccessStories() {
+  const { data, error } = await supabase
+    .from("success_stories")
+    .select("*")
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  return {
+    data: data || [],
+    error,
+  };
+}
+
+export async function fetchMySuccessStories(userId) {
+  if (!userId) {
+    return { data: [], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from("success_stories")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  return {
+    data: data || [],
+    error,
+  };
+}
+
+export async function fetchAllSuccessStories() {
+  const { data, error } = await supabase
+    .from("success_stories")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  return {
+    data: data || [],
+    error,
+  };
+}
+
+export async function updateSuccessStoryStatus(id, status) {
+  const updates = {
+    status,
+  };
+
+  if (status === "approved") {
+    updates.approved_at = new Date().toISOString();
+  } else {
+    updates.approved_at = null;
+  }
+
+  const { data, error } = await supabase
+    .from("success_stories")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  return { data, error };
+}
