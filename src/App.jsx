@@ -146,6 +146,12 @@ function AppShell() {
     showToast={showToast}
   />
 )}
+      {page === "successStoryApproval" && (
+  <SuccessStoryApproval
+    adminPin={adminPin}
+    showToast={showToast}
+  />
+)}
       {page === "faq" && <FAQ />}
       {page === "more" && <More onNavigate={navigate} />}
       {page === "savedSearches" && <SavedSearches onNavigate={navigate} showToast={showToast} />}
