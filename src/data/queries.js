@@ -917,6 +917,19 @@ export async function submitSuccessStory({
   const { data: authData, error: authError } =
     await supabase.auth.getUser();
 
+  console.log("AUTH USER:", authData?.user?.id);
+  console.log("AUTH ERROR:", authError);
+
+  const { data: testData, error: testError } = await supabase
+    .from("success_stories")
+    .select("id")
+    .limit(1);
+
+  console.log("SUCCESS STORIES TABLE TEST:", {
+    testData,
+    testError,
+  });
+
   if (authError || !authData?.user?.id) {
     return {
       data: null,
@@ -939,9 +952,10 @@ export async function submitSuccessStory({
     .select()
     .single();
 
+  console.log("INSERT RESULT:", { data, error });
+
   return { data, error };
 }
-
 export async function fetchApprovedSuccessStories() {
   const { data, error } = await supabase
     .from("success_stories")
