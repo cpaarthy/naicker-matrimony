@@ -238,49 +238,120 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 }
 
 function MatchScoreCard({ myProfile, otherProfile, colors }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const result = calculateMatchScore(myProfile, otherProfile);
   if (!result) return null;
 
-  const { percentage, breakdown } = result;
-  const scoreColor = percentage >= 90 ? colors.approvedText : percentage >= 50 ? colors.pendingText : colors.rejectedText;
+  const { percentage, breakdown = [] } = result;
+  const scoreColor =
+    percentage >= 90 ? colors.approvedText :
+    percentage >= 50 ? colors.pendingText :
+    colors.rejectedText;
+
+  const factorNames = {
+    age: "வயது / Age",
+    city: "நகரம் / City",
+    education: "கல்வி / Education",
+    occupation: "வேலை / Occupation",
+  };
+  const weights = { age: 35, city: 25, education: 20, occupation: 20 };
+
+  const rows = ["age", "city", "education", "occupation"].map((key) => {
+    const item = breakdown.find((b) => b.key === key);
+    const matched = Boolean(item?.matched);
+    return {
+      key,
+      name: factorNames[key],
+      matched,
+      weight: weights[key],
+      earned: matched ? weights[key] : 0,
+    };
+  });
 
   return (
     <div style={{
-      background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 14,
+      background: colors.card,
+      border: `1px solid ${colors.cardBorder}`,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 14,
     }}>
-      <button onClick={() => setExpanded(e => !e)} style={{
-        width: "100%", background: "none", border: "none", padding: 0, display: "flex",
-        alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: "50%", border: `3px solid ${scoreColor}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 12.5, fontWeight: 800, color: scoreColor, flexShrink: 0,
-          }}>
-            {percentage}%
+        <div>
+          <div className="serif" style={{ fontWeight: 700, fontSize: 15, color: colors.text }}>
+            Match Score / பொருத்த மதிப்பெண்
           </div>
-          <div style={{ textAlign: "left" }}>
-            <div className="serif" style={{ fontWeight: 700, fontSize: 14, color: colors.text }}>Match Score / பொருத்த மதிப்பெண்</div>
-            <div style={{ fontSize: 11, color: colors.textFaint }}>Age 35% · City 25% · Education 20% · Occupation 20%</div>
+          <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 3 }}>
+            Age 35% · City 25% · Education 20% · Occupation 20%
           </div>
         </div>
-        <span style={{ fontSize: 11, color: colors.primary, fontWeight: 700 }}>{expanded ? "Hide / மறை" : "Details / விவரம்"}</span>
-      </button>
+        <div style={{
+          minWidth: 62,
+          height: 62,
+          borderRadius: "50%",
+          border: `4px solid ${scoreColor}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 17,
+          fontWeight: 900,
+          color: scoreColor,
+        }}>
+          {percentage}%
+        </div>
+      </div>
 
-      {expanded && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.cardBorder}` }}>
-          {breakdown.map((item, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
-              <span style={{ color: colors.textMuted }}>{item.label === "Age" ? "வயது / Age" : item.label === "City" ? "நகரம் / City" : item.label === "Education" ? "கல்வி / Education" : "வேலை / Occupation"}</span>
-              <span style={{ color: item.matched ? colors.approvedText : colors.rejectedText, fontWeight: 700 }}>
-                {item.matched ? "✓" : "✗"} {item.matched ? item.weight : 0}%
-              </span>
-            </div>
-          ))}
+      <div style={{
+        borderTop: `1px solid ${colors.cardBorder}`,
+        paddingTop: 10,
+      }}>
+        {rows.map((row) => (
+          <div key={row.key} style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto auto",
+            gap: 10,
+            alignItems: "center",
+            padding: "8px 0",
+            fontSize: 12.5,
+          }}>
+            <span style={{ color: colors.textMuted, fontWeight: 600 }}>
+              {row.name}
+            </span>
+            <span style={{
+              color: row.matched ? colors.approvedText : colors.rejectedText,
+              fontWeight: 800,
+            }}>
+              {row.matched ? "✓ Match" : "✗ No match"}
+            </span>
+            <span style={{
+              minWidth: 42,
+              textAlign: "right",
+              color: row.matched ? colors.text : colors.textFaint,
+              fontWeight: 900,
+            }}>
+              +{row.earned}%
+            </span>
+          </div>
+        ))}
+
+        <div style={{
+          borderTop: `1px solid ${colors.cardBorder}`,
+          marginTop: 5,
+          paddingTop: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          fontWeight: 900,
+          fontSize: 13,
+        }}>
+          <span>மொத்தம் / Total</span>
+          <span style={{ color: scoreColor }}>{percentage}%</span>
         </div>
-      )}
+      </div>
     </div>
   );
 }
