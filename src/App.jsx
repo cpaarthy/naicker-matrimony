@@ -4,6 +4,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import Layout from "./components/Layout";
 import { Toast } from "./components/ui";
 import SuccessStoryApproval from "./pages/SuccessStoryApproval";
+import SuccessStoryApproval from "./pages/SuccessStoryApproval";
 
 import Home from "./pages/Home";
 import Register from "./pages/Register";
