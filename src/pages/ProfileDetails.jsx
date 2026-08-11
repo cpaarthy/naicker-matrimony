@@ -2,7 +2,7 @@ function MatchScoreCard({ myProfile, otherProfile, colors }) {
   console.log("🔥 NEW MATCH SCORE CARD IS RUNNING");
   const [expanded, setExpanded] = useState(true);
 
-  const result = getMatchScoreResult(myProfile, otherProfile);
+  const result = calculateMatchScore(myProfile, otherProfile);
   console.log("MATCH RESULT:", result);
 
   if (!result) return null;
