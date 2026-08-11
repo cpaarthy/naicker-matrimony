@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import Layout from "./components/Layout";
 import { Toast } from "./components/ui";
+import SuccessStoryApproval from "./pages/SuccessStoryApproval";
 
 import Home from "./pages/Home";
 import Register from "./pages/Register";
@@ -138,6 +139,12 @@ function AppShell() {
       {page === "porutham" && (
         <PoruthamDashboard profileId={selectedProfileId} onNavigate={navigate} />
       )}
+      {page === "successStoryApproval" && (
+  <SuccessStoryApproval
+    adminPin={adminPin}
+    showToast={showToast}
+  />
+)}
       {page === "faq" && <FAQ />}
       {page === "more" && <More onNavigate={navigate} />}
       {page === "savedSearches" && <SavedSearches onNavigate={navigate} showToast={showToast} />}
