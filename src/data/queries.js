@@ -926,10 +926,7 @@ export async function submitSuccessStory({
 
   const authUserId = authData.user.id;
 
-  console.log("AUTH USER ID:", authUserId);
-  console.log("PASSED USER ID:", userId);
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("success_stories")
     .insert({
       user_id: authUserId,
@@ -937,16 +934,15 @@ export async function submitSuccessStory({
       bride_name: brideName,
       wedding_date: weddingDate || null,
       city: city || null,
-      story: story,
+      story,
       photo_url: photoUrl || null,
       status: "pending",
-    })
-    .select()
-    .single();
+    });
 
-  console.log("SUCCESS STORY INSERT:", { data, error });
-
-  return { data, error };
+  return {
+    data: null,
+    error,
+  };
 }
 export async function fetchApprovedSuccessStories() {
   const { data, error } = await supabase
