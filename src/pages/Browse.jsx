@@ -402,8 +402,8 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
                     {match && (
                       <span style={{
                         fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999,
-                        background: match.percentage >= 70 ? colors.approvedBg : match.percentage >= 40 ? colors.pendingBg : colors.rejectedBg,
-                        color: match.percentage >= 70 ? colors.approvedText : match.percentage >= 40 ? colors.pendingText : colors.rejectedText,
+                        background: match.percentage >= 90 ? colors.approvedBg : match.percentage >= 50 ? colors.pendingBg : colors.rejectedBg,
+                        color: match.percentage >= 90 ? colors.approvedText : match.percentage >= 50 ? colors.pendingText : colors.rejectedText,
                       }}>{match.percentage}% match</span>
                     )}
                     <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.age} yrs</div>

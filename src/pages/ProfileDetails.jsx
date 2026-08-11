@@ -243,7 +243,7 @@ function MatchScoreCard({ myProfile, otherProfile, colors }) {
   if (!result) return null;
 
   const { percentage, breakdown } = result;
-  const scoreColor = percentage >= 70 ? colors.approvedText : percentage >= 40 ? colors.pendingText : colors.rejectedText;
+  const scoreColor = percentage >= 90 ? colors.approvedText : percentage >= 50 ? colors.pendingText : colors.rejectedText;
 
   return (
     <div style={{
