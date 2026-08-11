@@ -8,7 +8,6 @@ import {
   createNotification, recordProfileView, fetchBlockedProfiles, blockProfile, unblockProfile, submitProfileReport,
 } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
-import MatchDetails from '../components/MatchDetails';
 
 export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const { colors } = useTheme();
@@ -263,20 +262,20 @@ function MatchScoreCard({ myProfile, otherProfile, colors }) {
             {percentage}%
           </div>
           <div style={{ textAlign: "left" }}>
-            <div className="serif" style={{ fontWeight: 700, fontSize: 14, color: colors.text }}>Match Score</div>
-            <div style={{ fontSize: 11, color: colors.textFaint }}>Based on your profile & preferences</div>
+            <div className="serif" style={{ fontWeight: 700, fontSize: 14, color: colors.text }}>Match Score / பொருத்த மதிப்பெண்</div>
+            <div style={{ fontSize: 11, color: colors.textFaint }}>Age 35% · City 25% · Education 20% · Occupation 20%</div>
           </div>
         </div>
-        <span style={{ fontSize: 11, color: colors.primary, fontWeight: 700 }}>{expanded ? "Hide" : "Details"}</span>
+        <span style={{ fontSize: 11, color: colors.primary, fontWeight: 700 }}>{expanded ? "Hide / மறை" : "Details / விவரம்"}</span>
       </button>
 
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.cardBorder}` }}>
           {breakdown.map((item, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
-              <span style={{ color: colors.textMuted }}>{item.label}</span>
+              <span style={{ color: colors.textMuted }}>{item.label === "Age" ? "வயது / Age" : item.label === "City" ? "நகரம் / City" : item.label === "Education" ? "கல்வி / Education" : "வேலை / Occupation"}</span>
               <span style={{ color: item.matched ? colors.approvedText : colors.rejectedText, fontWeight: 700 }}>
-                {item.matched ? "✓" : "✗"}
+                {item.matched ? "✓" : "✗"} {item.matched ? item.weight : 0}%
               </span>
             </div>
           ))}
@@ -358,5 +357,3 @@ function Section({ title, children, colors }) {
 function Row({ label, value }) {
   return <div><b>{label}:</b> {value}</div>;
 }
-
-// V9.2 MatchDetails available: render <MatchDetails score={matchScore} breakdown={breakdown} tamil={true} /> where match details are shown.
