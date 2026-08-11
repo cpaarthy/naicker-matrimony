@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../supabaseClient";
+import {
+  ...,
+  HeartHandshake,
+} from "lucide-react";
 import { Avatar, Badge } from "../components/ui";
 import {
   fetchAllProfiles, updateProfileStatus, deleteProfile, updateProfileByAdmin,
