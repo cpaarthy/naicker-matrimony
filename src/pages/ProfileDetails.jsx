@@ -238,32 +238,119 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 }
 
 function MatchScoreCard({ myProfile, otherProfile, colors }) {
-  const result = getMatchBreakdown(myProfile, otherProfile);
-  const score = result.percentage;
-  const category = getMatchCategory(score);
-  const title = category === "high" ? "High Match / சிறந்த பொருத்தம்"
-    : category === "medium" ? "Medium Match / நல்ல பொருத்தம்"
-    : "Low Match / குறைந்த பொருத்தம்";
+  const [expanded, setExpanded] = useState(true);
+  const result = calculateMatchScore(myProfile, otherProfile);
+  if (!result) return null;
+
+  const { percentage, breakdown = [] } = result;
+  const scoreColor =
+    percentage >= 90 ? colors.approvedText :
+    percentage >= 50 ? colors.pendingText :
+    colors.rejectedText;
+
+  const factorNames = {
+    age: "வயது / Age",
+    city: "நகரம் / City",
+    education: "கல்வி / Education",
+    occupation: "வேலை / Occupation",
+  };
+  const weights = { age: 35, city: 25, education: 20, occupation: 20 };
+
+  const rows = ["age", "city", "education", "occupation"].map((key) => {
+    const item = breakdown.find((b) => b.key === key);
+    const matched = Boolean(item?.matched);
+    return {
+      key,
+      name: factorNames[key],
+      matched,
+      weight: weights[key],
+      earned: matched ? weights[key] : 0,
+    };
+  });
 
   return (
-    <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+    <div style={{
+      background: colors.card,
+      border: `1px solid ${colors.cardBorder}`,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 14,
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
+      }}>
         <div>
-          <div className="serif" style={{fontWeight:800,color:colors.text}}>Match Score / பொருத்த மதிப்பெண்</div>
-          <div style={{fontSize:11,color:colors.textFaint,marginTop:3}}>{title}</div>
+          <div className="serif" style={{ fontWeight: 700, fontSize: 15, color: colors.text }}>
+            Match Score / பொருத்த மதிப்பெண்
+          </div>
+          <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 3 }}>
+            Age 35% · City 25% · Education 20% · Occupation 20%
+          </div>
         </div>
-        <div style={{fontSize:24,fontWeight:900,color:colors.approvedText}}>{score}%</div>
+        <div style={{
+          minWidth: 62,
+          height: 62,
+          borderRadius: "50%",
+          border: `4px solid ${scoreColor}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 17,
+          fontWeight: 900,
+          color: scoreColor,
+        }}>
+          {percentage}%
+        </div>
       </div>
-      {result.breakdown.map((r) => (
-        <div key={r.key} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:`1px solid ${colors.cardBorder}`,fontSize:12}}>
-          <span style={{color:colors.textMuted,fontWeight:600}}>{r.label}</span>
-          <span style={{fontWeight:900,color:r.matched ? colors.approvedText : colors.textFaint}}>
-            {r.matched ? "✓" : "✗"} {r.earned}%
-          </span>
+
+      <div style={{
+        borderTop: `1px solid ${colors.cardBorder}`,
+        paddingTop: 10,
+      }}>
+        {rows.map((row) => (
+          <div key={row.key} style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto auto",
+            gap: 10,
+            alignItems: "center",
+            padding: "8px 0",
+            fontSize: 12.5,
+          }}>
+            <span style={{ color: colors.textMuted, fontWeight: 600 }}>
+              {row.name}
+            </span>
+            <span style={{
+              color: row.matched ? colors.approvedText : colors.rejectedText,
+              fontWeight: 800,
+            }}>
+              {row.matched ? "✓ Match" : "✗ No match"}
+            </span>
+            <span style={{
+              minWidth: 42,
+              textAlign: "right",
+              color: row.matched ? colors.text : colors.textFaint,
+              fontWeight: 900,
+            }}>
+              +{row.earned}%
+            </span>
+          </div>
+        ))}
+
+        <div style={{
+          borderTop: `1px solid ${colors.cardBorder}`,
+          marginTop: 5,
+          paddingTop: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          fontWeight: 900,
+          fontSize: 13,
+        }}>
+          <span>மொத்தம் / Total</span>
+          <span style={{ color: scoreColor }}>{percentage}%</span>
         </div>
-      ))}
-      <div style={{display:"flex",justifyContent:"space-between",marginTop:8,paddingTop:8,borderTop:`2px solid ${colors.cardBorder}`,fontWeight:900}}>
-        <span>Total / மொத்தம்</span><span>{score}%</span>
       </div>
     </div>
   );
