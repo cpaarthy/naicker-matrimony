@@ -5,6 +5,7 @@ import {
   Plus,
   Clock3,
   CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -44,6 +45,7 @@ export default function SuccessStories() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [form, setForm] = useState({
     groomName: "",
@@ -60,15 +62,36 @@ export default function SuccessStories() {
 
   async function loadStories() {
     setLoading(true);
+    setErrorMessage("");
 
-    const { data } = await fetchApprovedSuccessStories();
-    setStories(data || []);
+    try {
+      const approvedResult = await fetchApprovedSuccessStories();
 
-    if (userId) {
-      const { data: mine } = await fetchMySuccessStories(userId);
-      setMyStories(mine || []);
-    } else {
-      setMyStories([]);
+      if (approvedResult?.error) {
+        console.error(
+          "Approved stories load error:",
+          approvedResult.error
+        );
+      }
+
+      setStories(approvedResult?.data || []);
+
+      if (userId) {
+        const mineResult = await fetchMySuccessStories(userId);
+
+        if (mineResult?.error) {
+          console.error(
+            "My stories load error:",
+            mineResult.error
+          );
+        }
+
+        setMyStories(mineResult?.data || []);
+      } else {
+        setMyStories([]);
+      }
+    } catch (err) {
+      console.error("Success stories load error:", err);
     }
 
     setLoading(false);
@@ -84,65 +107,103 @@ export default function SuccessStories() {
   async function handleSubmit(e) {
     e.preventDefault();
 
+    setErrorMessage("");
+
     if (!session || !userId) {
-      alert("Please log in first.");
+      setErrorMessage(
+        "Please log in first / முதலில் Login செய்யவும்."
+      );
       return;
     }
 
     if (!form.groomName.trim()) {
-      alert("Please enter groom name.");
+      setErrorMessage(
+        "Please enter groom name / மணமகன் பெயரை உள்ளிடவும்."
+      );
       return;
     }
 
     if (!form.brideName.trim()) {
-      alert("Please enter bride name.");
+      setErrorMessage(
+        "Please enter bride name / மணமகள் பெயரை உள்ளிடவும்."
+      );
       return;
     }
 
     if (!form.story.trim()) {
-      alert("Please write your success story.");
+      setErrorMessage(
+        "Please write your story / உங்கள் கதையை எழுதவும்."
+      );
       return;
     }
 
     setSaving(true);
 
-    const { error } = await submitSuccessStory({
-      userId,
-      groomName: form.groomName.trim(),
-      brideName: form.brideName.trim(),
-      weddingDate: form.weddingDate || null,
-      city: form.city.trim(),
-      story: form.story.trim(),
-      photoUrl: form.photoUrl.trim(),
-    });
+    try {
+      const result = await submitSuccessStory({
+        userId,
+        groomName: form.groomName.trim(),
+        brideName: form.brideName.trim(),
+        weddingDate: form.weddingDate || null,
+        city: form.city.trim() || null,
+        story: form.story.trim(),
+        photoUrl: form.photoUrl.trim() || null,
+      });
 
-    setSaving(false);
+      console.log("SUCCESS STORY SUBMIT RESULT:", result);
 
-    if (error) {
-      console.error("Success story submit error:", error);
-      alert("Could not submit your success story.");
-      return;
+      if (result?.error) {
+        console.error(
+          "SUCCESS STORY SUBMIT ERROR:",
+          result.error
+        );
+
+        const message =
+          result.error?.message ||
+          result.error?.details ||
+          result.error?.hint ||
+          "Unknown database error";
+
+        const code = result.error?.code
+          ? ` (${result.error.code})`
+          : "";
+
+        setErrorMessage(
+          `Could not submit your success story${code}: ${message}`
+        );
+
+        return;
+      }
+
+      setForm({
+        groomName: "",
+        brideName: "",
+        weddingDate: "",
+        city: "",
+        story: "",
+        photoUrl: "",
+      });
+
+      setShowForm(false);
+
+      await loadStories();
+    } catch (err) {
+      console.error(
+        "UNEXPECTED SUCCESS STORY ERROR:",
+        err
+      );
+
+      setErrorMessage(
+        err?.message ||
+          "Unexpected error while submitting the story."
+      );
+    } finally {
+      setSaving(false);
     }
-
-    setForm({
-      groomName: "",
-      brideName: "",
-      weddingDate: "",
-      city: "",
-      story: "",
-      photoUrl: "",
-    });
-
-    setShowForm(false);
-    await loadStories();
-
-    alert(
-      "Success story submitted successfully. Admin approval is required before publishing."
-    );
   }
 
   return (
-    <div>
+    <div style={{ paddingBottom: 25 }}>
       {/* HEADER */}
       <div
         style={{
@@ -152,7 +213,10 @@ export default function SuccessStories() {
           marginBottom: 5,
         }}
       >
-        <HeartHandshake size={21} color={colors.primary} />
+        <HeartHandshake
+          size={21}
+          color={colors.primary}
+        />
 
         <h2
           className="serif"
@@ -183,7 +247,11 @@ export default function SuccessStories() {
       {/* SUBMIT BUTTON */}
       {session && (
         <button
-          onClick={() => setShowForm((v) => !v)}
+          type="button"
+          onClick={() => {
+            setShowForm((value) => !value);
+            setErrorMessage("");
+          }}
           style={{
             width: "100%",
             border: "none",
@@ -202,10 +270,38 @@ export default function SuccessStories() {
           }}
         >
           <Plus size={16} />
+
           {showForm
             ? "Close Form / படிவத்தை மூடவும்"
             : "Share Your Success Story / உங்கள் வெற்றிக் கதையை பகிரவும்"}
         </button>
+      )}
+
+      {/* ERROR */}
+      {errorMessage && (
+        <div
+          style={{
+            background: colors.rejectedBg,
+            color: colors.rejectedText,
+            border: `1px solid ${colors.rejectedText}`,
+            borderRadius: 11,
+            padding: 11,
+            marginBottom: 13,
+            fontSize: 11.5,
+            lineHeight: 1.5,
+            wordBreak: "break-word",
+          }}
+        >
+          <XCircle
+            size={14}
+            style={{
+              verticalAlign: "middle",
+              marginRight: 5,
+            }}
+          />
+
+          {errorMessage}
+        </div>
       )}
 
       {/* FORM */}
@@ -234,7 +330,9 @@ export default function SuccessStories() {
           <Field
             label="Groom Name / மணமகன் பெயர்"
             value={form.groomName}
-            onChange={(v) => updateField("groomName", v)}
+            onChange={(value) =>
+              updateField("groomName", value)
+            }
             colors={colors}
             required
           />
@@ -242,7 +340,9 @@ export default function SuccessStories() {
           <Field
             label="Bride Name / மணமகள் பெயர்"
             value={form.brideName}
-            onChange={(v) => updateField("brideName", v)}
+            onChange={(value) =>
+              updateField("brideName", value)
+            }
             colors={colors}
             required
           />
@@ -251,21 +351,27 @@ export default function SuccessStories() {
             label="Wedding Date / திருமண தேதி"
             type="date"
             value={form.weddingDate}
-            onChange={(v) => updateField("weddingDate", v)}
+            onChange={(value) =>
+              updateField("weddingDate", value)
+            }
             colors={colors}
           />
 
           <Field
             label="City / நகரம்"
             value={form.city}
-            onChange={(v) => updateField("city", v)}
+            onChange={(value) =>
+              updateField("city", value)
+            }
             colors={colors}
           />
 
           <Field
             label="Photo URL / புகைப்பட URL"
             value={form.photoUrl}
-            onChange={(v) => updateField("photoUrl", v)}
+            onChange={(value) =>
+              updateField("photoUrl", value)
+            }
             colors={colors}
           />
 
@@ -295,7 +401,8 @@ export default function SuccessStories() {
               padding: 10,
               borderRadius: 9,
               border: `1px solid ${colors.cardBorder}`,
-              background: colors.inputBg || colors.card,
+              background:
+                colors.inputBg || colors.card,
               color: colors.text,
               fontSize: 12,
               outline: "none",
@@ -314,8 +421,8 @@ export default function SuccessStories() {
               marginBottom: 11,
             }}
           >
-            Your story will be reviewed by admin before it is
-            published.
+            Your story will be reviewed by admin before
+            publishing.
             <br />
             உங்கள் கதை Admin approval-க்கு பிறகு மட்டுமே
             வெளியிடப்படும்.
@@ -345,8 +452,8 @@ export default function SuccessStories() {
         </form>
       )}
 
-      {/* PENDING STORIES */}
-      {myStories.length > 0 && (
+      {/* MY SUBMISSIONS */}
+      {session && myStories.length > 0 && (
         <div
           style={{
             background: colors.card,
@@ -367,64 +474,93 @@ export default function SuccessStories() {
             My Submissions / எனது சமர்ப்பிப்புகள்
           </div>
 
-          {myStories.map((story) => (
-            <div
-              key={story.id}
-              style={{
-                padding: "9px 0",
-                borderTop: `1px solid ${colors.cardBorder}`,
-              }}
-            >
+          {myStories.map((story) => {
+            const isApproved =
+              story.status === "approved";
+
+            const isRejected =
+              story.status === "rejected";
+
+            return (
               <div
+                key={story.id}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
+                  padding: "10px 0",
+                  borderTop: `1px solid ${colors.cardBorder}`,
                 }}
               >
-                {story.status === "approved" ? (
-                  <CheckCircle2
-                    size={14}
-                    color={colors.approvedText}
-                  />
-                ) : (
-                  <Clock3
-                    size={14}
-                    color={colors.pendingText}
-                  />
-                )}
-
-                <span
+                <div
                   style={{
-                    fontSize: 11.5,
-                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
                   }}
                 >
-                  {story.groom_name} & {story.bride_name}
-                </span>
+                  {isApproved ? (
+                    <CheckCircle2
+                      size={14}
+                      color={colors.approvedText}
+                    />
+                  ) : isRejected ? (
+                    <XCircle
+                      size={14}
+                      color={colors.rejectedText}
+                    />
+                  ) : (
+                    <Clock3
+                      size={14}
+                      color={colors.pendingText}
+                    />
+                  )}
 
-                <span
-                  style={{
-                    marginLeft: "auto",
-                    fontSize: 9,
-                    fontWeight: 800,
-                    padding: "3px 6px",
-                    borderRadius: 999,
-                    background:
-                      story.status === "approved"
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {story.groom_name} &{" "}
+                    {story.bride_name}
+                  </span>
+
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 9,
+                      fontWeight: 800,
+                      padding: "3px 6px",
+                      borderRadius: 999,
+                      background: isApproved
                         ? colors.approvedBg
+                        : isRejected
+                        ? colors.rejectedBg
                         : colors.pendingBg,
-                    color:
-                      story.status === "approved"
+                      color: isApproved
                         ? colors.approvedText
+                        : isRejected
+                        ? colors.rejectedText
                         : colors.pendingText,
-                  }}
-                >
-                  {story.status.toUpperCase()}
-                </span>
+                    }}
+                  >
+                    {(story.status || "pending").toUpperCase()}
+                  </span>
+                </div>
+
+                {story.city && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      marginLeft: 21,
+                      fontSize: 10,
+                      color: colors.textFaint,
+                    }}
+                  >
+                    {story.city}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -453,26 +589,26 @@ export default function SuccessStories() {
         </div>
       ) : (
         <>
-          {/* Existing sample stories */}
-          {defaultStories.map((s) => (
+          {/* EXISTING STORIES */}
+          {defaultStories.map((story) => (
             <StoryCard
-              key={s.id}
-              title={s.title}
-              text={s.text}
-              tag={s.tag}
+              key={story.id}
+              title={story.title}
+              text={story.text}
+              tag={story.tag}
               colors={colors}
             />
           ))}
 
-          {/* Approved database stories */}
-          {stories.map((s) => (
+          {/* APPROVED DATABASE STORIES */}
+          {stories.map((story) => (
             <StoryCard
-              key={s.id}
-              title={`${s.groom_name} & ${s.bride_name}`}
-              text={s.story}
-              tag={s.city || "Success Story"}
-              date={s.wedding_date}
-              photoUrl={s.photo_url}
+              key={story.id}
+              title={`${story.groom_name} & ${story.bride_name}`}
+              text={story.story}
+              tag={story.city || "Success Story"}
+              date={story.wedding_date}
+              photoUrl={story.photo_url}
               colors={colors}
             />
           ))}
@@ -646,7 +782,8 @@ function Field({
           padding: "9px 10px",
           borderRadius: 9,
           border: `1px solid ${colors.cardBorder}`,
-          background: colors.inputBg || colors.card,
+          background:
+            colors.inputBg || colors.card,
           color: colors.text,
           fontSize: 12,
           outline: "none",
