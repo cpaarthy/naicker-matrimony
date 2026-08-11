@@ -3,7 +3,7 @@ import { Clock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar } from "../components/ui";
-import { fetchRecentlyViewed, fetchAllProfiles } from "../data/queries";
+import { fetchRecentlyViewed, fetchApprovedProfiles } from "../data/queries";
 
 export default function RecentlyViewed({ onNavigate, setSelectedProfileId }) {
   const { colors } = useTheme();
@@ -15,7 +15,7 @@ export default function RecentlyViewed({ onNavigate, setSelectedProfileId }) {
     if (!userId) return;
     (async () => {
       setLoading(true);
-      const [{ data: views }, { data: profs }] = await Promise.all([fetchRecentlyViewed(userId), fetchAllProfiles()]);
+      const [{ data: views }, { data: profs }] = await Promise.all([fetchRecentlyViewed(userId), fetchApprovedProfiles()]);
       const ordered = views
         .map(v => ({ ...profs.find(p => p.id === v.viewed_id), viewed_at: v.viewed_at }))
         .filter(p => p.id);

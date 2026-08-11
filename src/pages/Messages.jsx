@@ -3,7 +3,7 @@ import { MessageCircle, Send, CheckCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Avatar } from "../components/ui";
-import { fetchAllProfiles, fetchConversations, fetchMessages, sendMessage, markMessagesRead } from "../data/queries";
+import { fetchApprovedProfiles, fetchConversations, fetchMessages, sendMessage, markMessagesRead } from "../data/queries";
 
 export default function Messages({ onNavigate, setSelectedProfileId, showToast }) {
   const { colors } = useTheme();
@@ -19,7 +19,7 @@ export default function Messages({ onNavigate, setSelectedProfileId, showToast }
   async function load() {
     if (!userId) return;
     setLoading(true);
-    const [{ data: ps }, { data: cs }] = await Promise.all([fetchAllProfiles(), fetchConversations(userId)]);
+    const [{ data: ps }, { data: cs }] = await Promise.all([fetchApprovedProfiles(), fetchConversations(userId)]);
     setProfiles(ps || []);
     setConversations(cs || []);
     if (!activeId && cs?.[0]?.other_id) setActiveId(cs[0].other_id);

@@ -299,8 +299,8 @@ export function calculatePorutham(profileA, profileB) {
   ];
 
   const matchedCount = poruthams.filter(p => p.matched).length;
-  const rajjuMatched = poruthams.find(p => p.label === "Rajju Porutham")?.matched;
-  const dinaMatched = poruthams.find(p => p.label === "Dina Porutham")?.matched;
+  const rajjuMatched = poruthams.find(p => p.label.startsWith("Rajju Porutham"))?.matched;
+  const dinaMatched = poruthams.find(p => p.label.startsWith("Dina Porutham"))?.matched;
 
   let verdict;
   if (matchedCount >= 8) verdict = "Uthamam";

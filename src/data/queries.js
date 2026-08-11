@@ -726,7 +726,9 @@ export async function fetchOccupationAnalysis(adminPin = null) {
   const { data: profiles, error } = await fetchAdminProfilesForAnalytics(adminPin);
   if (error) return { data: [], error };
 
-  const { data: requests } = await supabase.rpc("admin_fetch_all_requests", { p_pin: adminPin });
+  const { data: requests, error: requestsError } = await supabase.rpc("admin_fetch_all_requests", { p_pin: adminPin });
+  const safeRequests = Array.isArray(requests) ? requests : [];
+  if (requestsError) console.error("Occupation analysis: requests fetch error:", requestsError);
 
   const occupationData = {};
   profiles.forEach(p => {
@@ -741,7 +743,7 @@ export async function fetchOccupationAnalysis(adminPin = null) {
   });
 
   // Count accepted requests per occupation
-  requests.filter(r => r.status === 'accepted').forEach(r => {
+  safeRequests.filter(r => r.status === 'accepted').forEach(r => {
     const fromProfile = profiles.find(p => p.id === r.from_id);
     const toProfile = profiles.find(p => p.id === r.to_id);
     if (fromProfile) {
