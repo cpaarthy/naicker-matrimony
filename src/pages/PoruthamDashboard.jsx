@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { fetchProfileById } from "../data/queries";
 import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
+import { calculateMatchScore, getMatchBreakdown, getMatchCategory } from "../utils/matchScore";
 
 const VERDICT_LABELS = {
   Uthamam: { en: "Excellent Match / சிறந்த பொருத்தம்", tone: "approved" },
