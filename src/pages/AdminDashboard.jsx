@@ -6,10 +6,6 @@ import {
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../supabaseClient";
-import {
-  ...,
-  HeartHandshake,
-} from "lucide-react";
 import { Avatar, Badge } from "../components/ui";
 import {
   fetchAllProfiles, updateProfileStatus, deleteProfile, updateProfileByAdmin,
@@ -40,11 +36,7 @@ const TABS = [
   { key: "requests", label: "Requests", icon: Heart },
   { key: "contact", label: "Messages", icon: Mail },
   { key: "reports", label: "Reports", icon: Flag },
- {
-  key: "successStories",
-  label: "Success Stories",
-  icon: HeartHandshake,
-},
+  { key: "verification", label: "Verification", icon: BadgeCheck },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "announce", label: "Announcement", icon: Megaphone },
   { key: "porutham", label: "Porutham Check", icon: Star },
