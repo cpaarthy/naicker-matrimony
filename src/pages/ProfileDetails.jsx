@@ -8,6 +8,7 @@ import {
   createNotification, recordProfileView, fetchBlockedProfiles, blockProfile, unblockProfile, submitProfileReport,
 } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
+import MatchDetails from '../components/MatchDetails';
 
 export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const { colors } = useTheme();
@@ -357,3 +358,5 @@ function Section({ title, children, colors }) {
 function Row({ label, value }) {
   return <div><b>{label}:</b> {value}</div>;
 }
+
+// V9.2 MatchDetails available: render <MatchDetails score={matchScore} breakdown={breakdown} tamil={true} /> where match details are shown.

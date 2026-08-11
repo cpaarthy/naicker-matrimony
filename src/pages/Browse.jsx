@@ -6,6 +6,7 @@ import { Avatar, PrimaryButton } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles, fetchFavourites } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 import {
+import MatchDetails from '../components/MatchDetails';
   matchesPartnerPreference,
   isOppositeGender,
   matchesAnalyticsFilter,
@@ -421,3 +422,5 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
     </div>
   );
 }
+
+// V9.2 MatchDetails available: render <MatchDetails score={matchScore} breakdown={breakdown} tamil={true} /> where match details are shown.

@@ -9,6 +9,7 @@ import ShareProfileModal from "../components/ShareProfileModal";
 import { fetchRequestsFor, fetchNotifications, fetchApprovedProfiles, fetchBlockedProfiles, fetchProfileViewsReceived } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 import {
+import MatchDetails from '../components/MatchDetails';
   matchesPartnerPreference,
   isOppositeGender,
   isNewMember,
@@ -449,3 +450,5 @@ function DashCard({ icon: Icon, title, badge, onClick, colors }) {
     </button>
   );
 }
+
+// V9.2 MatchDetails available: render <MatchDetails score={matchScore} breakdown={breakdown} tamil={true} /> where match details are shown.
