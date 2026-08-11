@@ -914,10 +914,20 @@ export async function submitSuccessStory({
   story,
   photoUrl,
 }) {
+  const { data: authData, error: authError } =
+    await supabase.auth.getUser();
+
+  if (authError || !authData?.user?.id) {
+    return {
+      data: null,
+      error: authError || new Error("User is not logged in"),
+    };
+  }
+
   const { data, error } = await supabase
     .from("success_stories")
     .insert({
-      user_id: userId,
+      user_id: authData.user.id,
       groom_name: groomName,
       bride_name: brideName,
       wedding_date: weddingDate || null,
