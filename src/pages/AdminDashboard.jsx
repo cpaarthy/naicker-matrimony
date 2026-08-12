@@ -325,19 +325,33 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}><h2 className="serif" style={{ fontSize: 19, margin: 0 }}>Admin Dashboard</h2><button onClick={onLogout} style={{ border: `1px solid ${colors.cardBorder}`, background: colors.card, color: colors.textMuted, borderRadius: 8, padding: "7px 10px", fontWeight: 700, fontSize: 11.5 }}>Admin Logout</button></div>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 16,
+        background: colors.headerGradient, borderRadius: 15, padding: "14px 16px",
+        boxShadow: colors.shadowLg, border: `1px solid rgba(216,169,80,0.3)`,
+      }}>
+        <div>
+          <h2 className="serif" style={{ fontSize: 18.5, margin: 0, color: colors.headerText, letterSpacing: -0.2 }}>Admin Dashboard</h2>
+          <div style={{ fontSize: 10, color: "rgba(248,236,216,0.7)", letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600, marginTop: 2 }}>Naicker Matrimony Control Panel</div>
+        </div>
+        <button onClick={onLogout} style={{
+          border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.10)", color: colors.headerText,
+          borderRadius: 9, padding: "8px 12px", fontWeight: 700, fontSize: 11.5,
+        }}>Admin Logout</button>
+      </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 2 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 18, overflowX: "auto", paddingBottom: 4 }}>
         {TABS.map(t => {
           const Icon = t.icon;
           const active = tab === t.key;
           return (
-            <button key={t.key} onClick={() => { setTab(t.key); setSelectedIds(new Set()); }} style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 8,
+            <button key={t.key} onClick={() => { setTab(t.key); setSelectedIds(new Set()); }} className="nkm-navbtn" style={{
+              display: "flex", alignItems: "center", gap: 5, padding: "8.5px 13px", borderRadius: 9,
               fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
               background: active ? colors.primary : colors.card,
               color: active ? colors.primaryText : colors.textMuted,
-              border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
+              border: `1.5px solid ${active ? colors.primary : colors.cardBorder}`,
+              boxShadow: active ? "0 3px 10px rgba(74,21,36,0.22)" : "none",
             }}>
               <Icon size={13} /> {t.label}
             </button>
@@ -348,15 +362,16 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
       {tab === "stats" && (
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-            <button onClick={handleExportCsv} style={{
+            <button onClick={handleExportCsv} className="nkm-btn-primary" style={{
               display: "flex", alignItems: "center", gap: 6, background: colors.primary, color: colors.primaryText,
-              border: "none", borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13,
+              border: "none", borderRadius: 10, padding: "10px 15px", fontWeight: 700, fontSize: 13,
+              boxShadow: "0 4px 12px rgba(74,21,36,0.2)",
             }}>
               <Download size={14} /> Export all profiles (CSV)
             </button>
             <button onClick={handleFullBackup} disabled={backingUp} style={{
               display: "flex", alignItems: "center", gap: 6, background: colors.card, color: colors.text,
-              border: `1px solid ${colors.cardBorder}`, borderRadius: 8, padding: "9px 14px", fontWeight: 700, fontSize: 13,
+              border: `1.5px solid ${colors.cardBorder}`, borderRadius: 10, padding: "10px 15px", fontWeight: 700, fontSize: 13,
               opacity: backingUp ? 0.6 : 1,
             }}>
               <DatabaseIcon size={14} /> {backingUp ? "Backing up…" : "Backup full database (JSON)"}
@@ -376,16 +391,16 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
             <StatCard label="Open reports" value={openReports.length} colors={colors} tone="pending" />
           </div>
 
-          <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>
+          <div className="nkm-card" style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 15, padding: 15, marginBottom: 14, boxShadow: colors.shadowSm }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: colors.text, marginBottom: 11, letterSpacing: 0.1 }}>
               Registrations — last 14 days
             </div>
             <BarChart data={registrationsByDay} colors={colors} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-            <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>Gender ratio</div>
+            <div className="nkm-card" style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 15, padding: 14, boxShadow: colors.shadowSm }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: colors.text, marginBottom: 11 }}>Gender ratio</div>
               <DonutChart
                 colors={colors}
                 size={110}
@@ -395,8 +410,8 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
                 ]}
               />
             </div>
-            <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>Status split</div>
+            <div className="nkm-card" style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 15, padding: 14, boxShadow: colors.shadowSm }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: colors.text, marginBottom: 11 }}>Status split</div>
               <DonutChart
                 colors={colors}
                 size={110}
@@ -409,8 +424,8 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
             </div>
           </div>
 
-          <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>User engagement</div>
+          <div className="nkm-card" style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 15, padding: 15, boxShadow: colors.shadowSm }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: colors.text, marginBottom: 11 }}>User engagement</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: colors.approvedText, fontFamily: "'Playfair Display', Georgia, serif" }}>{activeUsers.length}</div>
@@ -432,67 +447,72 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
       {tab === "pending" && (
         <div>
           {pending.length > 0 && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 13, flexWrap: "wrap" }}>
               <button onClick={() => selectAllPending(pending)} style={{
-                fontSize: 12, background: colors.card, color: colors.text, border: `1px solid ${colors.cardBorder}`,
-                borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+                fontSize: 12, background: colors.card, color: colors.text, border: `1.5px solid ${colors.cardBorder}`,
+                borderRadius: 8, padding: "7px 11px", fontWeight: 700,
               }}>Select all</button>
               <button onClick={handleBulkApprove} style={{
-                fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+                fontSize: 12, background: colors.approvedText, color: "#fff", border: "none", borderRadius: 8, padding: "7px 11px", fontWeight: 700,
               }}>Approve selected</button>
               <button onClick={handleBulkReject} style={{
-                fontSize: 12, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 7, padding: "6px 10px", fontWeight: 700,
+                fontSize: 12, background: colors.rejectedText, color: "#fff", border: "none", borderRadius: 8, padding: "7px 11px", fontWeight: 700,
               }}>Reject selected</button>
               <button onClick={handleBulkDelete} style={{
-                fontSize: 12, background: "transparent", color: colors.rejectedText, border: `1px solid ${colors.cardBorder}`, borderRadius: 7, padding: "6px 10px",
+                fontSize: 12, background: "transparent", color: colors.rejectedText, border: `1.5px solid ${colors.cardBorder}`, borderRadius: 8, padding: "7px 11px",
               }}>Delete selected</button>
             </div>
           )}
           {pending.length === 0 && <div style={{ fontSize: 13.5, color: colors.textFaint, textAlign: "center", padding: 30 }}>No pending profiles.</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {pending.map(p => (
-            <div key={p.id} onClick={() => setDetailProfile(p)} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
+            <div key={p.id} onClick={() => setDetailProfile(p)} className="nkm-card" style={{
+              display: "flex", alignItems: "center", gap: 10, padding: 11, borderRadius: 13,
+              background: colors.card, border: `1px solid ${colors.cardBorder}`, boxShadow: colors.shadowSm,
               flexWrap: "wrap", cursor: "pointer",
             }}>
               <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={40} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.name}</div>
                 <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
               </div>
               <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "approved"); }} style={{
-                background: colors.approvedBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                background: colors.approvedBg, border: "none", borderRadius: 9, width: 31, height: 31,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
                 <Check size={13} color={colors.approvedText} />
               </button>
               <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "rejected"); }} style={{
-                background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                background: colors.rejectedBg, border: "none", borderRadius: 9, width: 31, height: 31,
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
                 <X size={13} color={colors.rejectedText} />
               </button>
             </div>
           ))}
+          </div>
         </div>
       )}
 
       {tab === "all" && (
         <div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 13 }}>
             <input
               placeholder="Search by name, city, phone..."
               value={allProfilesSearch}
               onChange={e => setAllProfilesSearch(e.target.value)}
+              className="nkm-input"
               style={{
-                flex: 1, padding: "8px 12px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
+                flex: 1, padding: "9px 12px", borderRadius: 9, border: `1.5px solid ${colors.inputBorder}`,
                 fontSize: 13, background: colors.inputBg, color: colors.text,
               }}
             />
             <select
               value={allProfilesStatusFilter}
               onChange={e => setAllProfilesStatusFilter(e.target.value)}
+              className="nkm-input"
               style={{
-                padding: "8px 12px", borderRadius: 7, border: `1px solid ${colors.inputBorder}`,
+                padding: "9px 12px", borderRadius: 9, border: `1.5px solid ${colors.inputBorder}`,
                 fontSize: 13, background: colors.inputBg, color: colors.text,
               }}
             >
@@ -502,6 +522,7 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
               <option value="rejected">Rejected</option>
             </select>
           </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {profiles
             .filter(p => {
               const searchLower = allProfilesSearch.toLowerCase();
@@ -512,43 +533,45 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
             })
             .filter(p => allProfilesStatusFilter === "all" || p.status === allProfilesStatusFilter)
             .map(p => (
-              <div key={p.id} onClick={() => setDetailProfile(p)} style={{
-                display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${colors.cardBorder}`,
+              <div key={p.id} onClick={() => setDetailProfile(p)} className="nkm-card" style={{
+                display: "flex", alignItems: "center", gap: 10, padding: 11, borderRadius: 13,
+                background: colors.card, border: `1px solid ${colors.cardBorder}`, boxShadow: colors.shadowSm,
                 flexWrap: "wrap", cursor: "pointer",
               }}>
                 <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} size={40} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.name}</div>
                   <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
                 </div>
                 <Badge tone={p.status === "approved" ? "approved" : p.status === "rejected" ? "rejected" : "pending"}>{p.status}</Badge>
                 {p.plan && p.plan !== "free" && (
                   <span style={{
-                    fontSize: 9.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, textTransform: "uppercase",
+                    fontSize: 9.5, fontWeight: 800, padding: "2.5px 8px", borderRadius: 999, textTransform: "uppercase",
                     background: p.plan === "gold" ? "#fdf1d3" : "#eef1f4", color: p.plan === "gold" ? "#8a6a10" : "#4a5a68",
                   }}>★ {p.plan}</span>
                 )}
                 {p.admin_deactivated && <Badge tone="rejected">inactive</Badge>}
                 <button onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
-                  background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                  background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 9, width: 31, height: 31,
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
                   <Power size={13} color={p.admin_deactivated ? colors.approvedText : colors.pendingText} />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); setEditingProfile(p); }} style={{
-                  background: colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                  background: colors.pendingBg, border: "none", borderRadius: 9, width: 31, height: 31,
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
                   <Pencil size={13} color={colors.pendingText} />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id, p.name); }} style={{
-                  background: colors.rejectedBg, border: "none", borderRadius: 7, width: 30, height: 30,
+                  background: colors.rejectedBg, border: "none", borderRadius: 9, width: 31, height: 31,
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
                   <Trash2 size={13} color={colors.rejectedText} />
                 </button>
               </div>
             ))}
+          </div>
         </div>
       )}
 
@@ -618,13 +641,21 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
 }
 
 function StatCard({ label, value, colors, tone, icon: Icon }) {
+  const toneColor = tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text;
   return (
-    <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        {Icon && <Icon size={16} color={tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text} />}
-        <div style={{ fontSize: 11, color: colors.textMuted }}>{label}</div>
+    <div className="nkm-card" style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14, boxShadow: colors.shadowSm }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+        {Icon && (
+          <div style={{
+            width: 24, height: 24, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
+            background: tone === "approved" ? colors.approvedBg : tone === "rejected" ? colors.rejectedBg : tone === "pending" ? colors.pendingBg : colors.bgSubtle,
+          }}>
+            <Icon size={13} color={toneColor} />
+          </div>
+        )}
+        <div style={{ fontSize: 10.5, color: colors.textMuted, fontWeight: 600, letterSpacing: 0.1 }}>{label}</div>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: tone === "approved" ? colors.approvedText : tone === "rejected" ? colors.rejectedText : tone === "pending" ? colors.pendingText : colors.text }}>{value}</div>
+      <div className="serif" style={{ fontSize: 23, fontWeight: 800, color: toneColor, letterSpacing: -0.3 }}>{value}</div>
     </div>
   );
 }
@@ -1732,32 +1763,35 @@ function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBa
     <div>
       <button onClick={onBack} style={{
         display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
-        color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
+        color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0, fontWeight: 600,
       }}>← Back to All Profiles</button>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} size={56} />
-        <div style={{ flex: 1 }}>
-          <div className="serif" style={{ fontWeight: 700, fontSize: 18 }}>{profile.name}</div>
-          <div style={{ fontSize: 12.5, color: colors.textFaint }}>{profile.city} · {profile.age} yrs</div>
+      <div className="nkm-card" style={{
+        display: "flex", alignItems: "center", gap: 13, marginBottom: 16, padding: 15,
+        background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 15, boxShadow: colors.shadowSm,
+      }}>
+        <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} size={58} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="serif" style={{ fontWeight: 700, fontSize: 18, letterSpacing: -0.2 }}>{profile.name}</div>
+          <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 2 }}>{profile.city} · {profile.age} yrs</div>
         </div>
         <Badge tone={profile.status === "approved" ? "approved" : profile.status === "rejected" ? "rejected" : "pending"}>{profile.status}</Badge>
       </div>
 
       {profile.admin_deactivated && (
-        <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 8, padding: "8px 12px", fontSize: 12.5, marginBottom: 14, fontWeight: 700 }}>
+        <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 10, padding: "10px 13px", fontSize: 12.5, marginBottom: 14, fontWeight: 700 }}>
           Account deactivated by admin
         </div>
       )}
 
-      <button onClick={() => onEdit(profile)} style={{
-        width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-        padding: "10px", fontWeight: 700, fontSize: 13.5, marginBottom: 16,
+      <button onClick={() => onEdit(profile)} className="nkm-btn-primary" style={{
+        width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 11,
+        padding: "11.5px", fontWeight: 700, fontSize: 13.5, marginBottom: 16, boxShadow: "0 4px 12px rgba(74,21,36,0.2)",
       }}>Edit this profile</button>
 
       <Section title="Membership Plan" colors={colors}>
-        <div style={{ fontSize: 11.5, color: colors.textFaint, marginBottom: 10 }}>
-          Manual admin control — no payment gateway yet. Silver/Gold give a higher daily profile-view limit.
+        <div style={{ fontSize: 11.5, color: colors.textFaint, marginBottom: 11, lineHeight: 1.5 }}>
+          Manual admin control — no payment gateway yet. Silver/Gold add priority listing in Browse and let the member see who viewed their profile.
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {PLAN_ORDER.map(planKey => {
@@ -1765,10 +1799,11 @@ function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBa
             const active = (profile.plan || "free") === planKey;
             return (
               <button key={planKey} onClick={() => onPlanChange(profile, planKey)} style={{
-                flex: 1, border: `1.5px solid ${active ? info.color : colors.cardBorder}`, borderRadius: 8,
-                padding: "9px 6px", fontWeight: 800, fontSize: 12.5,
+                flex: 1, border: `1.5px solid ${active ? info.color : colors.cardBorder}`, borderRadius: 10,
+                padding: "9.5px 6px", fontWeight: 800, fontSize: 12.5,
                 background: active ? info.color : colors.card,
                 color: active ? "#fff" : colors.text,
+                boxShadow: active ? `0 3px 10px ${info.color}55` : "none",
               }}>{info.label}</button>
             );
           })}
@@ -1841,8 +1876,8 @@ function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBa
 
 function Section({ title, colors, children }) {
   return (
-    <div style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, marginBottom: 10 }}>{title}</div>
+    <div className="nkm-card" style={{ background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 15, marginBottom: 12, boxShadow: colors.shadowSm }}>
+      <div style={{ fontSize: 12.5, fontWeight: 800, color: colors.text, marginBottom: 11, letterSpacing: 0.1 }}>{title}</div>
       {children}
     </div>
   );
