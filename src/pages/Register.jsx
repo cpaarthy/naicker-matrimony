@@ -50,7 +50,7 @@ function BackLink({ onClick, children, colors }) {
 
 export default function Register({ onNavigate, showToast }) {
   const { colors } = useTheme();
-  const { sendEmailOtp, verifyEmailOtp, signUpWithPhone } = useAuth();
+  const { sendEmailOtp, verifyEmailOtp, signUpWithPhone, reloadProfile } = useAuth();
 
   // Wizard stages, in order: basics -> location -> preference -> account -> otp
   const [stage, setStage] = useState("basics");
@@ -203,10 +203,11 @@ export default function Register({ onNavigate, showToast }) {
     if (newUserId) {
       const saved = await saveProfileAfterAuth(newUserId);
       if (!saved) return;
+      await reloadProfile();
     }
-    try { localStorage.removeItem(REGISTRATION_DRAFT_KEY); } catch (_) {}
     showToast("Account created. Please complete your profile.");
     onNavigate("editProfile");
+    try { localStorage.removeItem(REGISTRATION_DRAFT_KEY); } catch (_) {}
   }
 
   async function handlePhoneSignup() {
@@ -226,10 +227,11 @@ export default function Register({ onNavigate, showToast }) {
     if (newUserId) {
       const saved = await saveProfileAfterAuth(newUserId);
       if (!saved) return;
+      await reloadProfile();
     }
-    try { localStorage.removeItem(REGISTRATION_DRAFT_KEY); } catch (_) {}
     showToast("Account created. Please complete your profile.");
     onNavigate("editProfile");
+    try { localStorage.removeItem(REGISTRATION_DRAFT_KEY); } catch (_) {}
   }
 
   const stepIndex = { basics: 0, location: 1, preference: 2, account: 3, otp: 3 }[stage] ?? 0;
