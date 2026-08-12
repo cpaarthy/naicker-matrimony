@@ -145,7 +145,6 @@ export default function Register({ onNavigate, showToast }) {
   }
 
   function goToAccountStep() {
-    if (!agreedToTerms) { showToast("Please accept the Terms & Conditions to continue"); return; }
     saveDraft({ ...form, phone: form.phone || phone || "" });
     setStage("account");
   }
