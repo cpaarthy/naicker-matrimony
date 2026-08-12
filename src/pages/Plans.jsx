@@ -2,7 +2,7 @@ import React from "react";
 import { Crown, Check, ShieldCheck, Star, Sparkles } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { normalizePlan, formatDailyViewLimit, formatDailyInterestLimit } from "../utils/plans";
+import { normalizePlan } from "../utils/plans";
 
 const PLAN_CARDS = [
   {
@@ -14,11 +14,11 @@ const PLAN_CARDS = [
     features: [
       "Create profile",
       "Browse approved profiles",
-      "5 interest requests per day",
+      "Unlimited interest requests",
+      "Unlimited profile views",
       "Shortlist / Favourites",
       "Porutham / compatibility details",
       "Profile verification request",
-      "10 profile views per day",
     ],
   },
   {
@@ -29,8 +29,6 @@ const PLAN_CARDS = [
     icon: Star,
     features: [
       "Everything in Free",
-      "50 profile views per day",
-      "Unlimited interest requests",
       "Priority listing in Browse",
       "See who viewed your profile",
       "Silver badge on your profile",
@@ -44,8 +42,6 @@ const PLAN_CARDS = [
     icon: Crown,
     features: [
       "Everything in Silver",
-      "Unlimited profile views",
-      "Unlimited interest requests",
       "Top priority listing in Browse",
       "See who viewed your profile",
       "Gold badge on your profile",
@@ -64,10 +60,10 @@ export default function Plans() {
         Membership Plans / உறுப்பினர் திட்டங்கள்
       </h2>
       <p style={{ fontSize: 12.5, color: colors.textMuted, lineHeight: 1.6, marginBottom: 16 }}>
-        Naicker Matrimony core features are free for every member. Silver and Gold
-        raise your daily profile-view limit and give your profile a badge in Browse.
+        All core features — unlimited browsing, interests and profile views — are free for every member.
+        Silver and Gold add priority listing and let you see who viewed your profile.
         <br />
-        அடிப்படை அம்சங்கள் அனைவருக்கும் இலவசம். Silver/Gold திட்டங்கள் உங்கள் தினசரி பார்வை வரம்பை அதிகரிக்கும்.
+        அடிப்படை அம்சங்கள் அனைவருக்கும் இலவசம், வரம்பு இல்லாமல். Silver/Gold திட்டங்கள் முன்னுரிமை பட்டியல் மற்றும் யார் பார்த்தார்கள் என்பதைக் காட்டும்.
       </p>
 
       {PLAN_CARDS.map((plan) => {
@@ -123,7 +119,9 @@ export default function Plans() {
               fontWeight: 800, textAlign: "center", boxSizing: "border-box", fontSize: 12.5,
             }}>
               {isCurrent
-                ? `Views: ${formatDailyViewLimit(plan.key)} · Interests: ${formatDailyInterestLimit(plan.key)}`
+                ? plan.key === "free"
+                  ? "Unlimited browsing, interests & views"
+                  : "Priority listing + who viewed your profile"
                 : plan.key === "free"
                   ? "Default plan for every new member"
                   : "Contact admin to activate this plan"}

@@ -9,8 +9,8 @@ export const PLAN_INFO = {
   free: {
     label: "Free",
     tamil: "இலவசம்",
-    dailyViewLimit: 10,
-    dailyInterestLimit: 5,
+    dailyViewLimit: null, // unlimited
+    dailyInterestLimit: null, // unlimited
     priority: false,
     whoViewed: false,
     color: "#8a7a63",
@@ -18,7 +18,7 @@ export const PLAN_INFO = {
   silver: {
     label: "Silver",
     tamil: "சில்வர்",
-    dailyViewLimit: 50,
+    dailyViewLimit: null, // unlimited
     dailyInterestLimit: null, // unlimited
     priority: true,
     whoViewed: true,

@@ -1,6 +1,11 @@
 -- NAICKER MATRIMONY — V10 MEMBERSHIP PLANS (Free / Silver / Gold)
 -- Run once in Supabase SQL Editor.
 --
+-- NOTE: The daily view/interest limits set up below were later removed by
+-- V12_REMOVE_DAILY_LIMITS_MIGRATION.sql — run that too (after V11). All
+-- plans now have unlimited profile views and interest requests; only the
+-- priority-listing and who-viewed-me perks (added in V11) remain paid-only.
+--
 -- Goal:
 --   * Every profile has a `plan` column: 'free' (default), 'silver', or 'gold'.
 --   * Only the admin can change a member's plan (manual toggle, no payment

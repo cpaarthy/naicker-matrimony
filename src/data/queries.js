@@ -121,7 +121,6 @@ export async function sendInterestRequest(fromId, toId) {
     const reasonMessages = {
       already_accepted: "Interest already accepted",
       already_sent: "Interest already sent",
-      daily_limit_reached: `Daily interest limit reached (${data?.limit ?? ""}/day on your plan). Upgrade to Silver or Gold for unlimited interests.`,
     };
     return { error: { message: reasonMessages[data?.reason] || "Could not send interest" } };
   }
@@ -192,18 +191,12 @@ export async function deleteProfile(id, adminPin) {
 // ============ MEMBERSHIP PLANS (Free / Silver / Gold) ============
 // Plan changes are admin-only for now (manual toggle). No payment gateway
 // is wired up yet — a future payment webhook can call the same RPC.
+// Note: profile views and interest requests are unlimited on every plan.
+// Silver/Gold's remaining perks are priority listing in Browse and
+// "who viewed my profile" (see fetchProfileViewers below).
 export async function setProfilePlan(id, plan, adminPin) {
   const { error } = await supabase.rpc("admin_set_profile_plan", { p_pin: adminPin, p_profile_id: id, p_plan: plan });
   return { error };
-}
-
-// Called when a member opens another profile. Server-side atomically checks
-// and increments today's view count against the viewer's plan daily limit.
-// Returns { allowed, remaining, limit, plan } or { error } if the RPC fails.
-export async function registerProfileView(viewerId) {
-  const { data, error } = await supabase.rpc("member_register_profile_view", { p_viewer_id: viewerId });
-  if (error) return { allowed: true, remaining: null, limit: null, plan: null, error };
-  return { ...(data || {}), error: null };
 }
 
 export async function fetchContactMessages() {

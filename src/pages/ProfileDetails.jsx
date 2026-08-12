@@ -6,7 +6,6 @@ import { Avatar, PrimaryButton, PlanBadge } from "../components/ui";
 import {
   fetchProfileById, fetchRequestsFor, sendInterestRequest, fetchFavourites, toggleFavourite,
   createNotification, recordProfileView, fetchBlockedProfiles, blockProfile, unblockProfile, submitProfileReport,
-  registerProfileView,
 } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
@@ -19,7 +18,6 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const [isFav, setIsFav] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [viewBlocked, setViewBlocked] = useState(null); // { limit, plan } when daily limit is hit
 
   React.useEffect(() => {
     load();
@@ -27,7 +25,6 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 
   async function load() {
     setLoading(true);
-    setViewBlocked(null);
     const { data } = await fetchProfileById(profileId);
     if (userId) {
       const { data: reqs } = await fetchRequestsFor(userId);
@@ -37,13 +34,6 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
       const { data: blocks } = await fetchBlockedProfiles(userId);
       setIsBlocked(blocks.some(b => b.blocked_id === profileId));
       if (profileId !== userId) {
-        const viewResult = await registerProfileView(userId);
-        if (!viewResult.error && viewResult.allowed === false) {
-          setViewBlocked({ limit: viewResult.limit, plan: viewResult.plan });
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
         recordProfileView(userId, profileId);
       }
     }
@@ -103,25 +93,6 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
-
-  if (viewBlocked) {
-    return (
-      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
-        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
-        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
-          Daily profile view limit reached / இன்றைய பார்வை வரம்பு முடிந்தது
-        </div>
-        <div style={{ fontSize: 13, marginBottom: 18 }}>
-          Your {viewBlocked.plan ? viewBlocked.plan.charAt(0).toUpperCase() + viewBlocked.plan.slice(1) : "Free"} plan allows {viewBlocked.limit} profile views per day. Upgrade to Silver or Gold for a higher daily limit, or come back tomorrow.
-          <br />உங்கள் திட்டத்தில் இன்று அனுமதிக்கப்பட்ட பார்வைகள் முடிந்துவிட்டன். Silver/Gold திட்டத்திற்கு மேம்படுத்தவும் அல்லது நாளை முயற்சிக்கவும்.
-        </div>
-        <button onClick={() => onNavigate("plans")} style={{
-          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "10px 20px", fontWeight: 700, fontSize: 14,
-        }}>View Membership Plans / திட்டங்களைப் பார்க்க</button>
-      </div>
-    );
-  }
 
   if (!profile) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Profile not found.</div>;
 
