@@ -693,10 +693,7 @@ export async function fetchResponseRateAnalysis(adminPin = null) {
 // Most viewed profiles
 export async function fetchMostViewedProfiles(limit = 20, adminPin = null) {
   try {
-    const { data, error } = await supabase
-      .from("recently_viewed")
-      .select("viewed_id, viewer_id, viewed_at")
-      .order("viewed_at", { ascending: false });
+    const { data, error } = await supabase.rpc("admin_fetch_all_views", { p_pin: adminPin });
 
     if (error) {
       console.error("Most viewed profiles error:", error);

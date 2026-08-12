@@ -20,6 +20,8 @@ begin;
 -- 2) Keep the newest active request per pair; demote older duplicates to
 --    'declined' so they no longer count as "active" and won't violate the
 --    unique index.
+--    (responded_at doesn't exist yet at this point — V7 adds it — so this
+--    only touches status here.)
 with ranked as (
   select
     id,
@@ -33,7 +35,7 @@ with ranked as (
   where status in ('pending', 'accepted')
 )
 update public.requests r
-set status = 'declined', responded_at = coalesce(r.responded_at, now())
+set status = 'declined'
 from ranked
 where r.id = ranked.id
   and ranked.rn > 1;
