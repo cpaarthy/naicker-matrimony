@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { MapPin, Lock, Heart, Flag, ShieldOff, ShieldCheck, Star, BadgeCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { Avatar, PrimaryButton } from "../components/ui";
+import { Avatar, PrimaryButton, PlanBadge } from "../components/ui";
 import {
   fetchProfileById, fetchRequestsFor, sendInterestRequest, fetchFavourites, toggleFavourite,
   createNotification, recordProfileView, fetchBlockedProfiles, blockProfile, unblockProfile, submitProfileReport,
+  registerProfileView,
 } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 
@@ -18,6 +19,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   const [isFav, setIsFav] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [viewBlocked, setViewBlocked] = useState(null); // { limit, plan } when daily limit is hit
 
   React.useEffect(() => {
     load();
@@ -25,8 +27,8 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
 
   async function load() {
     setLoading(true);
+    setViewBlocked(null);
     const { data } = await fetchProfileById(profileId);
-    setProfile(data);
     if (userId) {
       const { data: reqs } = await fetchRequestsFor(userId);
       setMyRequests(reqs);
@@ -34,8 +36,18 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
       setIsFav(favs.some(f => f.profile_id === profileId));
       const { data: blocks } = await fetchBlockedProfiles(userId);
       setIsBlocked(blocks.some(b => b.blocked_id === profileId));
-      if (profileId !== userId) recordProfileView(userId, profileId);
+      if (profileId !== userId) {
+        const viewResult = await registerProfileView(userId);
+        if (!viewResult.error && viewResult.allowed === false) {
+          setViewBlocked({ limit: viewResult.limit, plan: viewResult.plan });
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        recordProfileView(userId, profileId);
+      }
     }
+    setProfile(data);
     setLoading(false);
   }
 
@@ -44,7 +56,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
     const existing = myRequests.find(r => r.from_id === userId && r.to_id === profileId);
     if (existing) { showToast("Request already sent"); return; }
     const { error } = await sendInterestRequest(userId, profileId);
-    if (error) { showToast("Could not send request"); return; }
+    if (error) { showToast(error.message || "Could not send request"); return; }
     await createNotification({
       userId: profileId, type: "request_received", relatedProfileId: userId,
       message: `${myProfile?.name || "Someone"} sent you an interest request.`,
@@ -91,6 +103,26 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
   }
 
   if (loading) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Loading…</div>;
+
+  if (viewBlocked) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 20px", color: colors.textFaint, background: colors.card, borderRadius: 14, border: `1px solid ${colors.cardBorder}` }}>
+        <Lock size={30} style={{ marginBottom: 12, opacity: 0.6 }} />
+        <div style={{ fontWeight: 700, color: colors.text, fontSize: 16, marginBottom: 6 }}>
+          Daily profile view limit reached / இன்றைய பார்வை வரம்பு முடிந்தது
+        </div>
+        <div style={{ fontSize: 13, marginBottom: 18 }}>
+          Your {viewBlocked.plan ? viewBlocked.plan.charAt(0).toUpperCase() + viewBlocked.plan.slice(1) : "Free"} plan allows {viewBlocked.limit} profile views per day. Upgrade to Silver or Gold for a higher daily limit, or come back tomorrow.
+          <br />உங்கள் திட்டத்தில் இன்று அனுமதிக்கப்பட்ட பார்வைகள் முடிந்துவிட்டன். Silver/Gold திட்டத்திற்கு மேம்படுத்தவும் அல்லது நாளை முயற்சிக்கவும்.
+        </div>
+        <button onClick={() => onNavigate("plans")} style={{
+          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
+          padding: "10px 20px", fontWeight: 700, fontSize: 14,
+        }}>View Membership Plans / திட்டங்களைப் பார்க்க</button>
+      </div>
+    );
+  }
+
   if (!profile) return <div style={{ textAlign: "center", color: colors.textFaint, padding: 40 }}>Profile not found.</div>;
 
   const alreadySent = myRequests.some(r => r.from_id === userId && r.to_id === profile.id);
@@ -100,7 +132,7 @@ export default function ProfileDetails({ profileId, onNavigate, showToast }) {
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
         <Avatar name={profile.name} gender={profile.gender} photoUrl={profile.photo_url} size={72} />
         <div style={{ flex: 1 }}>
-          <div className="serif" style={{ fontWeight: 700, fontSize: 20, display: "flex", alignItems: "center", gap: 6 }}>{profile.name}{profile.is_verified && <BadgeCheck size={17} color={colors.approvedText} />}</div>
+          <div className="serif" style={{ fontWeight: 700, fontSize: 20, display: "flex", alignItems: "center", gap: 6 }}>{profile.name}{profile.is_verified && <BadgeCheck size={17} color={colors.approvedText} />}<PlanBadge plan={profile.plan} /></div>
           <div style={{ fontSize: 13, color: colors.textFaint }}>{profile.age} yrs · {profile.height}</div>
           {profile.profile_for && profile.profile_for !== "Self" && (
             <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 2 }}>

@@ -115,14 +115,18 @@ export async function fetchRequestBetween(userId, profileId) {
 
 export async function sendInterestRequest(fromId, toId) {
   if (!fromId || !toId || fromId === toId) return { error: { message: "Invalid interest request" } };
-  const { data: existing } = await fetchRequestBetween(fromId, toId);
-  const active = (existing || []).find(r => ["pending", "accepted"].includes(r.status));
-  if (active) return { error: { message: active.status === "accepted" ? "Interest already accepted" : "Interest already sent" } };
-  const { error } = await supabase.from("requests").insert({ from_id: fromId, to_id: toId, status: "pending" });
-  if (!error) {
-    await logUserActivity({ userId: fromId, action: "sent_interest", targetType: "profile", targetId: toId, details: "Sent interest request" });
+  const { data, error } = await supabase.rpc("member_send_interest_request", { p_from_id: fromId, p_to_id: toId });
+  if (error) return { error };
+  if (!data?.success) {
+    const reasonMessages = {
+      already_accepted: "Interest already accepted",
+      already_sent: "Interest already sent",
+      daily_limit_reached: `Daily interest limit reached (${data?.limit ?? ""}/day on your plan). Upgrade to Silver or Gold for unlimited interests.`,
+    };
+    return { error: { message: reasonMessages[data?.reason] || "Could not send interest" } };
   }
-  return { error };
+  await logUserActivity({ userId: fromId, action: "sent_interest", targetType: "profile", targetId: toId, details: "Sent interest request" });
+  return { error: null, remaining: data.remaining, limit: data.limit, plan: data.plan };
 }
 
 export async function withdrawInterestRequest(reqId, userId) {
@@ -183,6 +187,23 @@ export async function submitContactMessage(record) {
 export async function deleteProfile(id, adminPin) {
   const { error } = await supabase.rpc("admin_delete_profile", { p_pin: adminPin, p_profile_id: id });
   return { error };
+}
+
+// ============ MEMBERSHIP PLANS (Free / Silver / Gold) ============
+// Plan changes are admin-only for now (manual toggle). No payment gateway
+// is wired up yet — a future payment webhook can call the same RPC.
+export async function setProfilePlan(id, plan, adminPin) {
+  const { error } = await supabase.rpc("admin_set_profile_plan", { p_pin: adminPin, p_profile_id: id, p_plan: plan });
+  return { error };
+}
+
+// Called when a member opens another profile. Server-side atomically checks
+// and increments today's view count against the viewer's plan daily limit.
+// Returns { allowed, remaining, limit, plan } or { error } if the RPC fails.
+export async function registerProfileView(viewerId) {
+  const { data, error } = await supabase.rpc("member_register_profile_view", { p_viewer_id: viewerId });
+  if (error) return { allowed: true, remaining: null, limit: null, plan: null, error };
+  return { ...(data || {}), error: null };
 }
 
 export async function fetchContactMessages() {
@@ -383,6 +404,14 @@ export async function recordProfileView(viewerId, viewedId) {
     await logUserActivity({ userId: viewerId, action: "viewed_profile", targetType: "profile", targetId: viewedId, details: "Viewed profile" });
   }
   return { error };
+}
+
+// Silver/Gold-only: who viewed my profile. Plan gate is enforced server-side
+// too, so a Free member calling this directly still gets allowed:false.
+export async function fetchProfileViewers(profileId) {
+  const { data, error } = await supabase.rpc("member_fetch_profile_viewers", { p_profile_id: profileId });
+  if (error) return { allowed: false, plan: null, viewers: [], error };
+  return { allowed: !!data?.allowed, plan: data?.plan || null, viewers: data?.viewers || [], error: null };
 }
 
 export async function fetchRecentlyViewed(viewerId) {

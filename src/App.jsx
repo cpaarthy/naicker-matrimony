@@ -27,6 +27,7 @@ import Verification from "./pages/Verification";
 import PrivacySettings from "./pages/PrivacySettings";
 import SuccessStories from "./pages/SuccessStories";
 import Plans from "./pages/Plans";
+import WhoViewedMe from "./pages/WhoViewedMe";
 
 function AppShell() {
   const { session, authChecked } = useAuth();
@@ -96,7 +97,7 @@ function AppShell() {
 
   // Bottom nav "dashboard" key maps internally, but admin is reached via a hidden route
   const navPageKey = page === "editProfile" || page === "requests" || page === "favourites"
-    || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" || page === "faq" || page === "savedSearches" || page === "verification" || page === "privacy" || page === "successStories" || page === "plans" ? "more"
+    || page === "notifications" || page === "accountSettings" || page === "recentlyViewed" || page === "faq" || page === "savedSearches" || page === "verification" || page === "privacy" || page === "successStories" || page === "plans" || page === "whoViewedMe" ? "more"
     : page === "profileDetails" || page === "porutham" ? "browse"
     : page;
 
@@ -145,6 +146,9 @@ function AppShell() {
       {page === "privacy" && <PrivacySettings showToast={showToast} />}
       {page === "successStories" && <SuccessStories />}
       {page === "plans" && <Plans onNavigate={navigate} showToast={showToast} />}
+      {page === "whoViewedMe" && (
+        <WhoViewedMe onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} />
+      )}
       {page === "admin" && (
         <AdminDashboard adminPin={adminPin} onLogout={() => { setAdminPin(""); setPage("adminLogin"); setHistory([]); }} onNavigate={navigate} setSelectedProfileId={setSelectedProfileId} showToast={showToast} />
       )}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Search, SlidersHorizontal, Users, Lock, BadgeCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { Avatar, PrimaryButton } from "../components/ui";
+import { Avatar, PrimaryButton, PlanBadge } from "../components/ui";
 import { fetchApprovedProfiles, fetchMasterList, fetchBlockedProfiles, fetchFavourites } from "../data/queries";
 import { calculateMatchScore } from "../utils/matchScore";
 import {
@@ -386,31 +386,37 @@ export default function Browse({ onNavigate, setSelectedProfileId, matchFilter =
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
         {filtered.map(p => {
           const match = profile ? calculateMatchScore(profile, p) : null;
+          const isGold = p.plan === "gold";
+          const isSilver = p.plan === "silver";
           return (
-            <div key={p.id} onClick={() => { setSelectedProfileId(p.id); onNavigate("profileDetails"); }} style={{
-              background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 14, padding: 14,
+            <div key={p.id} onClick={() => { setSelectedProfileId(p.id); onNavigate("profileDetails"); }} className="nkm-card" style={{
+              background: colors.card,
+              border: `1.5px solid ${isGold ? "#d9b568" : isSilver ? "#a8b4bf" : colors.cardBorder}`,
+              borderRadius: 15, padding: 14,
               display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer",
+              boxShadow: isGold ? "0 3px 14px rgba(184,134,46,0.16)" : colors.shadowSm,
+              position: "relative",
             }}>
               <Avatar name={p.name} gender={p.gender} photoUrl={p.photo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <div className="serif" style={{ fontWeight: 700, fontSize: 16.5, display: "flex", alignItems: "center", gap: 6 }}>{p.name}{p.is_verified && <span title="Verified profile" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: "sans-serif", fontSize: 9.5, fontWeight: 800, color: colors.approvedText, whiteSpace: "nowrap" }}><BadgeCheck size={14} /> Verified</span>}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="serif" style={{ fontWeight: 700, fontSize: 16.5, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>{p.name}{p.is_verified && <span title="Verified profile" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: "sans-serif", fontSize: 9.5, fontWeight: 800, color: colors.approvedText, whiteSpace: "nowrap" }}><BadgeCheck size={14} /> Verified</span>}<PlanBadge plan={p.plan} /></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                     {match && (
                       <span style={{
-                        fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999,
+                        fontSize: 10.5, fontWeight: 800, padding: "2.5px 8px", borderRadius: 999,
                         background: match.percentage >= 90 ? colors.approvedBg : match.percentage >= 50 ? colors.pendingBg : colors.rejectedBg,
                         color: match.percentage >= 90 ? colors.approvedText : match.percentage >= 50 ? colors.pendingText : colors.rejectedText,
                       }}>{match.percentage}% match</span>
                     )}
-                    <div style={{ fontSize: 12.5, color: colors.textFaint }}>{p.age} yrs</div>
+                    <div style={{ fontSize: 12.5, color: colors.textFaint, fontWeight: 600 }}>{p.age} yrs</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>{p.occupation || "—"} · Location hidden</div>
-                <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: colors.textMuted, marginTop: 3 }}>{p.occupation || "—"} · Location hidden</div>
+                <div style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 3 }}>
                   {p.religion} · {p.caste}{p.sub_caste ? ` (${p.sub_caste})` : ""} · {p.mother_tongue}
                 </div>
               </div>

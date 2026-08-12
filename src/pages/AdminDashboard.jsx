@@ -22,8 +22,10 @@ import {
   fetchAgeDistribution, fetchResponseRateAnalysis, fetchMostViewedProfiles,
   fetchOccupationAnalysis, fetchEducationAnalysis,
   fetchAllVerifications, updateVerificationStatus,
+  setProfilePlan,
 } from "../data/queries";
 import { calculatePorutham, isHoroscopeDataAvailable } from "../utils/porutham";
+import { PLAN_ORDER, getPlanInfo } from "../utils/plans";
 import { BarChart, DonutChart } from "../components/AdminCharts";
 import { exportToCsv } from "../utils/exportCsv";
 import { downloadJson } from "../utils/downloadJson";
@@ -151,6 +153,18 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
     loadAll();
   }
 
+  async function handlePlanChange(p, plan) {
+    if (p.plan === plan) return;
+    const { error } = await setProfilePlan(p.id, plan, adminPin);
+    if (error) { showToast("Could not update plan"); return; }
+    await logAdminAction({
+      action: "change_plan", targetType: "profile", targetId: p.id, targetName: p.name,
+      details: `${p.plan || "free"} → ${plan}`,
+    });
+    showToast(`Plan set to ${getPlanInfo(plan).label}`);
+    loadAll();
+  }
+
   function toggleSelect(id) {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -260,15 +274,17 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
   }
 
   if (detailProfile) {
+    const liveDetailProfile = profiles.find(p => p.id === detailProfile.id) || detailProfile;
     return (
       <AdminProfileDetail
-        profile={detailProfile}
+        profile={liveDetailProfile}
         profiles={profiles}
         requests={requests}
         reports={reports}
         colors={colors}
         onBack={() => setDetailProfile(null)}
         onEdit={(p) => { setDetailProfile(null); setEditingProfile(p); }}
+        onPlanChange={handlePlanChange}
       />
     );
   }
@@ -506,6 +522,12 @@ export default function AdminDashboard({ adminPin, onLogout, onNavigate, setSele
                   <div style={{ fontSize: 11.5, color: colors.textFaint }}>{p.city} · {p.phone}</div>
                 </div>
                 <Badge tone={p.status === "approved" ? "approved" : p.status === "rejected" ? "rejected" : "pending"}>{p.status}</Badge>
+                {p.plan && p.plan !== "free" && (
+                  <span style={{
+                    fontSize: 9.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, textTransform: "uppercase",
+                    background: p.plan === "gold" ? "#fdf1d3" : "#eef1f4", color: p.plan === "gold" ? "#8a6a10" : "#4a5a68",
+                  }}>★ {p.plan}</span>
+                )}
                 {p.admin_deactivated && <Badge tone="rejected">inactive</Badge>}
                 <button onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }} title={p.admin_deactivated ? "Activate account" : "Deactivate account"} style={{
                   background: p.admin_deactivated ? colors.approvedBg : colors.pendingBg, border: "none", borderRadius: 7, width: 30, height: 30,
@@ -1687,7 +1709,7 @@ function MasterListsTab({ colors, showToast }) {
   );
 }
 
-function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBack, onEdit }) {
+function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBack, onEdit, onPlanChange }) {
   const incoming = requests.filter(r => r.to_id === profile.id);
   const outgoing = requests.filter(r => r.from_id === profile.id);
   const reportsAgainst = reports.filter(r => r.reported_id === profile.id);
@@ -1732,6 +1754,26 @@ function AdminProfileDetail({ profile, profiles, requests, reports, colors, onBa
         width: "100%", background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
         padding: "10px", fontWeight: 700, fontSize: 13.5, marginBottom: 16,
       }}>Edit this profile</button>
+
+      <Section title="Membership Plan" colors={colors}>
+        <div style={{ fontSize: 11.5, color: colors.textFaint, marginBottom: 10 }}>
+          Manual admin control — no payment gateway yet. Silver/Gold give a higher daily profile-view limit.
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {PLAN_ORDER.map(planKey => {
+            const info = getPlanInfo(planKey);
+            const active = (profile.plan || "free") === planKey;
+            return (
+              <button key={planKey} onClick={() => onPlanChange(profile, planKey)} style={{
+                flex: 1, border: `1.5px solid ${active ? info.color : colors.cardBorder}`, borderRadius: 8,
+                padding: "9px 6px", fontWeight: 800, fontSize: 12.5,
+                background: active ? info.color : colors.card,
+                color: active ? "#fff" : colors.text,
+              }}>{info.label}</button>
+            );
+          })}
+        </div>
+      </Section>
 
       <Section title="Profile Details" colors={colors}>
         {FIELDS.map(([label, value]) => (

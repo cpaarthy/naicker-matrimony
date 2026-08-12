@@ -67,13 +67,17 @@ export default function Login({ onNavigate, showToast }) {
       <div>
         <button onClick={() => { setStep("form"); setError(""); }} style={{
           display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
-          color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0,
+          color: colors.textFaint, fontSize: 12.5, marginBottom: 14, padding: 0, fontWeight: 600,
         }}>
           <ArrowLeft size={14} /> Back to login / திரும்பிச் செல்ல
         </button>
 
-        <h2 className="serif" style={{ fontSize: 19, marginBottom: 4 }}>Reset your password / கடவுச்சொல்லை மீட்டமைக்கவும்</h2>
-        <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18 }}>
+        <div style={{
+          background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 18,
+          padding: 20, boxShadow: colors.shadow,
+        }}>
+        <h2 className="serif" style={{ fontSize: 19, marginBottom: 4, letterSpacing: -0.2 }}>Reset your password</h2>
+        <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18, lineHeight: 1.55 }}>
           Enter your {method === "email" ? "email" : "phone number"} and answer your security question to set a new password.
           <br />உங்கள் {method === "email" ? "மின்னஞ்சல்" : "தொலைபேசி எண்"}ணையும் பாதுகாப்பு கேள்விக்கான பதிலையும் உள்ளிடவும்.
         </p>
@@ -91,24 +95,28 @@ export default function Login({ onNavigate, showToast }) {
         <PrimaryButton onClick={handleForgotPasswordSubmit} disabled={loading}>
           {loading ? "Resetting…" : "Reset password / மீட்டமைக்கவும்"}
         </PrimaryButton>
+        </div>
       </div>
     );
   }
 
   if (step === "forgotSuccess") {
     return (
-      <div style={{ textAlign: "center", padding: "30px 16px" }}>
-        <h2 className="serif" style={{ fontSize: 18, marginBottom: 10 }}>Password reset successfully! / வெற்றிகரமாக மீட்டமைக்கப்பட்டது!</h2>
-        <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18 }}>
+      <div style={{
+        textAlign: "center", padding: "34px 20px", background: colors.card,
+        border: `1px solid ${colors.cardBorder}`, borderRadius: 18, boxShadow: colors.shadow,
+      }}>
+        <h2 className="serif" style={{ fontSize: 18, marginBottom: 10, letterSpacing: -0.2 }}>Password reset successfully!</h2>
+        <p style={{ fontSize: 13, color: colors.textFaint, marginBottom: 18, lineHeight: 1.55 }}>
           You can now log in with your new password. / இப்போது புதிய கடவுச்சொல்லுடன் உள்நுழையலாம்.
         </p>
         <button onClick={() => {
           setStep("form");
           if (method === "email") setEmail(forgotIdentifier); else setPhone(forgotIdentifier);
           setPassword("");
-        }} style={{
-          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 8,
-          padding: "10px 24px", fontWeight: 700, fontSize: 14,
+        }} className="nkm-btn-primary" style={{
+          background: colors.primary, color: colors.primaryText, border: "none", borderRadius: 10,
+          padding: "11px 26px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 14px rgba(74,21,36,0.22)",
         }}>Go to login / உள்நுழைய செல்லவும்</button>
       </div>
     );
@@ -116,20 +124,29 @@ export default function Login({ onNavigate, showToast }) {
 
   return (
     <div>
-      <h2 className="serif" style={{ fontSize: 19, marginBottom: 14 }}>Log in / உள்நுழையவும்</h2>
+      <div style={{
+        background: colors.card, border: `1px solid ${colors.cardBorder}`, borderRadius: 18,
+        padding: 20, boxShadow: colors.shadow,
+      }}>
+      <h2 className="serif" style={{ fontSize: 20, marginBottom: 3, letterSpacing: -0.2 }}>Log in</h2>
+      <div style={{ fontSize: 12, color: colors.textFaint, marginBottom: 18 }}>உள்நுழையவும்</div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 20, background: colors.pendingBg, borderRadius: 10, padding: 4 }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 20, background: colors.bgSubtle, borderRadius: 11, padding: 4, border: `1px solid ${colors.cardBorder}` }}>
         <button onClick={() => { setMethod("email"); setStep("form"); setError(""); }} style={{
           flex: 1, padding: "9px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12.5,
           background: method === "email" ? colors.primary : "transparent",
           color: method === "email" ? colors.primaryText : colors.textMuted,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          boxShadow: method === "email" ? "0 2px 6px rgba(74,21,36,0.2)" : "none",
+          transition: "background 120ms ease",
         }}><Mail size={14} /> Email</button>
         <button onClick={() => { setMethod("phone"); setError(""); }} style={{
           flex: 1, padding: "9px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12.5,
           background: method === "phone" ? colors.primary : "transparent",
           color: method === "phone" ? colors.primaryText : colors.textMuted,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          boxShadow: method === "phone" ? "0 2px 6px rgba(74,21,36,0.2)" : "none",
+          transition: "background 120ms ease",
         }}><Phone size={14} /> Phone + password</button>
       </div>
 
@@ -164,10 +181,11 @@ export default function Login({ onNavigate, showToast }) {
           </button>
         </>
       )}
+      </div>
 
-      <p style={{ fontSize: 12, color: colors.textFaint, marginTop: 16, textAlign: "center" }}>
+      <p style={{ fontSize: 12.5, color: colors.textFaint, marginTop: 18, textAlign: "center" }}>
         New here? / புதியவரா?{" "}
-        <button onClick={() => onNavigate("register")} style={{ background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12, padding: 0 }}>
+        <button onClick={() => onNavigate("register")} style={{ background: "none", border: "none", color: colors.primary, fontWeight: 700, fontSize: 12.5, padding: 0 }}>
           Register / பதிவு செய்யவும்
         </button>
       </p>
@@ -177,7 +195,7 @@ export default function Login({ onNavigate, showToast }) {
 
 function ErrorBox({ children, colors }) {
   return (
-    <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
+    <div style={{ background: colors.rejectedBg, color: colors.rejectedText, borderRadius: 9, padding: "10px 13px", fontSize: 13, marginBottom: 15, fontWeight: 500 }}>
       {children}
     </div>
   );
